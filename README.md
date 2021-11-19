@@ -1,2 +1,5 @@
-# conditional_knn
-a respository to explore the usefulness of the conditional knn estimator 
+# conditional-knn
+
+A repository to explore the usefulness of the
+conditional _k_-th nearest neighbor estimator.
+
