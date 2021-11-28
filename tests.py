@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
     indexes = cknn.cknn_selection(X, x_test, kernel, s)
     K = cknn.covariance_matrix(np.vstack((X, x_test.T)), kernel)
-    assert indexes == cknn.__naive_cknn_selection(K, s), "indexes mismatch"
+    assert indexes == cknn.__cknn_selection(K, s), "indexes mismatch"
 
     y_pred = cknn.cknn_estimate(X, y, x_test, kernel, indexes)
     print(y_test, y_pred)
