@@ -1,42 +1,33 @@
 from typing import Callable
 import numpy as np
+import scipy.linalg
 
 ### helper methods
 
 Kernel = Callable[[np.ndarray, np.ndarray], float]
-
-def covariance_matrix(X: np.ndarray, kernel: Kernel) -> np.ndarray:
-    """ Evaluates the kernel function for each pair of points in X. """
-    n = len(X)
-    K = np.zeros((n, n))
-    for i in range(n):
-        K[:, i] = covariance_vector(X, X[i], kernel)
-    return K
-
-def covariance_vector(X: np.ndarray, x: np.ndarray,
-                      kernel: Kernel) -> np.ndarray:
-    """ Evaluates the kernel function against the vector x. """
-    v = np.zeros(len(X))
-    for i in range(len(X)):
-        v[i] = kernel(X[i], x)
-    return v
 
 ### estimation methods
 
 def estimate(x_train: np.ndarray, y_train: np.ndarray,
              x_test: np.ndarray, kernel: Kernel) -> np.ndarray:
     """ Estimate y_test with direct Gaussian process regression. """
-    K = covariance_matrix(x_train, kernel)
-    v = covariance_vector(x_train, x_test, kernel)
-    return v.T@np.linalg.inv(K)@y_train
+    # O(n^3)
+    K_TT = kernel(x_train, x_train)
+    K_PP = kernel(x_test,  x_test )
+    K_PT = kernel(x_test,  x_train)
+    K_TT_TP = scipy.linalg.solve(K_TT, K_PT.T, assume_a="pos")
+
+    mu_pred = K_TT_TP.T@y_train
+    var_pred = K_PP - K_PT@K_TT_TP
+    return mu_pred, var_pred
 
 def cknn_selection(x_train: np.ndarray, x_test: np.ndarray,
                    kernel: Kernel, s: int) -> list:
     """ Wrapper over __cknn_selection to pre-process theta ahead of time. """
-    n = x_train.shape[1]
-    K = covariance_matrix(np.vstack((x_train, x_test.T)), kernel)
+    n, m = x_train.shape[0], x_test.shape[0]
+    K = kernel(*((np.vstack((x_train, x_test)),)*2))
     x_train, x_test = list(range(n)), n + 1
-    kernel = lambda i, j: K[i][j]
+    kernel = lambda i, j: K[i, j]
     # return __cknn_selection(x_train, x_test, kernel, s)
     return __chol_cknn_selection(K, s)
 
@@ -117,13 +108,7 @@ def __chol_cknn_selection(K: np.ndarray, s: int) -> list:
 def cknn_estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
                   kernel: Kernel, indexes: list) -> np.ndarray:
     """ Estimate y_test according to the given sparisty pattern. """
-    # O(s^3)
-    K = covariance_matrix(x_train[indexes], kernel)
-    v = covariance_vector(x_train[indexes], x_test, kernel)
-
-    mu_pred = v.T@np.linalg.inv(K)@y_train[indexes]
-    var_pred = kernel(x_test, x_test) - v.T@np.linalg.inv(K)@v
-    return mu_pred, var_pred
+    return estimate(x_train[indexes], y_train[indexes], x_test, kernel)
 
 if __name__ == "__main__":
     np.set_printoptions(precision=3, suppress=True)
