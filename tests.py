@@ -5,7 +5,7 @@ import cknn
 
 D = 3    # dimension of points
 N = 100  # number of training points
-M = 1    # number of prediction points 
+M = 5    # number of prediction points 
 S = 20   # number of entries to pick
 
 # display settings
@@ -59,13 +59,14 @@ if __name__ == "__main__":
 
     mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel)
     print(y_test, mu_pred)
-    print(var_pred)
+    print(cknn.logdet(var_pred))
 
     indexes = cknn.cknn_selection(X, x_test, kernel, S)
     K = kernel(*((np.vstack((X, x_test)),)*2))
-    assert indexes == cknn.__cknn_selection(K, S), "indexes mismatch"
+    answer = cknn.__naive_cknn_mult_selection(K, M, S)
+    assert indexes == answer, "indexes mismatch"
 
     mu_pred, var_pred = cknn.cknn_estimate(X, y, x_test, kernel, indexes)
     print(y_test, mu_pred)
-    print(var_pred)
+    print(cknn.logdet(var_pred))
 
