@@ -14,6 +14,8 @@ def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 def inv(m: np.ndarray) -> np.ndarray:
     """ Inverts a symmetric positive definite matrix m. """
+    return np.linalg.inv(m)
+    # below only starts to get faster for large matrices (~10^4)
     return solve(m, np.identity(len(m)))
 
 ### estimation methods
