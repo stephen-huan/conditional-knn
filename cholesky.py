@@ -19,6 +19,7 @@ class MatrixKernel(Kernel):
     def __call__(self, X: np.ndarray, Y: np.ndarray=None,
                  eval_gradient: bool=False) -> np.ndarray:
         """ Return the kernel k(X, Y) and possibly its gradient. """
+        if Y is None: Y = X
         return self.m[self.__flatten(X)][:, self.__flatten(Y)]
 
     def diag(self, X: np.ndarray) -> np.ndarray:
@@ -56,7 +57,7 @@ def sparse_kl_div(L: sparse.csc.csc_matrix) -> float:
 def __col(theta: np.ndarray, s: list) -> np.ndarray:
     """ Computes a single column of the sparse Cholesky factor. """
     # O(s^3)
-    m = inv(theta[s][:, s])
+    m = inv(theta[np.ix_(s, s)])
     return m[:, 0]/np.sqrt(m[0, 0])
 
 def __cholesky(theta: np.ndarray, sparsity: dict) -> sparse.csc.csc_matrix:
@@ -76,8 +77,8 @@ def __cols(theta: np.ndarray, sparsity: dict, group: list) -> tuple:
     # O(s^3)
     # make sure aggregated columns are first in the sparsity pattern
     s = sorted(sparsity[min(group)], key=lambda i: (-(i in group), i))
-    # equivalent to inv(chol(inv(theta[s][:, s])))
-    L = np.flip(np.linalg.cholesky(np.flip(theta[s][:, s]))).T
+    # equivalent to inv(chol(inv(theta[np.ix_(s, s)])))
+    L = np.flip(np.linalg.cholesky(np.flip(theta[np.ix_(s, s)]))).T
     return L, s
 
 def __mult_cholesky(theta: np.ndarray, sparsity: dict,
@@ -141,27 +142,32 @@ def naive_mult_cholesky(theta: np.ndarray, s: int,
 
     return __cholesky(theta, sparsity)
 
-def cholesky(theta: np.ndarray, s: int, groups: list=None) -> np.ndarray:
+def cholesky_point(x: np.ndarray, kernel: Kernel,
+                   s: int, groups: list=None) -> np.ndarray:
     """ Computes Cholesky with at most s nonzero entries per column. """
     # without aggregation: O(n*(n s^2) + n s^3) = O(n^2 s^2)
     # with    aggregation: O((n/m)*(n (s - m)^2 + n m^2 + m^3) + (n s^3)/m)
-    # = O((n^2 (s - m)^2)/m + n^2 m + (n s^3)/m)
-    n = len(theta)
+    # = O((n^2 s^2)/m)
+    n = len(x)
     sparsity = {}
     # each column in its own group
     if groups is None: groups = [[i] for i in range(n)]
-    kernel = MatrixKernel(theta)
     for group in groups:
-        candidates = np.arange(max(group) + 1, n).reshape(-1, 1)
-        pred = [[i] for i in group]
-        selected = cknn.cknn_select(candidates, pred, kernel, s - len(group))
-        indexes = list(candidates[selected].flatten())
+        candidates = np.arange(max(group) + 1, n)
+        selected = cknn.select(x[candidates], x[group], kernel, s - len(group))
+        indexes = list(candidates[selected])
         for i in sorted(group, reverse=True):
             indexes.append(i)
             # put diagonal entry first
             sparsity[i] = indexes[::-1]
 
-    return __mult_cholesky(theta, sparsity, groups)
+    return __mult_cholesky(kernel(x), sparsity, groups)
+
+def cholesky(theta: np.ndarray, s: int, groups: list=None,
+             chol=cholesky_point) -> np.ndarray:
+    """ Wrapper over point methods to deal with arbitrary matrices. """
+    return chol(np.arange(len(theta)).reshape(-1, 1),
+                MatrixKernel(theta), s, groups)
 
 ### Gaussian process sensor placement 
 

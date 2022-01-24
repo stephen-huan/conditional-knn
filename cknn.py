@@ -16,12 +16,28 @@ def inv(m: np.ndarray) -> np.ndarray:
     """ Inverts a symmetric positive definite matrix m. """
     return np.linalg.inv(m)
     # below only starts to get faster for large matrices (~10^4)
-    return solve(m, np.identity(len(m)))
+    # return solve(m, np.identity(len(m)))
+
+def divide(u: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """ Return u/v without error messages if there are 0's in v. """
+    np.seterr(divide="ignore", invalid="ignore")
+    result = u/v
+    np.seterr(divide="warn", invalid="warn")
+    return result
+
+def argmax(array: np.ndarray, indexes: list, max_: bool=True) -> int:
+    """ Return the arg[min/max] of array limited to candidates. """
+    arg = np.argmax if max_ else np.argmin
+    # ignore indices outside of candidates
+    array[indexes] = (-1 if max_ else 1)*float("inf")
+    # faster than candidates[arg(array[candidates])]
+    # likely because it skips the slow indexing of candidates
+    return arg(array)
 
 ### estimation methods
 
-def estimate(x_train: np.ndarray, y_train: np.ndarray,
-             x_test: np.ndarray, kernel: Kernel) -> np.ndarray:
+def __estimate(x_train: np.ndarray, y_train: np.ndarray,
+               x_test: np.ndarray, kernel: Kernel) -> np.ndarray:
     """ Estimate y_test with direct Gaussian process regression. """
     # O(n^3)
     K_TT = kernel(x_train)
@@ -33,17 +49,17 @@ def estimate(x_train: np.ndarray, y_train: np.ndarray,
     var_pred = K_PP - K_PT_TT@K_TP
     return mu_pred, var_pred
 
-def cknn_estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
-                  kernel: Kernel, indexes: list) -> np.ndarray:
+def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
+             kernel: Kernel, indexes: list=slice(None)) -> np.ndarray:
     """ Estimate y_test according to the given sparsity pattern. """
-    return estimate(x_train[indexes], y_train[indexes], x_test, kernel)
+    return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)
 
 ### selection methods
 
-def cknn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-                s: int) -> list:
+def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+           s: int) -> list:
     """ Wrapper over various cknn selection methods. """
-    return __prec_mult_select(x_train, x_test, kernel, s)
+    return __chol_mult_select(x_train, x_test, kernel, s)
 
 def __naive_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                    s: int) -> list:
@@ -70,6 +86,7 @@ def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(s*(n*s + s^2)) = O(n s^2)
     n = len(x_train)
+    points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
     prec = np.zeros((0, 0))
@@ -78,16 +95,16 @@ def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = max(candidates, key=lambda j: cond_cov[j]**2/cond_var[j])
+        k = argmax(divide(cond_cov**2, cond_var), indexes)
         indexes.append(k)
-        candidates.remove(k)
+        # we don't actually need candidates; faster than candidates.remove(k)
+        candidates.pop()
         # update precision of selected entries
         v = prec@kernel(x_train[indexes[:-1]], [x_train[k]])
         var = 1/cond_var[k]
         prec = np.block([[prec + var*v@v.T, -v*var],
                          [        -var*v.T,    var]])
         # compute column k of conditional covariance
-        points = np.vstack((x_train, x_test))
         cond_cov_k = kernel(points, [x_train[k]])
         cond_cov_k -= kernel(points, x_train[indexes[:-1]])@v
         cond_cov_k = cond_cov_k.flatten()/np.sqrt(cond_var[k])
@@ -102,6 +119,7 @@ def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     """ Select the s most informative entries, storing a Cholesky factor. """
     # O(s*(n*s)) = O(n s^2)
     n = len(x_train)
+    points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
     factors = np.zeros((n + 1, s))
@@ -110,11 +128,12 @@ def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = max(candidates, key=lambda j: cond_cov[j]**2/cond_var[j])
+        k = argmax(divide(cond_cov**2, cond_var), indexes)
         indexes.append(k)
-        candidates.remove(k)
+        # we don't actually need candidates; faster than candidates.remove(k)
+        candidates.pop()
         # update Cholesky factors
-        i, points = len(indexes) - 1, np.vstack((x_train, x_test))
+        i = len(indexes) - 1
         factors[:, i] = kernel(points, [x_train[k]]).flatten()
         factors[:, i] -= factors[:, :i]@factors[k, :i]
         factors[:, i] /= np.sqrt(factors[k, i])
@@ -151,19 +170,21 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m^3 + n*m^2 + s*(s^2 + m^2 + n*s + n*m + n*m)) = O(n s^2 + n m^2 + m^3)
     n, m = len(x_train), len(x_test)
+    points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
     prec = np.zeros((0, 0))
-    prec_pr = np.linalg.inv(kernel(x_test, x_test))
+    prec_pr = inv(kernel(x_test, x_test))
     cond_cov = kernel(x_train, x_test)
     cond_var = kernel.diag(x_train)
     cond_var_pr = cond_var - np.sum((cond_cov@prec_pr)*cond_cov, axis=1)
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = min(candidates, key=lambda j: cond_var_pr[j]/cond_var[j])
+        k = argmax(divide(cond_var_pr, cond_var), indexes, max_=False)
         indexes.append(k)
-        candidates.remove(k)
+        # we don't actually need candidates; faster than candidates.remove(k)
+        candidates.pop()
         # update precision of selected entries
         v = prec@kernel(x_train[indexes[:-1]], [x_train[k]])
         var = 1/cond_var[k]
@@ -173,7 +194,6 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         u = prec_pr@cond_cov[k]
         prec_pr += np.outer(u, u)/cond_var_pr[k]
         # compute column k of conditional covariance
-        points = np.vstack((x_train, x_test))
         cond_cov_k = kernel(points, [x_train[k]])
         cond_cov_k -= kernel(points, x_train[indexes[:-1]])@v
         cond_cov_k = cond_cov_k.flatten()
@@ -188,14 +208,12 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     return indexes
 
-def __chol_update(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-                  i: int, k: int, factors: np.ndarray,
+def __chol_update(cov_k: np.ndarray, i: int, k: int, factors: np.ndarray,
                   cond_var: np.ndarray, cond_cov: np.ndarray=None) -> None:
     """ Updates the ith column of the Cholesky factor with column k. """
-    n = len(x_train)
+    n = len(cond_var)
     # update Cholesky factors
-    points = np.vstack((x_train, x_test))
-    factors[:, i] = kernel(points, [points[k]]).flatten()
+    factors[:, i] = cov_k
     factors[:, i] -= factors[:, :i]@factors[k, :i]
     factors[:, i] /= np.sqrt(factors[k, i])
     # update conditional variance and covariance
@@ -208,26 +226,30 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     n, m = len(x_train), len(x_test)
-    args = (x_train, x_test, kernel)
+    points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
-    factors = np.zeros((n + m, s))
-    cond_var = kernel.diag(x_train)
-    # pre-condition on the m prediction points
+    factors = np.zeros((n, s))
     factors_pr = np.zeros((n + m, s + m))
+    cond_var = kernel.diag(x_train)
     cond_var_pr = np.array(cond_var)
+    # pre-condition on the m prediction points
     for i in range(m):
-        __chol_update(*args, i, n + i, factors_pr, cond_var_pr)
+        cov_k = kernel(points, [points[n + i]]).flatten()
+        __chol_update(cov_k, i, n + i, factors_pr, cond_var_pr)
+    factors_pr = factors_pr[:n]
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = min(candidates, key=lambda j: cond_var_pr[j]/cond_var[j])
+        k = argmax(divide(cond_var_pr, cond_var), indexes, max_=False)
         indexes.append(k)
-        candidates.remove(k)
+        # we don't actually need candidates; faster than candidates.remove(k)
+        candidates.pop()
         # update Cholesky factors
         i = len(indexes) - 1
-        __chol_update(*args, i, k, factors, cond_var)
-        __chol_update(*args, i + m, k, factors_pr, cond_var_pr)
+        cov_k = kernel(x_train, [x_train[k]]).flatten()
+        __chol_update(cov_k, i, k, factors, cond_var)
+        __chol_update(cov_k, i + m, k, factors_pr, cond_var_pr)
 
     return indexes
 

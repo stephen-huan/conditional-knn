@@ -50,7 +50,7 @@ if __name__ == "__main__":
     print(cknn.logdet(var_pred))
 
     # approximate
-    mu_pred, var_pred = cknn.cknn_estimate(X, y, x_test, kernel, indexes)
+    mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel, indexes)
     print(y_test, mu_pred)
     print(cknn.logdet(var_pred))
 
