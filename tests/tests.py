@@ -4,7 +4,7 @@ import cknn
 
 D = 3    # dimension of points
 N = 100  # number of training points
-M = 5    # number of prediction points 
+M = 5    # number of prediction points
 S = 20   # number of entries to pick
 
 # display settings
@@ -37,6 +37,10 @@ if __name__ == "__main__":
     indexes = cknn.__chol_select(X, x_test[0:1], kernel, S)
     assert indexes == answer, "chol single indexes mismatch"
 
+    answer = cknn.knn_select(X, x_test[0:1], kernel, S)
+    selected = cknn.knn_select(X, x_test[0:1], cknn.euclidean, S)
+    assert np.allclose(selected, answer), "knn mismatch"
+
     # multiple point case
     answer = cknn.__naive_mult_select(X, x_test, kernel, S)
     indexes = cknn.__prec_mult_select(X, x_test, kernel, S)
@@ -53,4 +57,12 @@ if __name__ == "__main__":
     mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel, indexes)
     print(y_test, mu_pred)
     print(cknn.logdet(var_pred))
+
+    indexes = cknn.knn_select(X, x_test, kernel, S)
+    mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel, indexes)
+    print(y_test, mu_pred)
+    print(cknn.logdet(var_pred))
+
+    print(answer)
+    print(indexes)
 

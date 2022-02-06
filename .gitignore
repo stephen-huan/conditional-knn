@@ -25,3 +25,8 @@ Manifest.toml
 
 # Datasets used for the experiments
 data/
+
+# Cython build artifacts
+*.c
+*.html
+

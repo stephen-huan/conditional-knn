@@ -3,9 +3,11 @@ import sklearn.gaussian_process.kernels as kernels
 import cholesky
 
 D = 3    # dimension of points
-N = 100  # number of points
+N = 50   # number of points
 M = 5    # number of columns to aggregate
-S = 20   # number of entries to pick
+S = 10   # number of entries to pick
+R = 2    # tuning parameter, number of nonzero entries
+G = 1.5  # tuning parameter, size of groups
 
 # display settings
 np.set_printoptions(precision=3, suppress=True)
@@ -21,7 +23,7 @@ if __name__ == "__main__":
     theta_inv = cholesky.inv(theta)
     theta_det = cholesky.logdet(theta)
 
-    # sensor placement methods
+    ### sensor placement methods
 
     indexes = cholesky.naive_entropy(X, kernel, S)
     answer = cholesky.entropy(X, kernel, S)
@@ -31,24 +33,57 @@ if __name__ == "__main__":
     answer = cholesky.mi(X, kernel, S)
     assert indexes == answer, "mutual information indexes mismatch"
 
-    # Cholesky methods
+    ### Cholesky methods
 
-    # single column with no aggregation
+    ## single column with no aggregation
+
     L = cholesky.naive_cholesky(theta, S)
     L2 = cholesky.cholesky(theta, S)
-    assert np.allclose(L.toarray(), L2.toarray()), "cholesky mismatch"
+    assert np.allclose(L.toarray(), L2.toarray()), "single cholesky mismatch"
 
     # KL(theta, (L@L.T)^{-1}) = KL(L@L.T, theta^{-1})
     print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(L2.nnz)
 
-    # multiple column with aggregation
+    ## multiple columns with aggregation
 
     # make M adjacent columns into the same group
     indexes = list(range(N))
     groups = [indexes[M*i: M*(i + 1)] for i in range(int(np.ceil(N/M)))]
     L = cholesky.naive_mult_cholesky(theta, S, groups)
     L2 = cholesky.cholesky(theta, S, groups)
-    assert np.allclose(L.toarray(), L2.toarray()), "cholesky mismatch"
+    assert np.allclose(L.toarray(), L2.toarray()), "mult cholesky mismatch"
 
     print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(L2.nnz)
+
+    ### KL algorithm
+
+    ## single column with no aggregation
+
+    L, order = cholesky.naive_cholesky_kl(X, kernel, R)
+    L2, order2 = cholesky.cholesky_kl(X, kernel, R)
+    assert order == order2, "ordering mismatch"
+    assert np.allclose(L.toarray(), L2.toarray()), "kl cholesky mismatch"
+
+    # determinant unchanged after permutation of matrix
+    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(L2.nnz)
+
+    ## multiple columns with aggregation
+
+    L, order = cholesky.naive_cholesky_kl(X, kernel, R, G)
+    L2, order2 = cholesky.cholesky_kl(X, kernel, R, G)
+    assert order == order2, "ordering mismatch"
+    assert np.allclose(L.toarray(), L2.toarray()), "mult kl cholesky mismatch"
+
+    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(L2.nnz)
+
+    ## subsampling
+
+    L2, order = cholesky.subsample_cholesky(X, kernel, 2, R, G)
+
+    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(L2.nnz)
 

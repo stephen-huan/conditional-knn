@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.linalg
+import scipy.spatial.distance
 from sklearn.gaussian_process.kernels import Kernel
 
 ### helper methods
@@ -29,10 +30,15 @@ def argmax(array: np.ndarray, indexes: list, max_: bool=True) -> int:
     """ Return the arg[min/max] of array limited to candidates. """
     arg = np.argmax if max_ else np.argmin
     # ignore indices outside of candidates
-    array[indexes] = (-1 if max_ else 1)*float("inf")
+    array[indexes] = (-1 if max_ else 1)*np.inf
     # faster than candidates[arg(array[candidates])]
     # likely because it skips the slow indexing of candidates
     return arg(array)
+
+def euclidean(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """ Return the Euclidean distance between points in x and y.  """
+    # larger kernel value implies more similarity, flip
+    return -scipy.spatial.distance.cdist(x, y, "euclidean")
 
 ### estimation methods
 
@@ -55,6 +61,15 @@ def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
     return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)
 
 ### selection methods
+
+def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+               s: int) -> list:
+    """ Select s points in x_train "closest" to x_test by kernel function. """
+    # O(n log n)
+    # for Matern, sorting by kernel is equivalent to sorting by distance
+    # aggregate for multiple prediction points
+    dists = np.max(kernel(x_train, x_test), axis=1)
+    return np.argsort(dists)[-s:]
 
 def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
            s: int) -> list:
@@ -106,6 +121,8 @@ def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                          [        -var*v.T,    var]])
         # compute column k of conditional covariance
         cond_cov_k = kernel(points, [x_train[k]])
+        # n.b.: this takes O(ns) space from the kernel function call, however,
+        # this can be done in O(1) space by considering each scalar in turn
         cond_cov_k -= kernel(points, x_train[indexes[:-1]])@v
         cond_cov_k = cond_cov_k.flatten()/np.sqrt(cond_var[k])
         # update conditional variance and covariance
@@ -143,7 +160,7 @@ def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     return indexes
 
-### multiple point selection 
+### multiple point selection
 
 def __naive_mult_select(x_train: np.ndarray, x_test: np.ndarray,
                         kernel: Kernel, s: int) -> list:
@@ -197,7 +214,7 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         cond_cov_k = kernel(points, [x_train[k]])
         cond_cov_k -= kernel(points, x_train[indexes[:-1]])@v
         cond_cov_k = cond_cov_k.flatten()
-        cond_cov_pr_k = np.array(cond_cov_k[:n])
+        cond_cov_pr_k = np.copy(cond_cov_k[:n])
         cond_cov_pr_k -= cond_cov@u
         cond_cov_k /= np.sqrt(cond_var[k])
         cond_cov_pr_k /= np.sqrt(cond_var_pr[k])
@@ -228,28 +245,27 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     n, m = len(x_train), len(x_test)
     points = np.vstack((x_train, x_test))
     # initialization
-    indexes, candidates = [], list(range(n))
+    indexes = np.zeros(min(n, s), dtype=np.int64)
     factors = np.zeros((n, s))
     factors_pr = np.zeros((n + m, s + m))
     cond_var = kernel.diag(x_train)
-    cond_var_pr = np.array(cond_var)
+    cond_var_pr = np.copy(cond_var)
     # pre-condition on the m prediction points
     for i in range(m):
         cov_k = kernel(points, [points[n + i]]).flatten()
         __chol_update(cov_k, i, n + i, factors_pr, cond_var_pr)
     factors_pr = factors_pr[:n]
 
-    while len(candidates) > 0 and len(indexes) < s:
+    i = 0
+    while i < len(indexes):
         # pick best entry
-        k = argmax(divide(cond_var_pr, cond_var), indexes, max_=False)
-        indexes.append(k)
-        # we don't actually need candidates; faster than candidates.remove(k)
-        candidates.pop()
+        k = argmax(divide(cond_var_pr, cond_var), indexes[:i], max_=False)
+        indexes[i] = k
         # update Cholesky factors
-        i = len(indexes) - 1
         cov_k = kernel(x_train, [x_train[k]]).flatten()
         __chol_update(cov_k, i, k, factors, cond_var)
         __chol_update(cov_k, i + m, k, factors_pr, cond_var_pr)
+        i += 1
 
-    return indexes
+    return list(indexes)
 
