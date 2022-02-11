@@ -202,7 +202,7 @@ def cholesky_kl(x: np.ndarray, kernel: Kernel,
         if lambd is None else ordering.supernodes(sparsity, lengths, lambd)
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
-def __subsample_cholesky(x: np.ndarray, kernel: Kernel,
+def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
                          ref_sparsity: dict, candidate_sparsity: dict,
                          ref_groups: list, select) -> sparse.csc.csc_matrix:
     """ Subsample Cholesky within a reference sparsity and groups. """
@@ -223,7 +223,7 @@ def __subsample_cholesky(x: np.ndarray, kernel: Kernel,
 
     return __mult_cholesky(x, kernel, sparsity, ref_groups)
 
-def subsample_cholesky(x: np.ndarray, kernel: Kernel, s: float,
+def cholesky_subsample(x: np.ndarray, kernel: Kernel, s: float,
                        rho: float, lambd: float=None,
                        select=cknn.select) -> tuple:
     """ Computes Cholesky with a mix of geometric and selection ideas. """
@@ -235,7 +235,7 @@ def subsample_cholesky(x: np.ndarray, kernel: Kernel, s: float,
         if lambd is None else ordering.supernodes(sparsity, lengths, lambd)
     # create bigger sparsity pattern for candidates
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s*rho)
-    return __subsample_cholesky(x, kernel, sparsity, candidate_sparsity,
+    return __cholesky_subsample(x, kernel, sparsity, candidate_sparsity,
                                 groups, select), order
 
 ### Gaussian process sensor placement

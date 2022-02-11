@@ -49,8 +49,7 @@ def reverse_maximin(x: np.ndarray) -> tuple:
     lengths[-1] = np.inf
     # initialize tree and heap
     tree = KDTree(x)
-    dists = euclidean(x, x[0:1])
-    heap = Heap([(dists[i], i) for i in range(n)])
+    heap = Heap(euclidean(x, x[0:1]).flatten(), np.arange(n))
     count = 0
     for i in range(n - 2, -1, -1):
         # select point with largest minimum distance
@@ -81,8 +80,7 @@ def ball_reverse_maximin(x: np.ndarray) -> tuple:
     lengths = np.zeros(n)
     lengths[0] = np.inf
     # initialize heap
-    dists = euclidean(x, x[0:1]).flatten()
-    heap = Heap([(dists[i], i) for i in range(n)])
+    heap = Heap(euclidean(x, x[0:1]).flatten(), np.arange(n))
     for i in range(n - 2, -1, -1):
         # select point with largest minimum distance
         lk, k = heap.pop()

@@ -12,8 +12,8 @@ np.set_printoptions(precision=3, suppress=True)
 rng = np.random.default_rng(1)
 
 if __name__ == "__main__":
-    l = list(zip(rng.random(N), range(N)))
-    heap = maxheap.Heap(l)
+    dists, ids =  rng.random(N), np.arange(N)
+    heap = maxheap.Heap(dists, ids)
     print(heap)
     print(heap.pop())
     print(heap)
@@ -28,10 +28,11 @@ if __name__ == "__main__":
     print(repr(heap))
 
     N = 10**6
-    l = list(zip(rng.random(N), range(N)))
+    dists, ids = rng.random(N), np.arange(N)
+    l = list(zip(dists, ids))
 
     start = time.time()
-    heap = maxheap.Heap(l)
+    heap = maxheap.Heap(dists, ids)
     print(f"maxheap build: {time.time() - start:.3f}")
 
     start = time.time()

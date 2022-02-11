@@ -38,12 +38,12 @@ if __name__ == "__main__":
     ## single column with no aggregation
 
     L = cholesky.naive_cholesky(theta, S)
-    L2 = cholesky.cholesky(theta, S)
+    L2 = cholesky.cholesky_select(X, kernel, S)
     assert np.allclose(L.toarray(), L2.toarray()), "single cholesky mismatch"
 
     # KL(theta, (L@L.T)^{-1}) = KL(L@L.T, theta^{-1})
-    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
-    print(L2.nnz)
+    print(f"single kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"nonzeros: {L2.nnz}")
 
     ## multiple columns with aggregation
 
@@ -51,11 +51,11 @@ if __name__ == "__main__":
     indexes = list(range(N))
     groups = [indexes[M*i: M*(i + 1)] for i in range(int(np.ceil(N/M)))]
     L = cholesky.naive_mult_cholesky(theta, S, groups)
-    L2 = cholesky.cholesky(theta, S, groups)
+    L2 = cholesky.cholesky_select(X, kernel, S, groups)
     assert np.allclose(L.toarray(), L2.toarray()), "mult cholesky mismatch"
 
-    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
-    print(L2.nnz)
+    print(f"mult kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"nonzeros: {L2.nnz}")
 
     ### KL algorithm
 
@@ -67,8 +67,8 @@ if __name__ == "__main__":
     assert np.allclose(L.toarray(), L2.toarray()), "kl cholesky mismatch"
 
     # determinant unchanged after permutation of matrix
-    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
-    print(L2.nnz)
+    print(f"kl kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"nonzeros: {L2.nnz}")
 
     ## multiple columns with aggregation
 
@@ -77,13 +77,13 @@ if __name__ == "__main__":
     assert order == order2, "ordering mismatch"
     assert np.allclose(L.toarray(), L2.toarray()), "mult kl cholesky mismatch"
 
-    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
-    print(L2.nnz)
+    print(f"mult kl kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"nonzeros: {L2.nnz}")
 
     ## subsampling
 
-    L2, order = cholesky.subsample_cholesky(X, kernel, 2, R, G)
+    L2, order = cholesky.cholesky_subsample(X, kernel, 2, R, G)
 
-    print(f"{cholesky.sparse_kl_div(L2) - theta_det:.3f}")
-    print(L2.nnz)
+    print(f"sample kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"nonzeros: {L2.nnz}")
 

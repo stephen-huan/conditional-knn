@@ -8,7 +8,7 @@ M = 5    # number of prediction points
 S = 20   # number of entries to pick
 
 # display settings
-np.set_printoptions(precision=3, suppress=True)
+# np.set_printoptions(precision=3, suppress=True)
 
 # set random seed
 rng = np.random.default_rng(1)
@@ -36,6 +36,8 @@ if __name__ == "__main__":
     assert indexes == answer, "prec single indexes mismatch"
     indexes = cknn.__chol_select(X, x_test[0:1], kernel, S)
     assert indexes == answer, "chol single indexes mismatch"
+    indexes = cknn.select(X, x_test[0:1], kernel, S)
+    assert indexes == answer, "single select indexes mismatch"
 
     answer = cknn.knn_select(X, x_test[0:1], kernel, S)
     selected = cknn.knn_select(X, x_test[0:1], cknn.euclidean, S)
@@ -47,6 +49,8 @@ if __name__ == "__main__":
     assert indexes == answer, "prec multiple indexes mismatch"
     indexes = cknn.__chol_mult_select(X, x_test, kernel, S)
     assert indexes == answer, "chol multiple indexes mismatch"
+    indexes = cknn.select(X, x_test, kernel, S)
+    assert indexes == answer, "mult select indexes mismatch"
 
     # predictions
     mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel)

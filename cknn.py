@@ -2,6 +2,9 @@ import numpy as np
 import scipy.linalg
 import scipy.spatial.distance
 from sklearn.gaussian_process.kernels import Kernel
+import ccknn
+
+# TODO: conda venv and update readme
 
 ### helper methods
 
@@ -72,9 +75,14 @@ def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     return np.argsort(dists)[-s:]
 
 def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-           s: int) -> list:
+           s: int, select_method=ccknn.select) -> list:
     """ Wrapper over various cknn selection methods. """
-    return __chol_mult_select(x_train, x_test, kernel, s)
+    # early exit
+    if s <= 0 or len(x_train) == 0:
+        return []
+    selected = select_method(x_train, x_test, kernel, s)
+    assert len(selected) == len(set(selected)), "selected indices not distinct"
+    return selected
 
 def __naive_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                    s: int) -> list:

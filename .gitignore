@@ -27,6 +27,5 @@ Manifest.toml
 data/
 
 # Cython build artifacts
-*.c
 *.html
 

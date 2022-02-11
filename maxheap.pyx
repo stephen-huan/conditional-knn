@@ -1,4 +1,4 @@
-# distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
+# cython: profile=False
 import numpy as np
 cimport numpy as np
 
@@ -73,19 +73,19 @@ cdef class Heap:
     cdef int[:] ids
     cdef int size
 
-    def __init__(self, data):
+    def __init__(self, double[:] dists, long[:] ids):
         """ Construct a new heap from the given data. """
-        self.size = 0
-        if data is not None:
-            # dummy value at the front
-            self.size = len(data)
-            self.l = np.array([0] + [__heap_value(dist, i)
-                                     for dist, i in data], dtype=np.ulonglong)
-            self.ids = np.zeros(len(data), dtype=np.int32)
-            for (index, (dist, i)) in enumerate(data):
-                self.ids[i] = index + 1
-            # enforce heap ordering
-            __heapify(self.l, self.ids)
+        cdef int i
+        self.size = dists.shape[0]
+        # dummy value at the front
+        self.l = np.zeros(self.size + 1, dtype=np.ulonglong)
+        for i in range(self.size):
+            self.l[i + 1] = __heap_value(dists[i], ids[i])
+        self.ids = np.zeros(self.size, dtype=np.int32)
+        for i in range(self.size):
+            self.ids[ids[i]] = i + 1
+        # enforce heap ordering
+        __heapify(self.l, self.ids)
 
     def __len__(self) -> int:
         return self.size
@@ -104,7 +104,7 @@ cdef class Heap:
         """ Add a value to the heap. """
         self.size += 1
         # hit capacity, resize
-        if self.size == len(self.l):
+        if self.size == self.l.shape[0]:
             self.l, self.ids = resize(self.l), resize(self.ids)
         # add data at the end
         self.l[self.size] = __heap_value(dist, i)
