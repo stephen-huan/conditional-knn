@@ -65,25 +65,6 @@ def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
 
 ### selection methods
 
-def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-               s: int) -> list:
-    """ Select s points in x_train "closest" to x_test by kernel function. """
-    # O(n log n)
-    # for Matern, sorting by kernel is equivalent to sorting by distance
-    # aggregate for multiple prediction points
-    dists = np.max(kernel(x_train, x_test), axis=1)
-    return np.argsort(dists)[-s:]
-
-def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-           s: int, select_method=ccknn.select) -> list:
-    """ Wrapper over various cknn selection methods. """
-    # early exit
-    if s <= 0 or len(x_train) == 0:
-        return []
-    selected = select_method(x_train, x_test, kernel, s)
-    assert len(selected) == len(set(selected)), "selected indices not distinct"
-    return selected
-
 def __naive_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                    s: int) -> list:
     """ Brute force selection method. """
@@ -247,7 +228,7 @@ def __chol_update(cov_k: np.ndarray, i: int, k: int, factors: np.ndarray,
         cond_cov -= np.outer(factors[:, i][:n], factors[:, i][n:])
 
 def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-                       s: int) -> list:
+                       s: int) -> np.ndarray:
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     n, m = len(x_train), len(x_test)
@@ -275,5 +256,144 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         __chol_update(cov_k, i + m, k, factors_pr, cond_var_pr)
         i += 1
 
-    return list(indexes)
+    return indexes
+
+### non-adjacent multiple point selection
+
+def __chol_insert(cov_k: np.ndarray, order: np.ndarray, cols: int,
+                  j: int, k: int, factors: np.ndarray) -> None:
+    """ Updates the ith column of the Cholesky factor with column k. """
+    # move columns over to make space at column j
+    for i in range(cols, j, -1):
+        factors[:, i] = factors[:, i - 1]
+
+    # insert conditional covariance with k into Cholesky factor at column j
+    factors[:, j] = cov_k
+    factors[:, j] -= factors[:, :j]@factors[k, :j]
+    factors[:, j] /= np.sqrt(factors[k, j])
+
+    # update downstream Cholesky factor by rank-one downdate
+    cov_k = np.copy(factors[:, j])
+    for i in range(j + 1, cols + 1):
+        k = order[i]
+        c1, c2 = factors[k, i], cov_k[k]
+        dp = np.sqrt(c1*c1 - c2*c2)
+        c1, c2 = c1/dp, c2/dp
+        factors[:, i] *= c1
+        factors[:, i] += -c2*cov_k
+        cov_k *= 1/c1
+        cov_k += -c2/c1*factors[:, i]
+
+def insert_index(order: np.ndarray, locations: np.ndarray,
+                 i: int, k: int) -> int:
+    """ Finds the index to insert index k into the order. """
+    j = -1
+    for j in range(i):
+        # bigger than current value, insertion spot
+        if locations[k] >= locations[order[j]]:
+            return j
+    return j + 1
+
+def select_point(order: np.ndarray, locations: np.ndarray, i: int, k: int,
+                 points: np.ndarray, kernel: Kernel, factors: np.ndarray):
+    """ Add the kth point to the Cholesky factor. """
+    index = insert_index(order, locations, i, k)
+    # shift values over to make room for k at index
+    for j in range(i, index, -1):
+        order[j] = order[j - 1]
+    order[index] = k
+    # update Cholesky factor
+    cov_k = kernel(points, [points[k]]).flatten()
+    __chol_insert(cov_k, order, i, index, k, factors)
+
+def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
+                         kernel: Kernel, s: int) -> np.ndarray:
+    """ Greedily select the s entries minimizing conditional covariance. """
+    # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
+    n, m = len(train), len(test)
+    locations = np.append(train, test)
+    points = x[locations]
+    # initialization
+    indexes = np.zeros(min(n, s), dtype=np.int64)
+    order = np.zeros(indexes.shape[0] + test.shape[0], dtype=np.int64)
+    factors = np.zeros((n + m, s + m))
+    var = kernel.diag(x[train])
+    # pre-condition on the m prediction points
+    for i in range(m):
+        select_point(order, locations, i, n + i, points, kernel, factors)
+
+    i = 0
+    while i < indexes.shape[0]:
+        # pick best entry
+        best, best_k = np.inf, 0
+        for j in range(n):
+            # selected already, don't consider as candidate
+            if var[j] == np.inf:
+                continue
+
+            key = 0
+            cond_var_j = var[j]
+            index = insert_index(order, locations, i + m, j)
+            index_var_j = cond_var_j
+
+            for col, k in enumerate(order[:i + m]):
+                cond_var_k = factors[k, col]
+                cond_cov_k = factors[j, col]*cond_var_k
+                cond_var_k *= cond_var_k
+                cond_cov_k *= cond_cov_k
+                # remove spurious contribution from selected training point
+                if k < n:
+                    key -= np.log(cond_var_k - (cond_cov_k/cond_var_j
+                                                if col >= index else 0))
+                cond_var_j -= cond_cov_k/cond_var_k
+                # record conditional variance at proper index (post-update)
+                if col + 1 == index:
+                    index_var_j = cond_var_j
+
+            key -= np.log(index_var_j) # remove spurious contribution of j
+            key += np.log(cond_var_j)  # add logdet of entire covariance matrix
+
+            if key < best:
+                best, best_k = key, j
+
+        indexes[i] = best_k
+        # mark as selected
+        var[best_k] = np.inf
+        # update Cholesky factor
+        select_point(order, locations, i + m, best_k, points, kernel, factors)
+        i += 1
+
+    return indexes
+
+### wrapper methods
+
+def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+               s: int) -> np.ndarray:
+    """ Select s points in x_train "closest" to x_test by kernel function. """
+    # O(n log n)
+    # for Matern, sorting by kernel is equivalent to sorting by distance
+    # aggregate for multiple prediction points
+    dists = np.max(kernel(x_train, x_test), axis=1)
+    return np.argsort(dists)[-s:]
+
+def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+           s: int, select_method=ccknn.select) -> np.ndarray:
+    """ Wrapper over various cknn selection methods. """
+    # early exit
+    if s <= 0 or len(x_train) == 0:
+        return []
+    selected = select_method(x_train, x_test, kernel, s)
+    assert len(selected) == len(set(selected)), "selected indices not distinct"
+    return selected
+
+def nonadj_select(x: np.ndarray,
+                  train: np.ndarray, test: np.ndarray, kernel: Kernel,
+                  s: int, select_method=__chol_nonadj_select) -> np.ndarray:
+    """ Wrapper over various cknn selection methods. """
+    # early exit
+    if s <= 0 or len(train) == 0:
+        return []
+    selected = select_method(x, train, test, kernel, s)
+    assert len(selected) == len(set(selected)), "selected indices not distinct"
+    return selected
 

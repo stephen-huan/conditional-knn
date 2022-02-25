@@ -57,13 +57,26 @@ if __name__ == "__main__":
     print(f"mult kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
     print(f"nonzeros: {L2.nnz}")
 
+    ## multiple non-adjacent columns with aggregation
+
+    indexes = list(range(N))
+    # make groups non-adjacent
+    rng.shuffle(indexes)
+    groups = [indexes[M*i: M*(i + 1)] for i in range(int(np.ceil(N/M)))]
+    L = cholesky.naive_nonadj_cholesky(theta, S, groups)
+    L2 = cholesky.cholesky_nonadj_select(X, kernel, S, groups)
+    assert np.allclose(L.toarray(), L2.toarray()), \
+        "non-adj mult cholesky mismatch"
+
+    print(f"non-adj mult kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+
     ### KL algorithm
 
     ## single column with no aggregation
 
     L, order = cholesky.naive_cholesky_kl(X, kernel, R)
     L2, order2 = cholesky.cholesky_kl(X, kernel, R)
-    assert order == order2, "ordering mismatch"
+    assert np.allclose(order, order2), "ordering mismatch"
     assert np.allclose(L.toarray(), L2.toarray()), "kl cholesky mismatch"
 
     # determinant unchanged after permutation of matrix
@@ -74,7 +87,7 @@ if __name__ == "__main__":
 
     L, order = cholesky.naive_cholesky_kl(X, kernel, R, G)
     L2, order2 = cholesky.cholesky_kl(X, kernel, R, G)
-    assert order == order2, "ordering mismatch"
+    assert np.allclose(order, order2), "ordering mismatch"
     assert np.allclose(L.toarray(), L2.toarray()), "mult kl cholesky mismatch"
 
     print(f"mult kl kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")

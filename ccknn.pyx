@@ -161,7 +161,7 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
         double best
         long[::1] indexes
         double[::1, :] factors, factors_pr
-        double[::1] cond_var, cond_var_pr, cov_k
+        double[::1] cond_var, cond_var_pr
 
     n, m = x_train.shape[0], x_test.shape[0]
     # initialization
@@ -200,14 +200,15 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
     return indexes
 
 def select(double[:, ::1] x_train, double[:, ::1] x_test,
-           kernel, int s) -> list:
+           kernel, int s) -> np.ndarray:
     """ Wrapper over various cknn selection methods. """
     cdef double nu, length_scale
     params = kernel.get_params()
     nu, length_scale = params["nu"], params["length_scale"]
     # single prediction point, use specialized function
     if x_test.shape[0] == 1:
-        return list(__chol_select(x_train, x_test, nu, length_scale, s))
+        selected = __chol_select(x_train, x_test, nu, length_scale, s)
     else:
-        return list(__chol_mult_select(x_train, x_test, nu, length_scale, s))
+        selected = __chol_mult_select(x_train, x_test, nu, length_scale, s)
+    return np.asarray(selected)
 

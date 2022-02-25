@@ -95,12 +95,15 @@ def __mult_cholesky(x: np.ndarray, kernel: Kernel,
     indptr = np.cumsum([0] + [len(sparsity[i]) for i in range(n)])
     data, indexes = np.zeros(indptr[-1]), np.zeros(indptr[-1])
     for group in groups:
-        # make sure aggregated columns are first in the sparsity pattern
+        # points only interact with points after them (lower triangularity)
         s = sorted(sparsity[min(group)])
+        positions = {i: k for k, i in enumerate(s)}
         L = __cols(x, kernel, s)
-        cols = np.eye(len(s), len(group))
-        for k, i in enumerate(group):
-            col = scipy.linalg.solve_triangular(L, cols[:, k], lower=True)
+        for i in group:
+            k = positions[i]
+            e_k = np.zeros(len(s))
+            e_k[k] = 1
+            col = scipy.linalg.solve_triangular(L, e_k, lower=True)
             data[indptr[i]: indptr[i + 1]] = col[k:]
             indexes[indptr[i]: indptr[i + 1]] = s[k:]
 
@@ -175,6 +178,61 @@ def cholesky_select(x: np.ndarray, kernel: Kernel,
 
     return __mult_cholesky(x, kernel, sparsity, groups)
 
+def naive_nonadj_cholesky(theta: np.ndarray, s: int,
+                          groups: list=None) -> np.ndarray:
+    """ Computes Cholesky with at most s nonzero entries per column. """
+    # O((n/m)*(s - m)*n*m*s^3 + n s^3) = O(n^2 s^3 (s - m) + n s^3)
+    n = len(theta)
+    sparsity = {}
+    points, kernel = matrix_kernel(theta)
+    # each column in its own group
+    if groups is None: groups = [[i] for i in range(n)]
+    for group in groups:
+        indexes, candidates = [], list(set(range(n)) - set(group))
+        # start with diagonal entries
+        group.sort()
+        for k, i in enumerate(group):
+            indexes.append(group[k:])
+        # add according to best KL divergence
+        while len(candidates) > 0 and len(indexes[0]) < s:
+            k = max(candidates, key=lambda j:
+                    sum(np.log(__col(points, kernel, indexes[i] +
+                                     ([j] if j >= group[i] else []))[0])
+                        for i in range(len(group))))
+            for i, col in enumerate(indexes):
+                if k >= group[i]:
+                    col.append(k)
+            candidates.remove(k)
+        for k, i in enumerate(group):
+            sparsity[i] = indexes[k]
+
+    return __cholesky(points, kernel, sparsity)
+
+def cholesky_nonadj_select(x: np.ndarray, kernel: Kernel,
+                    s: int, groups: list=None) -> np.ndarray:
+    """ Computes Cholesky with at most s nonzero entries per column. """
+    # without aggregation: O(n*(n s^2) + n s^3) = O(n^2 s^2)
+    # with    aggregation: O((n/m)*(n (s - m)^2 + n m^2 + m^3) + (n s^3)/m)
+    # = O((n^2 s^2)/m)
+    n = len(x)
+    sparsity = {}
+    # each column in its own group
+    if groups is None: groups = [[i] for i in range(n)]
+    for group in groups:
+        candidates = np.array(list(set(range(min(group), n)) - set(group)),
+                              dtype=np.int64)
+        group = np.array(group)
+        selected = cknn.nonadj_select(x, candidates, group,
+                                      kernel, s - len(group))
+        indexes = list(candidates[selected])
+        # could save memory by only storing for the minimum index
+        for i in sorted(group, reverse=True):
+            indexes.append(i)
+            # put diagonal entry first
+            sparsity[i] = [j for j in indexes[::-1] if j >= i]
+
+    return __mult_cholesky(x, kernel, sparsity, groups)
+
 def cholesky(theta: np.ndarray, s: int, groups: list=None,
              chol=cholesky_select) -> np.ndarray:
     """ Wrapper over point methods to deal with arbitrary matrices. """
@@ -211,21 +269,22 @@ def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
         m = len(group)
         # select within existing sparsity pattern
         candidates = np.array(list(
-            {k for j in group for k in candidate_sparsity[j] if k > group[-1]}
+            {k for j in group for k in candidate_sparsity[j]} - set(group)
         ), dtype=np.int64)
         num = max(len(ref_sparsity[group[0]]) - len(group), 0)
-        selected = select(x[candidates], x[group], kernel, num)
-        indexes = list(candidates[selected])
-        sparsity[group[0]] = group + indexes
-        for i in range(1, m):
+        selected = select(x, candidates, np.array(group), kernel, num)
+        s = sorted(group + list(candidates[selected]))
+        sparsity[group[0]] = s
+        positions = {i: k for k, i in enumerate(s)}
+        for i in group[1:]:
             # fill in blanks for rest to maintain proper number
-            sparsity[group[i]] = np.empty(len(sparsity[group[0]]) - i)
+            sparsity[i] = np.empty(len(s) - positions[i])
 
     return __mult_cholesky(x, kernel, sparsity, ref_groups)
 
 def cholesky_subsample(x: np.ndarray, kernel: Kernel, s: float,
                        rho: float, lambd: float=None,
-                       select=cknn.select) -> tuple:
+                       select=cknn.nonadj_select) -> tuple:
     """ Computes Cholesky with a mix of geometric and selection ideas. """
     # standard geometric algorithm
     order, lengths = ordering.reverse_maximin(x)
@@ -239,6 +298,9 @@ def cholesky_subsample(x: np.ndarray, kernel: Kernel, s: float,
                                 groups, select), order
 
 ### Gaussian process sensor placement
+
+# see: "Near-Optimal Sensor Placements in Gaussian Processes: Theory,
+# Efficient Algorithms and Empirical Studies" by Krause et al., 2008
 
 def naive_entropy(x: np.ndarray, kernel: Kernel, s: int) -> list:
     """ Returns a list of the most entropic points in x greedily. """
@@ -312,6 +374,8 @@ def naive_mi(x: np.ndarray, kernel: Kernel, s: int) -> list:
         candidates.remove(best)
 
     return indexes
+
+# simple improvement to Algorithm 1 in the Krause paper
 
 def mi(x: np.ndarray, kernel: Kernel, s: int) -> list:
     """ Max mutual information between selected and non-selected points. """

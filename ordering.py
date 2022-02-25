@@ -36,7 +36,7 @@ def naive_reverse_maximin(x: np.ndarray) -> tuple:
         lengths[i] = dists[k]
         dists = np.minimum(dists, euclidean(x, x[k: k + 1]).flatten())
 
-    return list(indexes), lengths
+    return indexes, lengths
 
 def reverse_maximin(x: np.ndarray) -> tuple:
     """ Return the reverse maximin ordering and length scales. """
@@ -63,7 +63,7 @@ def reverse_maximin(x: np.ndarray) -> tuple:
         for index, j in enumerate(js):
             heap.decrease_key(j, dists[index])
 
-    return list(indexes), lengths
+    return indexes, lengths
 
 def ball_reverse_maximin(x: np.ndarray) -> tuple:
     """ Return the reverse maximin ordering and length scales. """
@@ -104,7 +104,7 @@ def ball_reverse_maximin(x: np.ndarray) -> tuple:
         children[k].sort(key=lambda j: dist(x[j], x[k]))
 
     l = np.array([lengths[i] for i in indexes])
-    return list(indexes), l
+    return indexes, l
 
 def naive_sparsity(x: np.ndarray, lengths: np.ndarray, rho: float) -> dict:
     """ Compute the sparity pattern given the ordered x. """
@@ -144,13 +144,13 @@ def supernodes(sparsity: dict, lengths: np.ndarray, lambd: float) -> tuple:
         groups.append(group)
         candidates -= set(group)
         # only store sparsity pattern for highest entry
-        agg_sparsity[group[0]] = group + list(
-            {k for j in group for k in sparsity[j] if k > group[-1]}
-        )
-        for j in range(1, len(group)):
+        s = sorted({k for j in group for k in sparsity[j]})
+        agg_sparsity[group[0]] = s
+        positions = {i: k for k, i in enumerate(s)}
+        for j in group[1:]:
             # fill in blanks for rest to maintain proper number
             # np.empty is lazy (costs O(1) wrt to input size)
-            agg_sparsity[group[j]] = np.empty(len(agg_sparsity[group[0]]) - j)
+            agg_sparsity[j] = np.empty(len(s) - positions[j])
 
     return groups, agg_sparsity
 

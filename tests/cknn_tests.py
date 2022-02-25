@@ -33,11 +33,11 @@ if __name__ == "__main__":
     # single point case
     answer = cknn.__naive_select(X, x_test[0:1], kernel, S)
     indexes = cknn.__prec_select(X, x_test[0:1], kernel, S)
-    assert indexes == answer, "prec single indexes mismatch"
+    assert np.allclose(indexes, answer), "prec single indexes mismatch"
     indexes = cknn.__chol_select(X, x_test[0:1], kernel, S)
-    assert indexes == answer, "chol single indexes mismatch"
+    assert np.allclose(indexes, answer), "chol single indexes mismatch"
     indexes = cknn.select(X, x_test[0:1], kernel, S)
-    assert indexes == answer, "single select indexes mismatch"
+    assert np.allclose(indexes, answer), "single select indexes mismatch"
 
     answer = cknn.knn_select(X, x_test[0:1], kernel, S)
     selected = cknn.knn_select(X, x_test[0:1], cknn.euclidean, S)
@@ -46,11 +46,11 @@ if __name__ == "__main__":
     # multiple point case
     answer = cknn.__naive_mult_select(X, x_test, kernel, S)
     indexes = cknn.__prec_mult_select(X, x_test, kernel, S)
-    assert indexes == answer, "prec multiple indexes mismatch"
+    assert np.allclose(indexes, answer), "prec multiple indexes mismatch"
     indexes = cknn.__chol_mult_select(X, x_test, kernel, S)
-    assert indexes == answer, "chol multiple indexes mismatch"
+    assert np.allclose(indexes, answer), "chol multiple indexes mismatch"
     indexes = cknn.select(X, x_test, kernel, S)
-    assert indexes == answer, "mult select indexes mismatch"
+    assert np.allclose(indexes, answer), "mult select indexes mismatch"
 
     # predictions
     mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel)

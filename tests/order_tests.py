@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # print(ans_sparsity)
     # print(sparsity)
 
-    assert ans_order == order, "order mismatch"
+    assert np.allclose(ans_order, order), "order mismatch"
     assert np.allclose(ans_lengths, lengths), "lengths mismatch"
     assert ans_sparsity == sparsity, "sparsity mismatch"
 
