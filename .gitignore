@@ -29,3 +29,6 @@ data/
 # Cython build artifacts
 *.html
 
+# conda virtual environment
+venv
+

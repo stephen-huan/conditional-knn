@@ -1,0 +1,8 @@
+name: venv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - scikit-learn
+  - cython
+  - matplotlib
