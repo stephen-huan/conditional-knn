@@ -4,8 +4,6 @@ import scipy.spatial.distance
 from sklearn.gaussian_process.kernels import Kernel
 import ccknn
 
-# TODO: conda venv and update readme
-
 ### helper methods
 
 def logdet(m: np.ndarray) -> float:
@@ -260,47 +258,47 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
 ### non-adjacent multiple point selection
 
-def __chol_insert(cov_k: np.ndarray, order: np.ndarray, cols: int,
-                  j: int, k: int, factors: np.ndarray) -> None:
+def __chol_insert(cov_k: np.ndarray, order: np.ndarray, i: int,
+                  index: int, k: int, factors: np.ndarray) -> None:
     """ Updates the ith column of the Cholesky factor with column k. """
-    # move columns over to make space at column j
-    for i in range(cols, j, -1):
-        factors[:, i] = factors[:, i - 1]
+    # move columns over to make space at index
+    for col in range(i, index, -1):
+        factors[:, col] = factors[:, col - 1]
 
-    # insert conditional covariance with k into Cholesky factor at column j
-    factors[:, j] = cov_k
-    factors[:, j] -= factors[:, :j]@factors[k, :j]
-    factors[:, j] /= np.sqrt(factors[k, j])
+    # insert conditional covariance with k into Cholesky factor at index
+    factors[:, index] = cov_k
+    factors[:, index] -= factors[:, :index]@factors[k, :index]
+    factors[:, index] /= np.sqrt(factors[k, index])
 
     # update downstream Cholesky factor by rank-one downdate
-    cov_k = np.copy(factors[:, j])
-    for i in range(j + 1, cols + 1):
-        k = order[i]
-        c1, c2 = factors[k, i], cov_k[k]
+    cov_k = np.copy(factors[:, index])
+    for col in range(index + 1, i + 1):
+        k = order[col]
+        c1, c2 = factors[k, col], cov_k[k]
         dp = np.sqrt(c1*c1 - c2*c2)
         c1, c2 = c1/dp, c2/dp
-        factors[:, i] *= c1
-        factors[:, i] += -c2*cov_k
+        factors[:, col] *= c1
+        factors[:, col] += -c2*cov_k
         cov_k *= 1/c1
-        cov_k += -c2/c1*factors[:, i]
+        cov_k += -c2/c1*factors[:, col]
 
-def insert_index(order: np.ndarray, locations: np.ndarray,
-                 i: int, k: int) -> int:
+def __insert_index(order: np.ndarray, locations: np.ndarray,
+                   i: int, k: int) -> int:
     """ Finds the index to insert index k into the order. """
-    j = -1
-    for j in range(i):
+    index = -1
+    for index in range(i):
         # bigger than current value, insertion spot
-        if locations[k] >= locations[order[j]]:
-            return j
-    return j + 1
+        if locations[k] >= locations[order[index]]:
+            return index
+    return index + 1
 
-def select_point(order: np.ndarray, locations: np.ndarray, i: int, k: int,
-                 points: np.ndarray, kernel: Kernel, factors: np.ndarray):
+def __select_point(order: np.ndarray, locations: np.ndarray, i: int, k: int,
+                   points: np.ndarray, kernel: Kernel, factors: np.ndarray):
     """ Add the kth point to the Cholesky factor. """
-    index = insert_index(order, locations, i, k)
+    index = __insert_index(order, locations, i, k)
     # shift values over to make room for k at index
-    for j in range(i, index, -1):
-        order[j] = order[j - 1]
+    for col in range(i, index, -1):
+        order[col] = order[col - 1]
     order[index] = k
     # update Cholesky factor
     cov_k = kernel(points, [points[k]]).flatten()
@@ -320,8 +318,8 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
     var = kernel.diag(x[train])
     # pre-condition on the m prediction points
     for i in range(m):
-        select_point(order, locations, i, n + i, points, kernel, factors)
-
+        __select_point(order, locations, i, n + i,
+                       points, kernel, factors)
     i = 0
     while i < indexes.shape[0]:
         # pick best entry
@@ -331,12 +329,12 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
             if var[j] == np.inf:
                 continue
 
-            key = 0
             cond_var_j = var[j]
-            index = insert_index(order, locations, i + m, j)
-            index_var_j = cond_var_j
+            index = __insert_index(order, locations, m + i, j)
+            key = -np.log(cond_var_j) if index == 0 else 0
 
-            for col, k in enumerate(order[:i + m]):
+            for col in range(m + i):
+                k = order[col]
                 cond_var_k = factors[k, col]
                 cond_cov_k = factors[j, col]*cond_var_k
                 cond_var_k *= cond_var_k
@@ -346,12 +344,11 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
                     key -= np.log(cond_var_k - (cond_cov_k/cond_var_j
                                                 if col >= index else 0))
                 cond_var_j -= cond_cov_k/cond_var_k
-                # record conditional variance at proper index (post-update)
+                # remove spurious contribution of j
                 if col + 1 == index:
-                    index_var_j = cond_var_j
-
-            key -= np.log(index_var_j) # remove spurious contribution of j
-            key += np.log(cond_var_j)  # add logdet of entire covariance matrix
+                    key -= np.log(cond_var_j)
+            # add logdet of entire covariance matrix
+            key += np.log(cond_var_j)
 
             if key < best:
                 best, best_k = key, j
@@ -360,7 +357,8 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
         # mark as selected
         var[best_k] = np.inf
         # update Cholesky factor
-        select_point(order, locations, i + m, best_k, points, kernel, factors)
+        __select_point(order, locations, i + m, best_k,
+                       points, kernel, factors)
         i += 1
 
     return indexes
@@ -388,7 +386,7 @@ def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
 def nonadj_select(x: np.ndarray,
                   train: np.ndarray, test: np.ndarray, kernel: Kernel,
-                  s: int, select_method=__chol_nonadj_select) -> np.ndarray:
+                  s: int, select_method=ccknn.nonadj_select) -> np.ndarray:
     """ Wrapper over various cknn selection methods. """
     # early exit
     if s <= 0 or len(train) == 0:

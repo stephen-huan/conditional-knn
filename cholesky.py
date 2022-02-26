@@ -272,7 +272,10 @@ def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
             {k for j in group for k in candidate_sparsity[j]} - set(group)
         ), dtype=np.int64)
         num = max(len(ref_sparsity[group[0]]) - len(group), 0)
-        selected = select(x, candidates, np.array(group), kernel, num)
+        if select == cknn.nonadj_select:
+            selected = select(x, candidates, np.array(group), kernel, num)
+        else:
+            selected = select(x[candidates], x[group], kernel, num)
         s = sorted(group + list(candidates[selected]))
         sparsity[group[0]] = s
         positions = {i: k for k, i in enumerate(s)}
