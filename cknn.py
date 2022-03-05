@@ -365,6 +365,13 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
 
 ### high-level selection methods
 
+def random_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+                  s: int, seed: int=1) -> np.ndarray:
+    """ Randomly select s points out of x_train. """
+    s = np.clip(s, 0, x_train.shape[0])
+    rng = np.random.default_rng(seed)
+    return rng.choice(x_train.shape[0], s, replace=False)
+
 def corr_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                 s: int) -> np.ndarray:
     """ Select s points in x_train with highest correlation to x_test. """
@@ -383,7 +390,6 @@ def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     # aggregate for multiple prediction points
     dists = np.max(kernel(x_train, x_test), axis=1)
     return np.argsort(dists)[x_train.shape[0] - s:]
-
 
 def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
            s: int, select_method=ccknn.select) -> np.ndarray:
