@@ -4,39 +4,7 @@ import scipy.sparse as sparse
 import cknn
 from cknn import logdet, inv, solve, Kernel
 import ordering
-
-class MatrixKernel(Kernel):
-    """
-    A wrapper over sklearn.gaussian_process.kernels.Kernel for matrices.
-    """
-
-    def __init__(self, m: np.ndarray) -> None:
-        self.m = m
-
-    def __flatten(self, m: np.ndarray) -> np.ndarray:
-        """ Flatten m for use in indexing. """
-        return np.array(m).flatten()
-
-    def __call__(self, X: np.ndarray, Y: np.ndarray=None,
-                 eval_gradient: bool=False) -> np.ndarray:
-        """ Return the kernel k(X, Y) and possibly its gradient. """
-        if Y is None: Y = X
-        return self.m[self.__flatten(X)][:, self.__flatten(Y)]
-
-    def diag(self, X: np.ndarray) -> np.ndarray:
-        """ Returns the diagonal of the kernel k(X, X). """
-        return np.array(np.diag(self.m))[self.__flatten(X)]
-
-    def is_stationary(self) -> bool:
-        """ Returns whether the kernel is stationary. """
-        return False
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(m={repr(self.m)})"
-
-def matrix_kernel(theta: np.ndarray) -> tuple:
-    """ Turns a matrix into "points" and a kernel function. """
-    return np.arange(len(theta)).reshape(-1, 1), MatrixKernel(theta)
+from gp_kernels import matrix_kernel
 
 ### helper methods
 
@@ -48,7 +16,7 @@ def kl_div(X: np.ndarray, Y: np.ndarray) -> float:
     # O(n^3)
     return np.trace(solve(Y, X)) + logdet(Y) - logdet(X) - len(X)
 
-def sparse_kl_div(L: sparse.csc.csc_matrix) -> float:
+def sparse_kl_div(L: sparse.csc_matrix) -> float:
     """
     Computes the KL divergence assuming L is optimal.
 
@@ -66,7 +34,7 @@ def __col(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
     return m[:, 0]/np.sqrt(m[0, 0])
 
 def __cholesky(x: np.ndarray, kernel: Kernel,
-               sparsity: dict) -> sparse.csc.csc_matrix:
+               sparsity: dict) -> sparse.csc_matrix:
     """ Computes the best Cholesky factor following the sparsity pattern. """
     # O(n s^3)
     n = len(x)
@@ -88,7 +56,7 @@ def __cols(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
     return L
 
 def __mult_cholesky(x: np.ndarray, kernel: Kernel,
-                    sparsity: dict, groups: list) -> sparse.csc.csc_matrix:
+                    sparsity: dict, groups: list) -> sparse.csc_matrix:
     """ Computes the best Cholesky factor following the sparsity pattern. """
     # O((n/m)*(s^3 + m*s^2)) = O((n s^3)/m)
     n = len(x)
@@ -262,7 +230,7 @@ def cholesky_kl(x: np.ndarray, kernel: Kernel,
 
 def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
                          ref_sparsity: dict, candidate_sparsity: dict,
-                         ref_groups: list, select) -> sparse.csc.csc_matrix:
+                         ref_groups: list, select) -> sparse.csc_matrix:
     """ Subsample Cholesky within a reference sparsity and groups. """
     sparsity = {}
     for group in ref_groups:

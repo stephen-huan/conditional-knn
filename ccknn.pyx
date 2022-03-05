@@ -63,31 +63,31 @@ cdef void __chol_update(int n, int i, int k,
                         double[::1, :] factors, double[::1] cond_var):
     """ Updates the ith column of the Cholesky factor with column k. """
     cdef:
-        char *TRANS
-        int M, N, LDA, INCX, INCY, j
-        double ALPHA, BETA
+        char *trans
+        int M, N, lda, incx, incy, j
+        double alpha, beta
         double *A
-        double *X
-        double *Y
+        double *x
+        double *y
 
     # update Cholesky factors
 
     # factors[:, i] -= factors[:, :i]@factors[k, :i]
-    TRANS = 'n'
+    trans = 'n'
     M = n
     N = i
-    ALPHA = -1
+    alpha = -1
     A = &factors[0, 0]
-    LDA = factors.shape[0]
-    X = &factors[k, 0]
-    INCX = LDA
-    BETA = 1
-    Y = &factors[0, i]
-    INCY = 1
-    blas.dgemv(TRANS, &M, &N, &ALPHA, A, &LDA, X, &INCX, &BETA, Y, &INCY)
+    lda = factors.shape[0]
+    x = &factors[k, 0]
+    incx = lda
+    beta = 1
+    y = &factors[0, i]
+    incy = 1
+    blas.dgemv(trans, &M, &N, &alpha, A, &lda, x, &incx, &beta, y, &incy)
     # factors[:, i] /= np.sqrt(factors[k, i])
-    ALPHA = 1/sqrt(factors[k, i])
-    blas.dscal(&M, &ALPHA, Y, &INCY)
+    alpha = 1/sqrt(factors[k, i])
+    blas.dscal(&M, &alpha, y, &incy)
 
     # update conditional variance
     for j in range(cond_var.shape[0]):
@@ -102,8 +102,8 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
     """ Select the s most informative entries, storing a Cholesky factor. """
     # O(s*(n*s)) = O(n s^2)
     cdef:
-        int n, i, j, k, INCX
-        double best, ALPHA
+        int n, i, j, k, incx
+        double best, alpha
         long[::1] indexes
         double[::1, :] factors
         double[::1] cond_var, cond_cov
@@ -137,9 +137,9 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
         __chol_update(n + 1, i, k, factors, cond_var)
         # update conditional covariance
         # cond_cov -= factors[:, i][:n]*factors[n, i]
-        ALPHA = -factors[n, i]
-        INCX = 1
-        blas.daxpy(&n, &ALPHA, &factors[0, i], &INCX, &cond_cov[0], &INCX)
+        alpha = -factors[n, i]
+        incx = 1
+        blas.daxpy(&n, &alpha, &factors[0, i], &incx, &cond_cov[0], &incx)
         i += 1
 
     return indexes
@@ -198,57 +198,57 @@ cdef void __chol_insert(long[::1] order, int i, int index,
                         int k, double[::1, :] factors):
     """ Updates the ith column of the Cholesky factor with column k. """
     cdef:
-        char *TRANS
-        int M, N, LDA, INCX, INCY, last, col
-        double ALPHA, BETA, dp
+        char *trans
+        int m, n, lda, incx, incy, last, col
+        double alpha, beta, dp
         double *A
-        double *X
-        double *Y
+        double *x
+        double *y
 
     last = factors.shape[1] - 1
     # condition covariance on previous variables
     # factors[:, last] -= factors[:, :index]@factors[k, :index]
-    TRANS = 'n'
-    M = factors.shape[0]
-    N = index
-    ALPHA = -1
+    trans = 'n'
+    m = factors.shape[0]
+    n = index
+    alpha = -1
     A = &factors[0, 0]
-    LDA = factors.shape[0]
-    X = &factors[k, 0]
-    INCX = LDA
-    BETA = 1
-    Y = &factors[0, last]
-    INCY = 1
-    blas.dgemv(TRANS, &M, &N, &ALPHA, A, &LDA, X, &INCX, &BETA, Y, &INCY)
+    lda = factors.shape[0]
+    x = &factors[k, 0]
+    incx = lda
+    beta = 1
+    y = &factors[0, last]
+    incy = 1
+    blas.dgemv(trans, &m, &n, &alpha, A, &lda, x, &incx, &beta, y, &incy)
     # factors[:, index] /= sqrt(factors[k, index])
-    ALPHA = 1/sqrt(factors[k, last])
-    blas.dscal(&M, &ALPHA, Y, &INCY)
+    alpha = 1/sqrt(factors[k, last])
+    blas.dscal(&m, &alpha, y, &incy)
 
     # move columns over to make space at index
     for col in range(i, index, -1):
         # factors[:, col] = factors[:, col - 1]
-        blas.dcopy(&M, &factors[0, col - 1], &INCY, &factors[0, col], &INCY)
+        blas.dcopy(&m, &factors[0, col - 1], &incy, &factors[0, col], &incy)
     # copy conditional covariance from temporary storage to index
     # factors[:, index] = factors[:, last]
-    blas.dcopy(&M, Y, &INCY, &factors[0, index], &INCY)
+    blas.dcopy(&m, y, &incy, &factors[0, index], &incy)
 
     # update downstream Cholesky factor by rank-one downdate
     for col in range(index + 1, i + 1):
-        X = &factors[0, col]
+        x = &factors[0, col]
         k = order[col]
-        ALPHA, BETA = factors[k, col], Y[k]
-        dp = sqrt(ALPHA*ALPHA - BETA*BETA)
-        ALPHA, BETA = ALPHA/dp, -BETA/dp
-        # factors[:, col] *= ALPHA
-        blas.dscal(&M, &ALPHA, X, &INCY)
-        # factors[:, col] += BETA*cov_k
-        blas.daxpy(&M, &BETA, Y, &INCY, X, &INCY)
-        # cov_k *= 1/ALPHA
-        ALPHA = 1/ALPHA
-        blas.dscal(&M, &ALPHA, Y, &INCY)
-        # cov_k += BETA/ALPHA*factors[:, col]
-        BETA *= ALPHA
-        blas.daxpy(&M, &BETA, X, &INCY, Y, &INCY)
+        alpha, beta = factors[k, col], y[k]
+        dp = sqrt(alpha*alpha - beta*beta)
+        alpha, beta = alpha/dp, -beta/dp
+        # factors[:, col] *= alpha
+        blas.dscal(&m, &alpha, x, &incy)
+        # factors[:, col] += beta*cov_k
+        blas.daxpy(&m, &beta, y, &incy, x, &incy)
+        # cov_k *= 1/alpha
+        alpha = 1/alpha
+        blas.dscal(&m, &alpha, y, &incy)
+        # cov_k += beta/alpha*factors[:, col]
+        beta *= alpha
+        blas.daxpy(&m, &beta, x, &incy, y, &incy)
 
 cdef int __insert_index(long[::1] order, long[::1] locations, int i, int k):
     """ Finds the index to insert index k into the order. """
@@ -376,7 +376,7 @@ def nonadj_select(double[:, ::1] x, long[::1] train, long[::1] test,
     params = kernel.get_params()
     nu, length_scale = params["nu"], params["length_scale"]
     # single prediction point, use specialized function
-    if len(test) == 1:
+    if test.shape[0] == 1:
         points = np.asarray(x)
         selected = __chol_select(points[train], points[test],
                                  nu, length_scale, s)

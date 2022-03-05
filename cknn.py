@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.linalg
 import scipy.spatial.distance
-from sklearn.gaussian_process.kernels import Kernel
+from sklearn.gaussian_process.kernels import Kernel, Matern
 import ccknn
 
 ### helper methods
@@ -18,7 +18,7 @@ def inv(m: np.ndarray) -> np.ndarray:
     """ Inverts a symmetric positive definite matrix m. """
     return np.linalg.inv(m)
     # below only starts to get faster for large matrices (~10^4)
-    # return solve(m, np.identity(len(m)))
+    # return solve(m, np.identity(m.shape[0]))
 
 def divide(u: np.ndarray, v: np.ndarray) -> np.ndarray:
     """ Return u/v without error messages if there are 0's in v. """
@@ -67,7 +67,7 @@ def __naive_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                    s: int) -> list:
     """ Brute force selection method. """
     # O(s*n*s^3) = O(n s^4)
-    n = len(x_train)
+    n = x_train.shape[0]
     indexes, candidates = [], list(range(n))
 
     while len(candidates) > 0 and len(indexes) < s:
@@ -87,7 +87,7 @@ def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                   s: int) -> list:
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(s*(n*s + s^2)) = O(n s^2)
-    n = len(x_train)
+    n = x_train.shape[0]
     points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
@@ -122,7 +122,7 @@ def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                   s: int) -> list:
     """ Select the s most informative entries, storing a Cholesky factor. """
     # O(s*(n*s)) = O(n s^2)
-    n = len(x_train)
+    n = x_train.shape[0]
     points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
@@ -153,7 +153,7 @@ def __naive_mult_select(x_train: np.ndarray, x_test: np.ndarray,
                         kernel: Kernel, s: int) -> list:
     """ Brute force multiple point selection method. """
     # O(s*n*(s^3 + m^3)) = O(n s^4 + n s m^3)
-    n = len(x_train)
+    n = x_train.shape[0]
     indexes, candidates = [], list(range(n))
 
     while len(candidates) > 0 and len(indexes) < s:
@@ -173,7 +173,7 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                       s: int) -> list:
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m^3 + n*m^2 + s*(s^2 + m^2 + n*s + n*m + n*m)) = O(n s^2 + n m^2 + m^3)
-    n, m = len(x_train), len(x_test)
+    n, m = x_train.shape[0], x_test.shape[0]
     points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
@@ -215,7 +215,7 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 def __chol_update(cov_k: np.ndarray, i: int, k: int, factors: np.ndarray,
                   cond_var: np.ndarray, cond_cov: np.ndarray=None) -> None:
     """ Updates the ith column of the Cholesky factor with column k. """
-    n = len(cond_var)
+    n = cond_var.shape[0]
     # update Cholesky factors
     factors[:, i] = cov_k
     factors[:, i] -= factors[:, :i]@factors[k, :i]
@@ -229,7 +229,7 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                        s: int) -> np.ndarray:
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
-    n, m = len(x_train), len(x_test)
+    n, m = x_train.shape[0], x_test.shape[0]
     points = np.vstack((x_train, x_test))
     # initialization
     indexes = np.zeros(min(n, s), dtype=np.int64)
@@ -244,7 +244,7 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     factors_pr = factors_pr[:n]
 
     i = 0
-    while i < len(indexes):
+    while i < indexes.shape[0]:
         # pick best entry
         k = argmax(divide(cond_var_pr, cond_var), indexes[:i], max_=False)
         indexes[i] = k
@@ -308,7 +308,7 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
                          kernel: Kernel, s: int) -> np.ndarray:
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
-    n, m = len(train), len(test)
+    n, m = train.shape[0], test.shape[0]
     locations = np.append(train, test)
     points = x[locations]
     # initialization
@@ -363,25 +363,41 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
 
     return indexes
 
-### wrapper methods
+### high-level selection methods
+
+def corr_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+                s: int) -> np.ndarray:
+    """ Select s points in x_train with highest correlation to x_test. """
+    # O(n log n)
+    s = np.clip(s, 0, x_train.shape[0])
+    # aggregate for multiple prediction points
+    corrs = np.max(kernel(x_train, x_test)**2, axis=1)/kernel.diag(x_train)
+    return np.argsort(corrs)[x_train.shape[0] - s:]
 
 def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                s: int) -> np.ndarray:
     """ Select s points in x_train "closest" to x_test by kernel function. """
     # O(n log n)
+    s = np.clip(s, 0, x_train.shape[0])
     # for Matern, sorting by kernel is equivalent to sorting by distance
     # aggregate for multiple prediction points
     dists = np.max(kernel(x_train, x_test), axis=1)
-    return np.argsort(dists)[-s:]
+    return np.argsort(dists)[x_train.shape[0] - s:]
+
 
 def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
            s: int, select_method=ccknn.select) -> np.ndarray:
     """ Wrapper over various cknn selection methods. """
     # early exit
-    if s <= 0 or len(x_train) == 0:
+    s = np.clip(s, 0, x_train.shape[0])
+    if s == 0:
         return []
-    selected = select_method(x_train, x_test, kernel, s)
-    assert len(selected) == len(set(selected)), "selected indices not distinct"
+    # Cython implementation only supports Matern kernels, degrade to Python
+    if select_method == ccknn.select and not isinstance(kernel, Matern):
+        selected = __chol_mult_select(x_train, x_test, kernel, s)
+    else:
+        selected = select_method(x_train, x_test, kernel, s)
+    assert len(set(selected)) == s, "selected indices not distinct"
     return selected
 
 def nonadj_select(x: np.ndarray,
@@ -389,9 +405,14 @@ def nonadj_select(x: np.ndarray,
                   s: int, select_method=ccknn.nonadj_select) -> np.ndarray:
     """ Wrapper over various cknn selection methods. """
     # early exit
-    if s <= 0 or len(train) == 0:
+    s = np.clip(s, 0, train.shape[0])
+    if s == 0:
         return []
-    selected = select_method(x, train, test, kernel, s)
-    assert len(selected) == len(set(selected)), "selected indices not distinct"
+    # Cython implementation only supports Matern kernels, degrade to Python
+    if select_method == ccknn.nonadj_select and not isinstance(kernel, Matern):
+        selected = __chol_nonadj_select(train, test, kernel, s)
+    else:
+        selected = select_method(x, train, test, kernel, s)
+    assert len(set(selected)) == s, "selected indices not distinct"
     return selected
 
