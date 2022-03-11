@@ -1,52 +1,26 @@
 # cython: profile=False
-from libc.math cimport sqrt, exp, log, INFINITY
+from libc.math cimport sqrt, exp, log2, INFINITY
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 cimport numpy as np
+# we rely on importing numpy to also load intel mkl libraries, see README.md
 import numpy as np
 cimport scipy.linalg.cython_blas as blas
+cimport mkl
 
 ### covariance functions
 
 cdef double SQRT3 = sqrt(3)
 cdef double SQRT5 = sqrt(5)
 
-cdef double __matern12(double x):
-    """ Matern Kernel function with v = 1/2 and with length scale l. """
-    return exp(-x)
-
-cdef double __matern32(double x):
-    """ Matern Kernel function with v = 3/2 and with length scale l. """
-    x *= SQRT3
-    return (1 + x)*exp(-x)
-
-cdef double __matern52(double x):
-    """ Matern Kernel function with v = 5/2 and with length scale l. """
-    x *= SQRT5
-    return (1 + x + x*x/3)*exp(-x)
-
-cdef (double (*)(double x)) __get_kernel(double nu):
-    """ Get the Matern kernel with the given nu. """
-    cdef double (*kernel)(double x)
-    kernel = &__matern52
-    if nu == 0.5:
-        kernel = &__matern12
-    elif nu == 1.5:
-        kernel = &__matern32
-    elif nu == 2.5:
-        kernel = &__matern52
-    return kernel
-
-cdef void covariance_vector(double nu, double length_scale,
-                            double[:, ::1] points, double[::1] point,
+cdef void __distance_vector(double[:, ::1] points, double[::1] point,
                             double *vector):
-    """ Covariance between points and point. """
+    """ Euclidean distance between each point in points and given point. """
     cdef:
         int n, i, j
-        double (*kernel)(double x)
         double dist, d
         double *start
         double *p
 
-    kernel = __get_kernel(nu)
     n = points.shape[1]
     start = &points[0, 0]
     p = &point[0]
@@ -55,7 +29,47 @@ cdef void covariance_vector(double nu, double length_scale,
         for j in range(n):
             d = (start + i*n)[j] - p[j]
             dist += d*d
-        vector[i] = kernel(sqrt(dist)/length_scale)
+        vector[i] = dist
+
+    mkl.vdSqrt(points.shape[0], vector, vector)
+
+cdef void __covariance_vector(double nu, double length_scale,
+                              double[:, ::1] points, double[::1] point,
+                              double *vector):
+    """ Matern covariance between each point in points and given point. """
+    cdef:
+        int i, n, incx
+        double alpha, x
+        double *u
+
+    __distance_vector(points, point, vector)
+
+    n = points.shape[0]
+    if nu == 0.5:
+        alpha = 1
+    elif nu == 1.5:
+        alpha = SQRT3
+    else:
+        alpha = SQRT5
+    alpha /= -length_scale
+    incx = 1
+    blas.dscal(&n, &alpha, vector, &incx)
+    u = <double *> PyMem_Malloc(n*sizeof(double))
+    mkl.vdExp(n, vector, u)
+
+    if nu == 0.5:
+        for i in range(n):
+            vector[i] = u[i]
+    elif nu == 1.5:
+        for i in range(n):
+            x = vector[i]
+            vector[i] = (1 - x)*u[i]
+    else:
+        for i in range(n):
+            x = vector[i]
+            vector[i] = (1 - x + x*x/3)*u[i]
+
+    PyMem_Free(u)
 
 ### selection methods
 
@@ -91,7 +105,8 @@ cdef void __chol_update(int n, int i, int k,
 
     # update conditional variance
     for j in range(cond_var.shape[0]):
-        cond_var[j] -= factors[j, i]*factors[j, i]
+        alpha = factors[j, i]
+        cond_var[j] -= alpha*alpha
 
     # clear out selected index
     if k < cond_var.shape[0]:
@@ -114,7 +129,7 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
     factors = np.zeros((n + 1, s), order="F")
     # cond_cov = kernel(x_train, x_test).flatten()
     cond_cov = np.zeros(n)
-    covariance_vector(nu, length_scale, x_train, x_test[0], &cond_cov[0])
+    __covariance_vector(nu, length_scale, x_train, x_test[0], &cond_cov[0])
     # cond_var = kernel.diag(x_train)
     # Matern kernels have covariance one between a point and itself
     cond_var = np.ones(n)
@@ -130,10 +145,10 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
                 best = cond_cov[j]*cond_cov[j]/cond_var[j]
         indexes[i] = k
         # update Cholesky factors
-        covariance_vector(nu, length_scale, x_train, x_train[k],
-                          &factors[0, i])
-        covariance_vector(nu, length_scale, x_test, x_train[k],
-                          &factors[n, i])
+        __covariance_vector(nu, length_scale, x_train, x_train[k],
+                            &factors[0, i])
+        __covariance_vector(nu, length_scale, x_test, x_train[k],
+                            &factors[n, i])
         __chol_update(n + 1, i, k, factors, cond_var)
         # update conditional covariance
         # cond_cov -= factors[:, i][:n]*factors[n, i]
@@ -167,10 +182,10 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
     cond_var_pr = np.copy(cond_var)
     # pre-condition on the m prediction points
     for i in range(m):
-        covariance_vector(nu, length_scale, x_train, x_test[i],
-                          &factors_pr[0, i])
-        covariance_vector(nu, length_scale, x_test, x_test[i],
-                          &factors_pr[n, i])
+        __covariance_vector(nu, length_scale, x_train, x_test[i],
+                            &factors_pr[0, i])
+        __covariance_vector(nu, length_scale, x_test, x_test[i],
+                            &factors_pr[n, i])
         __chol_update(n + m, i, n + i, factors_pr, cond_var_pr)
 
     i = 0
@@ -183,8 +198,8 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
                 best = cond_var_pr[j]/cond_var[j]
         indexes[i] = k
         # update Cholesky factors
-        covariance_vector(nu, length_scale, x_train, x_train[k],
-                          &factors[0, i])
+        __covariance_vector(nu, length_scale, x_train, x_train[k],
+                            &factors[0, i])
         factors_pr[:n, i + m] = factors[:, i]
         __chol_update(n, i, k, factors, cond_var)
         __chol_update(n, i + m, k, factors_pr, cond_var_pr)
@@ -193,6 +208,42 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
     return indexes
 
 ### non-adjacent multiple point selection
+
+cdef unsigned long long MANTISSA_MASK = (1 << 52) - 1
+cdef unsigned long long MANTISSA_BASE = ((1 << 10) - 1) << 52
+cdef unsigned long long EXPONENT_MASK = ((1 << 11) - 1) << 52
+
+cdef double __get_mantissa(double x):
+    """ Get the mantissa component of a double. """
+    cdef unsigned long long value = (<unsigned long long *> &x)[0]
+    new_value = MANTISSA_BASE + (value & MANTISSA_MASK)
+    return (<double*> &new_value)[0]
+
+cdef int __get_exponent(double x):
+    """ Get the exponent component of a double. """
+    cdef unsigned long long value = (<unsigned long long *> &x)[0]
+    return ((value & EXPONENT_MASK) >> 52) - 1023
+
+cdef double __log_product(int n, double *x, int incx):
+    """ Return the log of the product of the entries of a vector. """
+    cdef:
+        unsigned long long value
+        double mantissa
+        int i, exponent
+
+    mantissa = 1
+    exponent = 0
+    for i in range(n):
+        value = (<unsigned long long *> (x + i*incx))[0]
+        exponent += ((value & EXPONENT_MASK) >> 52) - 1023
+        value = MANTISSA_BASE + (value & MANTISSA_MASK)
+        mantissa *= (<double *> &value)[0]
+        # prevent underflow by periodic normalization
+        if i & 512:
+            exponent += __get_exponent(mantissa)
+            mantissa = __get_mantissa(mantissa)
+
+    return log2(mantissa) + exponent
 
 cdef void __chol_insert(long[::1] order, int i, int index,
                         int k, double[::1, :] factors):
@@ -239,16 +290,10 @@ cdef void __chol_insert(long[::1] order, int i, int index,
         alpha, beta = factors[k, col], y[k]
         dp = sqrt(alpha*alpha - beta*beta)
         alpha, beta = alpha/dp, -beta/dp
-        # factors[:, col] *= alpha
-        blas.dscal(&m, &alpha, x, &incy)
-        # factors[:, col] += beta*cov_k
-        blas.daxpy(&m, &beta, y, &incy, x, &incy)
-        # cov_k *= 1/alpha
-        alpha = 1/alpha
-        blas.dscal(&m, &alpha, y, &incy)
-        # cov_k += beta/alpha*factors[:, col]
-        beta *= alpha
-        blas.daxpy(&m, &beta, x, &incy, y, &incy)
+        # factors[:, col] = alpha*factors[:, col] + beta*cov_k
+        mkl.cblas_daxpby(m, beta, y, incy, alpha, x, incy)
+        # cov_k = beta/alpha*factors[:, col] + 1/alpha*cov_k
+        mkl.cblas_daxpby(m, beta/alpha, x, incy, 1/alpha, y, incy)
 
 cdef int __insert_index(long[::1] order, long[::1] locations, int i, int k):
     """ Finds the index to insert index k into the order. """
@@ -273,7 +318,7 @@ cdef void __select_point(long[::1] order, long[::1] locations, int i, int k,
     # insert covariance with k into Cholesky factor
     # use last column as temporary working space
     last = factors.shape[1] - 1
-    covariance_vector(nu, length_scale, points, points[k], &factors[0, last])
+    __covariance_vector(nu, length_scale, points, points[k], &factors[0, last])
     __chol_insert(order, i, index, k, factors)
 
 cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
@@ -287,7 +332,7 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
         long[::1] indexes, order, locations
         double[:, ::1] points
         double[::1, :] factors
-        double[::1] var, prefix
+        double[::1] var, keys
 
     n, m = train.shape[0], test.shape[0]
     locations = np.append(train, test)
@@ -299,6 +344,7 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
     # var = kernel.diag(x[train])
     # Matern kernels have covariance one between a point and itself
     var = np.ones(n)
+    keys = np.ones(s + m + 2)
     # pre-condition on the m prediction points
     for i in range(m):
         __select_point(order, locations, i, n + i,
@@ -306,7 +352,7 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
 
     i = 0
     while i < indexes.shape[0]:
-        best, best_k = INFINITY, 0
+        best, best_k = -INFINITY, 0
         # pick best entry
         for j in range(n):
             # selected already, don't consider as candidate
@@ -315,10 +361,9 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
 
             cond_var_j = var[j]
             index = __insert_index(order, locations, m + i, j)
-            # log(cond_var_j) is 0 for Matern kernel, no need to do casework
-            key = 0
+            keys[m + i] = 1
 
-            for col in range(m + i):
+            for col in range(index):
                 k = order[col]
                 cond_var_k = factors[k, col]
                 cond_cov_k = factors[j, col]*cond_var_k
@@ -326,16 +371,28 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
                 cond_cov_k *= cond_cov_k
                 # remove spurious contribution from selected training point
                 if k < n:
-                    key -= log(cond_var_k - (cond_cov_k/cond_var_j
-                                             if col >= index else 0))
+                    keys[col] = cond_var_k
                 cond_var_j -= cond_cov_k/cond_var_k
-                # remove spurious contribution of j
-                if col + 1 == index:
-                    key -= log(cond_var_j)
-            # add logdet of entire covariance matrix
-            key += log(cond_var_j)
 
-            if key < best:
+            # remove spurious contribution of j
+            keys[m + i] = cond_var_j
+
+            for col in range(index, m + i):
+                k = order[col]
+                cond_var_k = factors[k, col]
+                cond_cov_k = factors[j, col]*cond_var_k
+                cond_var_k *= cond_var_k
+                cond_cov_k *= cond_cov_k
+                # remove spurious contribution from selected training point
+                if k < n:
+                    keys[col] = cond_var_k - cond_cov_k/cond_var_j
+                cond_var_j -= cond_cov_k/cond_var_k
+
+            # add logdet of entire covariance matrix
+            keys[m + i + 1] = 1/cond_var_j
+
+            key = __log_product(m + i + 2, &keys[0], 1)
+            if key > best:
                 best, best_k = key, j
 
         indexes[i] = best_k

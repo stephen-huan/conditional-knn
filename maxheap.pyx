@@ -1,34 +1,36 @@
 # cython: profile=False
-import numpy as np
 cimport numpy as np
+import numpy as np
 
-cdef unsigned long long MASK = 0xffffffff00000000
+ctypedef unsigned long long HEAP_DATA
 
-cdef unsigned long long __heap_value(double dist, int i):
+cdef HEAP_DATA MASK = 0xffffffff00000000
+
+cdef HEAP_DATA __heap_value(double dist, int i):
     """ Embed a distance and an integer as a single int64 value. """
     # distances are positive float values
-    cdef unsigned long long value = (<unsigned long long*> &dist)[0]
+    cdef HEAP_DATA value = (<HEAP_DATA *> &dist)[0]
     # zero out lower 32 bits, embed integer id in mantissa
     value &= MASK
     value |= i
     return value
 
-cdef double __get_distance(unsigned long long value):
+cdef double __get_distance(HEAP_DATA value):
     """ Get the distance part of a value. """
-    cdef unsigned long long data = value & MASK
-    return (<double*> &data)[0]
+    cdef HEAP_DATA data = value & MASK
+    return (<double *> &data)[0]
 
-cdef int __get_id(unsigned long long value):
+cdef int __get_id(HEAP_DATA value):
     """ Get the id part of a value. """
     return value & ~MASK
 
-cdef void __swap(unsigned long long[:] l, int[:] ids, int i, int j):
+cdef void __swap(HEAP_DATA[::1] l, int[::1] ids, int i, int j):
     """ Swap two values in the heap. """
     l[i], l[j] = l[j], l[i]
     # update id : index in array mapping
     ids[__get_id(l[i])], ids[__get_id(l[j])] = i, j
 
-cdef void __siftup(unsigned long long[:] l, int[:] ids, int i):
+cdef void __siftup(HEAP_DATA[::1] l, int[::1] ids, int i):
     """ Bubble a value upwards. """
     # O(log n)
     while (i >> 1) > 0:
@@ -41,7 +43,7 @@ cdef void __siftup(unsigned long long[:] l, int[:] ids, int i):
         else:
             break
 
-cdef void __siftdown(unsigned long long[:] l, int[:] ids, int i):
+cdef void __siftdown(HEAP_DATA[::1] l, int[::1] ids, int i):
     """ Bubble a value downwards. """
     # O(log n)
     size = l.shape[0] - 1
@@ -57,7 +59,7 @@ cdef void __siftdown(unsigned long long[:] l, int[:] ids, int i):
         else:
             break
 
-cdef void __heapify(unsigned long long[:] l, int[:] ids):
+cdef void __heapify(HEAP_DATA[::1] l, int[::1] ids):
     """ Ensure heap property of data. """
     # O(n)
     for i in range((l.shape[0] - 1) >> 1, 0, -1):
@@ -69,11 +71,11 @@ def resize(array):
 
 cdef class Heap:
 
-    cdef unsigned long long[:] l
-    cdef int[:] ids
+    cdef HEAP_DATA[::1] l
+    cdef int[::1] ids
     cdef int size
 
-    def __init__(self, double[:] dists, long[:] ids):
+    def __init__(self, double[::1] dists, long[::1] ids):
         """ Construct a new heap from the given data. """
         cdef int i
         self.size = dists.shape[0]
@@ -114,7 +116,7 @@ cdef class Heap:
 
     def pop(self) -> tuple:
         """ Remove a value from the heap. """
-        cdef unsigned long long value = self.l[1]
+        cdef HEAP_DATA value = self.l[1]
         # replace with last leaf
         __swap(self.l, self.ids, 1, self.size)
         self.l[self.size] = 0
