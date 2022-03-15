@@ -1,75 +1,12 @@
 # cython: profile=False
-from libc.math cimport sqrt, exp, log2, INFINITY
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.math cimport INFINITY, sqrt, log2
 cimport numpy as np
 # we rely on importing numpy to also load intel mkl libraries, see README.md
 import numpy as np
 cimport scipy.linalg.cython_blas as blas
 cimport mkl
-
-### covariance functions
-
-cdef double SQRT3 = sqrt(3)
-cdef double SQRT5 = sqrt(5)
-
-cdef void __distance_vector(double[:, ::1] points, double[::1] point,
-                            double *vector):
-    """ Euclidean distance between each point in points and given point. """
-    cdef:
-        int n, i, j
-        double dist, d
-        double *start
-        double *p
-
-    n = points.shape[1]
-    start = &points[0, 0]
-    p = &point[0]
-    for i in range(points.shape[0]):
-        dist = 0
-        for j in range(n):
-            d = (start + i*n)[j] - p[j]
-            dist += d*d
-        vector[i] = dist
-
-    mkl.vdSqrt(points.shape[0], vector, vector)
-
-cdef void __covariance_vector(double nu, double length_scale,
-                              double[:, ::1] points, double[::1] point,
-                              double *vector):
-    """ Matern covariance between each point in points and given point. """
-    cdef:
-        int i, n, incx
-        double alpha, x
-        double *u
-
-    __distance_vector(points, point, vector)
-
-    n = points.shape[0]
-    if nu == 0.5:
-        alpha = 1
-    elif nu == 1.5:
-        alpha = SQRT3
-    else:
-        alpha = SQRT5
-    alpha /= -length_scale
-    incx = 1
-    blas.dscal(&n, &alpha, vector, &incx)
-    u = <double *> PyMem_Malloc(n*sizeof(double))
-    mkl.vdExp(n, vector, u)
-
-    if nu == 0.5:
-        for i in range(n):
-            vector[i] = u[i]
-    elif nu == 1.5:
-        for i in range(n):
-            x = vector[i]
-            vector[i] = (1 - x)*u[i]
-    else:
-        for i in range(n):
-            x = vector[i]
-            vector[i] = (1 - x + x*x/3)*u[i]
-
-    PyMem_Free(u)
+from c_kernels cimport Kernel, get_kernel, kernel_cleanup
+from c_kernels cimport covariance_vector, variance_vector
 
 ### selection methods
 
@@ -113,7 +50,7 @@ cdef void __chol_update(int n, int i, int k,
         cond_var[k] = INFINITY
 
 cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
-                             double nu, double length_scale, int s):
+                             Kernel *kernel, int s):
     """ Select the s most informative entries, storing a Cholesky factor. """
     # O(s*(n*s)) = O(n s^2)
     cdef:
@@ -129,10 +66,10 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
     factors = np.zeros((n + 1, s), order="F")
     # cond_cov = kernel(x_train, x_test).flatten()
     cond_cov = np.zeros(n)
-    __covariance_vector(nu, length_scale, x_train, x_test[0], &cond_cov[0])
+    covariance_vector(kernel, x_train, x_test[0], &cond_cov[0])
     # cond_var = kernel.diag(x_train)
-    # Matern kernels have covariance one between a point and itself
-    cond_var = np.ones(n)
+    cond_var = np.zeros(n)
+    variance_vector(kernel, x_train, &cond_var[0])
 
     i = 0
     while i < indexes.shape[0]:
@@ -145,10 +82,8 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
                 best = cond_cov[j]*cond_cov[j]/cond_var[j]
         indexes[i] = k
         # update Cholesky factors
-        __covariance_vector(nu, length_scale, x_train, x_train[k],
-                            &factors[0, i])
-        __covariance_vector(nu, length_scale, x_test, x_train[k],
-                            &factors[n, i])
+        covariance_vector(kernel, x_train, x_train[k], &factors[0, i])
+        covariance_vector(kernel, x_test, x_train[k], &factors[n, i])
         __chol_update(n + 1, i, k, factors, cond_var)
         # update conditional covariance
         # cond_cov -= factors[:, i][:n]*factors[n, i]
@@ -161,7 +96,7 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
 
 cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
                                   double[:, ::1] x_test,
-                                  double nu, double length_scale, int s):
+                                  Kernel *kernel, int s):
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
@@ -177,15 +112,13 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
     factors = np.zeros((n, s), order="F")
     factors_pr = np.zeros((n + m, s + m), order="F")
     # cond_var = kernel.diag(x_train)
-    # Matern kernels have covariance one between a point and itself
-    cond_var = np.ones(n)
+    cond_var = np.zeros(n)
+    variance_vector(kernel, x_train, &cond_var[0])
     cond_var_pr = np.copy(cond_var)
     # pre-condition on the m prediction points
     for i in range(m):
-        __covariance_vector(nu, length_scale, x_train, x_test[i],
-                            &factors_pr[0, i])
-        __covariance_vector(nu, length_scale, x_test, x_test[i],
-                            &factors_pr[n, i])
+        covariance_vector(kernel, x_train, x_test[i], &factors_pr[0, i])
+        covariance_vector(kernel, x_test, x_test[i], &factors_pr[n, i])
         __chol_update(n + m, i, n + i, factors_pr, cond_var_pr)
 
     i = 0
@@ -198,8 +131,7 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
                 best = cond_var_pr[j]/cond_var[j]
         indexes[i] = k
         # update Cholesky factors
-        __covariance_vector(nu, length_scale, x_train, x_train[k],
-                            &factors[0, i])
+        covariance_vector(kernel, x_train, x_train[k], &factors[0, i])
         factors_pr[:n, i + m] = factors[:, i]
         __chol_update(n, i, k, factors, cond_var)
         __chol_update(n, i + m, k, factors_pr, cond_var_pr)
@@ -305,7 +237,7 @@ cdef int __insert_index(long[::1] order, long[::1] locations, int i, int k):
     return index + 1
 
 cdef void __select_point(long[::1] order, long[::1] locations, int i, int k,
-                         double[:, ::1] points, double nu, double length_scale,
+                         double[:, ::1] points, Kernel *kernel,
                          double[::1, :] factors):
     """ Add the kth point to the Cholesky factor. """
     cdef int col, index, last
@@ -318,12 +250,11 @@ cdef void __select_point(long[::1] order, long[::1] locations, int i, int k,
     # insert covariance with k into Cholesky factor
     # use last column as temporary working space
     last = factors.shape[1] - 1
-    __covariance_vector(nu, length_scale, points, points[k], &factors[0, last])
+    covariance_vector(kernel, points, points[k], &factors[0, last])
     __chol_insert(order, i, index, k, factors)
 
-cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
-                                    long[::1] train, long[::1] test,
-                                    double nu, double length_scale, int s):
+cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
+                                    long[::1] test, Kernel *kernel, int s):
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
@@ -342,13 +273,12 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
     order = np.zeros(indexes.shape[0] + test.shape[0], dtype=np.int64)
     factors = np.zeros((n + m, s + m + 1), order="F")
     # var = kernel.diag(x[train])
-    # Matern kernels have covariance one between a point and itself
-    var = np.ones(n)
+    var = np.zeros(n)
+    variance_vector(kernel, points[:n], &var[0])
     keys = np.ones(s + m + 2)
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, i, n + i,
-                       points, nu, length_scale, factors)
+        __select_point(order, locations, i, n + i, points, kernel, factors)
 
     i = 0
     while i < indexes.shape[0]:
@@ -400,7 +330,7 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x,
         var[best_k] = INFINITY
         # update Cholesky factor
         __select_point(order, locations, i + m, best_k,
-                       points, nu, length_scale, factors)
+                       points, kernel, factors)
         i += 1
 
     return indexes
@@ -414,30 +344,27 @@ def chol_update(double[::1] cov_k, int i, int k,
     __chol_update(cov_k.shape[0], i, k, factors, cond_var)
 
 def select(double[:, ::1] x_train, double[:, ::1] x_test,
-           kernel, int s) -> np.ndarray:
+           kernel_object, int s) -> np.ndarray:
     """ Wrapper over various cknn selection methods. """
-    cdef double nu, length_scale
-    params = kernel.get_params()
-    nu, length_scale = params["nu"], params["length_scale"]
+    cdef Kernel *kernel = get_kernel(kernel_object)
     # single prediction point, use specialized function
     if x_test.shape[0] == 1:
-        selected = __chol_select(x_train, x_test, nu, length_scale, s)
+        selected = __chol_select(x_train, x_test, kernel, s)
     else:
-        selected = __chol_mult_select(x_train, x_test, nu, length_scale, s)
+        selected = __chol_mult_select(x_train, x_test, kernel, s)
+    kernel_cleanup(kernel)
     return np.asarray(selected)
 
 def nonadj_select(double[:, ::1] x, long[::1] train, long[::1] test,
-                  kernel, int s) -> np.ndarray:
+                  kernel_object, int s) -> np.ndarray:
     """ Wrapper over various cknn selection methods. """
-    cdef double nu, length_scale
-    params = kernel.get_params()
-    nu, length_scale = params["nu"], params["length_scale"]
+    cdef Kernel *kernel = get_kernel(kernel_object)
     # single prediction point, use specialized function
     if test.shape[0] == 1:
         points = np.asarray(x)
-        selected = __chol_select(points[train], points[test],
-                                 nu, length_scale, s)
+        selected = __chol_select(points[train], points[test], kernel, s)
     else:
-        selected = __chol_nonadj_select(x, train, test, nu, length_scale, s)
+        selected = __chol_nonadj_select(x, train, test, kernel, s)
+    kernel_cleanup(kernel)
     return np.asarray(selected)
 

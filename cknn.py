@@ -398,11 +398,7 @@ def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     s = np.clip(s, 0, x_train.shape[0])
     if s == 0:
         return []
-    # Cython implementation only supports Matern kernels, degrade to Python
-    if select_method == ccknn.select and not isinstance(kernel, Matern):
-        selected = __chol_mult_select(x_train, x_test, kernel, s)
-    else:
-        selected = select_method(x_train, x_test, kernel, s)
+    selected = select_method(x_train, x_test, kernel, s)
     assert len(set(selected)) == s, "selected indices not distinct"
     return selected
 
@@ -414,11 +410,7 @@ def nonadj_select(x: np.ndarray,
     s = np.clip(s, 0, train.shape[0])
     if s == 0:
         return []
-    # Cython implementation only supports Matern kernels, degrade to Python
-    if select_method == ccknn.nonadj_select and not isinstance(kernel, Matern):
-        selected = __chol_nonadj_select(train, test, kernel, s)
-    else:
-        selected = select_method(x, train, test, kernel, s)
+    selected = select_method(x, train, test, kernel, s)
     assert len(set(selected)) == s, "selected indices not distinct"
     return selected
 

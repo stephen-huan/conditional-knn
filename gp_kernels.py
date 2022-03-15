@@ -10,11 +10,13 @@ class MatrixKernel(Kernel):
     """
 
     def __init__(self, m: np.ndarray) -> None:
-        self.m = m
+        # we can't use the variable name "theta" for scikit-learn API reasons
+        # force Fortran order memory contiguity for ease in Cython wrapping
+        self.m = np.asfortranarray(m)
 
     def __flatten(self, m: np.ndarray) -> np.ndarray:
         """ Flatten m for use in indexing. """
-        return np.array(m).flatten()
+        return np.array(m).flatten().astype(np.int64)
 
     def __call__(self, X: np.ndarray, Y: np.ndarray=None,
                  eval_gradient: bool=False) -> np.ndarray:
@@ -54,5 +56,6 @@ class DotKernel(Kernel):
 
 def matrix_kernel(theta: np.ndarray) -> tuple:
     """ Turns a matrix into "points" and a kernel function. """
-    return np.arange(theta.shape[0]).reshape(-1, 1), MatrixKernel(theta)
+    points = np.arange(theta.shape[0], dtype=np.float64).reshape(-1, 1)
+    return points, MatrixKernel(theta)
 
