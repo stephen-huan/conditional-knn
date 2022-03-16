@@ -11,11 +11,11 @@ conda env create --prefix ./venv --file environment.yml
 ```
 or from a non-explicit spec file (platform may need to match):
 ```bash
-conda create --prefix ./venv --file osx-64-spec-file.txt
+conda create --prefix ./venv --file linux-64-spec-list.txt
 ```
 or from an explicit spec file (platform must match):
 ```bash
-conda create --prefix ./venv --file osx-64-explicit-spec-list.txt
+conda create --prefix ./venv --file linux-64-explicit-spec-list.txt
 ```
 See
 [managing environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
