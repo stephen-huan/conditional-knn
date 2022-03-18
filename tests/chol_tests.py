@@ -42,7 +42,7 @@ if __name__ == "__main__":
     assert np.allclose(L.toarray(), L2.toarray()), "single cholesky mismatch"
 
     # KL(theta, (L@L.T)^{-1}) = KL(L@L.T, theta^{-1})
-    print(f"single kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"single kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
     print(f"nonzeros: {L2.nnz}")
 
     ## multiple columns with aggregation
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     L2 = cholesky.cholesky_select(X, kernel, S, groups)
     assert np.allclose(L.toarray(), L2.toarray()), "mult cholesky mismatch"
 
-    print(f"mult kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"mult kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
     print(f"nonzeros: {L2.nnz}")
 
     ## multiple non-adjacent columns with aggregation
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     assert np.allclose(L.toarray(), L2.toarray()), \
         "non-adj mult cholesky mismatch"
 
-    print(f"non-adj mult kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"non-adj mult kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
 
     ### KL algorithm
 
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     assert np.allclose(L.toarray(), L2.toarray()), "kl cholesky mismatch"
 
     # determinant unchanged after permutation of matrix
-    print(f"kl kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"kl kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
     print(f"nonzeros: {L2.nnz}")
 
     ## multiple columns with aggregation
@@ -90,13 +90,13 @@ if __name__ == "__main__":
     assert np.allclose(order, order2), "ordering mismatch"
     assert np.allclose(L.toarray(), L2.toarray()), "mult kl cholesky mismatch"
 
-    print(f"mult kl kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"mult kl kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
     print(f"nonzeros: {L2.nnz}")
 
     ## subsampling
 
     L2, order = cholesky.cholesky_subsample(X, kernel, 2, R, G)
 
-    print(f"sample kl div: {cholesky.sparse_kl_div(L2) - theta_det:.3f}")
+    print(f"sample kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
     print(f"nonzeros: {L2.nnz}")
 

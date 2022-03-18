@@ -1,0 +1,26 @@
+#!/usr/bin/env fish
+
+set root "datasets"
+set sparse_root "$root/suitesparse"
+
+# create folders
+mkdir -p $sparse_root
+
+### sparse matrices from SuiteSparse: https://sparse.tamu.edu/ML_Graph
+
+set urls \
+"http://sparse-files.engr.tamu.edu/MM/ML_Graph/JapaneseVowelsSmall_10NN.tar.gz" \
+"http://sparse-files.engr.tamu.edu/MM/ML_Graph/iris_dataset_30NN.tar.gz"
+
+for url in $urls
+    set fname (string split "/" -- $url)[-1]
+    set name (string split "." -- $fname)[1]
+    set path "$sparse_root/$name"
+    # if not downloaded, download and extract
+    if test ! -d $path
+        curl $url --output $fname
+        tar -xvf $fname -C "$sparse_root"
+        rm $fname
+    end
+end
+

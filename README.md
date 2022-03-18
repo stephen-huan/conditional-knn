@@ -6,15 +6,15 @@ conditional _k_-th nearest neighbor estimator.
 ## Installing
 
 Install dependencies from `environment.yml` with [conda](https://conda.io/):
-```bash
+```shell
 conda env create --prefix ./venv --file environment.yml
 ```
 or from a non-explicit spec file (platform may need to match):
-```bash
+```shell
 conda create --prefix ./venv --file linux-64-spec-list.txt
 ```
 or from an explicit spec file (platform must match):
-```bash
+```shell
 conda create --prefix ./venv --file linux-64-explicit-spec-list.txt
 ```
 See
@@ -22,14 +22,25 @@ See
 for more information.
 
 Activate `conda` environment:
-```bash
+```shell
 conda activate ./venv
 ```
 Build [Cython](https://cython.org/) extensions:
-```bash
+```shell
 python setup.py build_ext --inplace
 ```
 Pre-compiled `*.c` files are also provided.
+
+### Downloading Datasets
+
+We use datasets from the [SuiteSparse Matrix
+Collection](https://sparse.tamu.edu/) and the [UCI Machine Learning
+Repository](https://archive.ics.uci.edu/ml/datasets.php). Download the datasets
+with the provided [fish](https://fishshell.com/) script:
+```shell
+chmod +x get_datasets
+./get_datasets
+```
 
 ### Intel MKL with conda
 
@@ -44,7 +55,7 @@ ImportError: dlopen(ccknn.cpython-39-darwin.so, 2): Symbol not found: _vdLn
 ```
 
 We rely on numpy to load MKL, so make sure it does:
-```bash
+```shell
 DYLD_PRINT_LIBRARIES=1 python -c "import numpy" 2>&1 | grep mkl
 dyld: loaded: <...> venv/lib/python3.9/site-packages/mkl/_mklinit.cpython-39-darwin.so
 dyld: loaded: <...> venv/lib/libmkl_rt.2.dylib
@@ -53,7 +64,7 @@ dyld: loaded: <...> venv/lib/libmkl_rt.2.dylib
 (Check to see `libmkl_*.dylib` is being loaded)
 
 Also check the output of:
-```bash
+```shell
 python -c "import numpy; numpy.__config__.show()"
 blas_mkl_info:
     libraries = ['mkl_rt', 'pthread']
@@ -63,7 +74,7 @@ blas_mkl_info:
 ...
 ```
 and similarly for
-```bash
+```shell
 python -c "import scipy; scipy.__config__.show()"
 ```
 
@@ -74,7 +85,7 @@ installing `mkl-devel`. It's easiest just to use the `intel` channel.
 ## Running
 
 Files can be run as modules:
-```bash
+```shell
 python -m tests.cknn_tests
 ```
 

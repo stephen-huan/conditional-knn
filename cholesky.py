@@ -14,16 +14,18 @@ def kl_div(X: np.ndarray, Y: np.ndarray) -> float:
     at 0 with covariance X and Y, i.e. D_KL(N(0, X) || N(0, Y)).
     """
     # O(n^3)
-    return np.trace(solve(Y, X)) + logdet(Y) - logdet(X) - len(X)
+    return 1/2*(np.trace(solve(Y, X)) + logdet(Y) - logdet(X) - len(X))
 
-def sparse_kl_div(L: sparse.csc_matrix) -> float:
+def sparse_kl_div(L: sparse.csc_matrix, theta: np.ndarray=None) -> float:
     """
     Computes the KL divergence assuming L is optimal.
 
     Equivalent to kl_div(theta, inv(L@L.T)) + logdet(theta)
     """
-    # O(n)
-    return -2*np.sum(np.log(L.diagonal()))
+    # O(n^3) if a matrix theta is provided, otherwise O(n)
+    logdet_theta = 0 if theta is None else \
+        (cknn.logdet(theta) if isinstance(theta, np.ndarray) else theta)
+    return -np.sum(np.log(L.diagonal())) - 1/2*logdet_theta
 
 ### sparse Cholesky methods
 
