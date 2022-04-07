@@ -20,46 +20,10 @@ def inv(m: np.ndarray) -> np.ndarray:
     # below only starts to get faster for large matrices (~10^4)
     # return solve(m, np.identity(m.shape[0]))
 
-def divide(u: np.ndarray, v: np.ndarray) -> np.ndarray:
-    """ Return u/v without error messages if there are 0's in v. """
-    np.seterr(divide="ignore", invalid="ignore")
-    result = u/v
-    np.seterr(divide="warn", invalid="warn")
-    return result
-
-def argmax(array: np.ndarray, indexes: list, max_: bool=True) -> int:
-    """ Return the arg[min/max] of array limited to candidates. """
-    arg = np.argmax if max_ else np.argmin
-    # ignore indices outside of candidates
-    array[indexes] = (-1 if max_ else 1)*np.inf
-    # faster than candidates[arg(array[candidates])]
-    # likely because it skips the slow indexing of candidates
-    return arg(array)
-
 def euclidean(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     """ Return the Euclidean distance between points in x and y.  """
     # larger kernel value implies more similarity, flip
     return -scipy.spatial.distance.cdist(x, y, "euclidean")
-
-### estimation methods
-
-def __estimate(x_train: np.ndarray, y_train: np.ndarray,
-               x_test: np.ndarray, kernel: Kernel) -> np.ndarray:
-    """ Estimate y_test with direct Gaussian process regression. """
-    # O(n^3)
-    K_TT = kernel(x_train)
-    K_PP = kernel(x_test)
-    K_TP = kernel(x_train, x_test)
-    K_PT_TT = solve(K_TT, K_TP).T
-
-    mu_pred = K_PT_TT@y_train
-    var_pred = K_PP - K_PT_TT@K_TP
-    return mu_pred, var_pred
-
-def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
-             kernel: Kernel, indexes: list=slice(None)) -> np.ndarray:
-    """ Estimate y_test according to the given sparsity pattern. """
-    return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)
 
 ### selection methods
 
@@ -97,10 +61,9 @@ def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = argmax(divide(cond_cov**2, cond_var), indexes)
+        k = max(candidates, key=lambda j: cond_cov[j]**2/cond_var[j])
         indexes.append(k)
-        # we don't actually need candidates; faster than candidates.remove(k)
-        candidates.pop()
+        candidates.remove(k)
         # update precision of selected entries
         v = prec@kernel(x_train[indexes[:-1]], [x_train[k]])
         var = 1/cond_var[k]
@@ -132,10 +95,9 @@ def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = argmax(divide(cond_cov**2, cond_var), indexes)
+        k = max(candidates, key=lambda j: cond_cov[j]**2/cond_var[j])
         indexes.append(k)
-        # we don't actually need candidates; faster than candidates.remove(k)
-        candidates.pop()
+        candidates.remove(k)
         # update Cholesky factors
         i = len(indexes) - 1
         factors[:, i] = kernel(points, [x_train[k]]).flatten()
@@ -185,10 +147,9 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     while len(candidates) > 0 and len(indexes) < s:
         # pick best entry
-        k = argmax(divide(cond_var_pr, cond_var), indexes, max_=False)
+        k = min(candidates, key=lambda j: cond_var_pr[j]/cond_var[j])
         indexes.append(k)
-        # we don't actually need candidates; faster than candidates.remove(k)
-        candidates.pop()
+        candidates.remove(k)
         # update precision of selected entries
         v = prec@kernel(x_train[indexes[:-1]], [x_train[k]])
         var = 1/cond_var[k]
@@ -246,7 +207,8 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     i = 0
     while i < indexes.shape[0]:
         # pick best entry
-        k = argmax(divide(cond_var_pr, cond_var), indexes[:i], max_=False)
+        k = min(set(range(n)) - set(indexes[:i]),
+                key=lambda j: cond_var_pr[j]/cond_var[j])
         indexes[i] = k
         # update Cholesky factors
         cov_k = kernel(x_train, [x_train[k]]).flatten()
@@ -366,10 +328,11 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
 ### high-level selection methods
 
 def random_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
-                  s: int, seed: int=1) -> np.ndarray:
+                  s: int, rng: np.random.Generator=None) -> np.ndarray:
     """ Randomly select s points out of x_train. """
     s = np.clip(s, 0, x_train.shape[0])
-    rng = np.random.default_rng(seed)
+    if rng is None:
+        rng = np.random.default_rng(1)
     return rng.choice(x_train.shape[0], s, replace=False)
 
 def corr_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,

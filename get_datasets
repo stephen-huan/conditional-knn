@@ -10,6 +10,9 @@ mkdir -p $sparse_root
 
 set urls \
 "http://sparse-files.engr.tamu.edu/MM/ML_Graph/JapaneseVowelsSmall_10NN.tar.gz" \
+"http://sparse-files.engr.tamu.edu/MM/ML_Graph/yeast_30NN.tar.gz" \
+"http://sparse-files.engr.tamu.edu/MM/ML_Graph/Plants_10NN.tar.gz" \
+"http://sparse-files.engr.tamu.edu/MM/ML_Graph/mice_10NN.tar.gz" \
 "http://sparse-files.engr.tamu.edu/MM/ML_Graph/iris_dataset_30NN.tar.gz"
 
 for url in $urls

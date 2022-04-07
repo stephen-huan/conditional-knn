@@ -212,7 +212,7 @@ def cholesky(theta: np.ndarray, s: int, groups: list=None,
 
 def naive_cholesky_kl(x: np.ndarray, kernel: Kernel,
                       rho: float, lambd: float=None) -> tuple:
-    """ Computes Cholesky by KL-divergence with tuning parameters. """
+    """ Computes Cholesky by KL divergence with tuning parameters. """
     order, lengths = ordering.naive_reverse_maximin(x)
     x = x[order]
     sparsity = ordering.naive_sparsity(x, lengths, rho)
@@ -222,7 +222,7 @@ def naive_cholesky_kl(x: np.ndarray, kernel: Kernel,
 
 def cholesky_kl(x: np.ndarray, kernel: Kernel,
                 rho: float, lambd: float=None) -> tuple:
-    """ Computes Cholesky by KL-divergence with tuning parameters. """
+    """ Computes Cholesky by KL divergence with tuning parameters. """
     order, lengths = ordering.reverse_maximin(x)
     x = x[order]
     sparsity = ordering.sparsity_pattern(x, lengths, rho)

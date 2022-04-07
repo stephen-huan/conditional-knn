@@ -1,6 +1,7 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 import gp_kernels
+from gp_regression import estimate
 import cknn
 
 D = 3    # dimension of points
@@ -70,17 +71,17 @@ length_scale={params['length_scale']})")
         assert np.allclose(indexes, answer), "mult select indexes mismatch"
 
         # predictions
-        mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel)
+        mu_pred, var_pred = estimate(X, y, x_test, kernel)
         print(y_test, mu_pred)
         print(cknn.logdet(var_pred))
 
         # approximate
-        mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel, indexes)
+        mu_pred, var_pred = estimate(X, y, x_test, kernel, indexes)
         print(y_test, mu_pred)
         print(cknn.logdet(var_pred))
 
         indexes = cknn.knn_select(X, x_test, kernel, S)
-        mu_pred, var_pred = cknn.estimate(X, y, x_test, kernel, indexes)
+        mu_pred, var_pred = estimate(X, y, x_test, kernel, indexes)
         print(y_test, mu_pred)
         print(cknn.logdet(var_pred))
 
