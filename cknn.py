@@ -8,7 +8,7 @@ import ccknn
 
 def logdet(m: np.ndarray) -> float:
     """ Computes the logarithm of the determinant of m. """
-    return np.product(np.linalg.slogdet(m))
+    return np.linalg.slogdet(m)[1]
 
 def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     """ Solve the system Ax = b for symmetric positive definite A. """

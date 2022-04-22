@@ -27,6 +27,13 @@ def sparse_kl_div(L: sparse.csc_matrix, theta: np.ndarray=None) -> float:
         (cknn.logdet(theta) if isinstance(theta, np.ndarray) else theta)
     return -np.sum(np.log(L.diagonal())) - 1/2*logdet_theta
 
+def inv_order(order: np.ndarray) -> np.ndarray:
+    """ Find the inverse permutation of the given order permutation. """
+    n = order.shape[0]
+    inv_order = np.arange(n)
+    inv_order[order] = np.arange(n)
+    return inv_order
+
 ### sparse Cholesky methods
 
 def __col(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
@@ -220,14 +227,20 @@ def naive_cholesky_kl(x: np.ndarray, kernel: Kernel,
         if lambd is None else ordering.supernodes(sparsity, lengths, lambd)
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
+def __cholesky_kl(x: np.ndarray, kernel: Kernel, lengths: np.ndarray,
+                  rho: float, lambd: float) -> tuple:
+    """ Computes Cholesky given pre-ordered points and length scales. """
+    sparsity = ordering.sparsity_pattern(x, lengths, rho)
+    groups, sparsity = ([[i] for i in range(len(x))], sparsity) \
+        if lambd is None else ordering.supernodes(sparsity, lengths, lambd)
+    return sparsity, groups
+
 def cholesky_kl(x: np.ndarray, kernel: Kernel,
                 rho: float, lambd: float=None) -> tuple:
     """ Computes Cholesky by KL divergence with tuning parameters. """
     order, lengths = ordering.reverse_maximin(x)
     x = x[order]
-    sparsity = ordering.sparsity_pattern(x, lengths, rho)
-    groups, sparsity = ([[i] for i in range(len(x))], sparsity) \
-        if lambd is None else ordering.supernodes(sparsity, lengths, lambd)
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
 def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
@@ -262,9 +275,40 @@ def cholesky_subsample(x: np.ndarray, kernel: Kernel, s: float,
     # standard geometric algorithm
     order, lengths = ordering.reverse_maximin(x)
     x = x[order]
-    sparsity = ordering.sparsity_pattern(x, lengths, rho)
-    groups, sparsity = ([[i] for i in range(len(x))], sparsity) \
-        if lambd is None else ordering.supernodes(sparsity, lengths, lambd)
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    # create bigger sparsity pattern for candidates
+    candidate_sparsity = ordering.sparsity_pattern(x, lengths, s*rho)
+    return __cholesky_subsample(x, kernel, sparsity, candidate_sparsity,
+                                groups, select), order
+
+### Joint covariance methods for Gaussian process regression
+
+def __joint_order(x_train: np.ndarray, x_test: np.ndarray) -> tuple:
+    """ Return the joint ordering and length scale. """
+    train_order, train_lengths = ordering.reverse_maximin(x_train)
+    # initialize test point ordering with training points
+    test_order, test_lengths = ordering.reverse_maximin(x_test, x_train)
+    # put testing points before training points (after in transpose)
+    x = np.vstack((x_test[test_order], x_train[train_order]))
+    order = np.append(test_order, x_test.shape[0] + train_order)
+    lengths = np.append(test_lengths, train_lengths)
+    return x, order, lengths
+
+def cholesky_joint(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+                   rho: float, lambd: float=None) -> tuple:
+    """ Computes Cholesky of the joint covariance. """
+    x, order, lengths = __joint_order(x_train, x_test)
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    return __mult_cholesky(x, kernel, sparsity, groups), order
+
+def cholesky_joint_subsample(x_train: np.ndarray, x_test: np.ndarray,
+                             kernel: Kernel, s: float, rho: float,
+                             lambd: float=None,
+                             select=cknn.nonadj_select) -> tuple:
+    """ Cholesky of the joint covariance with subsampling. """
+    # standard geometric algorithm
+    x, order, lengths = __joint_order(x_train, x_test)
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
     # create bigger sparsity pattern for candidates
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s*rho)
     return __cholesky_subsample(x, kernel, sparsity, candidate_sparsity,

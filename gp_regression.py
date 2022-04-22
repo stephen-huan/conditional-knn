@@ -2,10 +2,16 @@ from typing import Callable
 import numpy as np
 from numpy.fft import fftn, ifftn
 import scipy.linalg
+import scipy.sparse as sparse
+import  scipy.stats as stats
 from sklearn.gaussian_process.kernels import Kernel
+import cholesky
+from cholesky import inv_order
 
 # number of samples to take for empirical covariane
 TRIALS = 1000
+# size of the symmetric confidence interval
+CONFIDENCE = 0.9
 
 Sample = Callable[[int], np.ndarray]
 
@@ -13,11 +19,38 @@ Sample = Callable[[int], np.ndarray]
 
 def rmse(u: np.ndarray, v: np.ndarray) -> float:
     """ Root mean squared error between u and v. """
-    return np.sqrt(np.mean((u - v)**2))
+    return np.sqrt(np.mean((u - v)**2, axis=0))
+
+def coverage(y_test: np.ndarray, mu_pred: np.ndarray, var_pred: np.ndarray,
+             alpha: float=CONFIDENCE) -> float:
+    """ Emperical coverage of ground truth by predicted mean and variance. """
+    std = np.sqrt(var_pred)
+    # symmetric coverage centered around mean
+    delta = stats.norm.ppf((1 + alpha)/2)*std
+    count = (mu_pred.T - delta <= y_test.T) & (y_test.T <= mu_pred.T + delta)
+    return np.average(count, axis=1)
+
+def inv_chol(x: np.ndarray, kernel: Kernel) -> tuple:
+    """ Cholesky factor for the precision, theta^{-1}. """
+    n = x.shape[0]
+    U = np.flip(np.linalg.cholesky(kernel(x[::-1])))
+    Linv = scipy.linalg.solve_triangular(U, np.identity(n), lower=False).T
+    return sparse.csc_matrix(Linv), np.arange(n)
+
+def joint_inv_chol(x_train: np.ndarray, x_test: np.ndarray,
+                   kernel: Kernel) -> tuple:
+    """ Cholesky factor for the joint precision. """
+    return inv_chol(np.vstack((x_test, x_train)), kernel)
 
 def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     """ Solve the system Ax = b for symmetric positive definite A. """
     return scipy.linalg.solve(A, b, assume_a="pos")
+
+def solve_triangular(L: sparse.csc_matrix, b: np.ndarray,
+                     lower: bool=True) -> np.ndarray:
+    """ Solve the system Lx = b for sparse lower triangular L. """
+    return sparse.linalg.spsolve_triangular(sparse.csr_matrix(L), b,
+                                            lower=lower)
 
 ### point generation methods
 
@@ -151,11 +184,49 @@ def __estimate(x_train: np.ndarray, y_train: np.ndarray,
     K_PT_TT = solve(K_TT, K_TP).T
 
     mu_pred = K_PT_TT@y_train
-    var_pred = K_PP - K_PT_TT@K_TP
+    cov_pred = K_PP - K_PT_TT@K_TP
+    var_pred = kernel.diag(x_test) - np.sum(K_PT_TT.T*K_TP, axis=0)
+    assert np.allclose(np.diag(cov_pred), var_pred), \
+        "variance not diagonal of covariance"
     return mu_pred, var_pred
 
 def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
              kernel: Kernel, indexes: list=slice(None)) -> np.ndarray:
     """ Estimate y_test according to the given sparsity pattern. """
     return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)
+
+def estimate_chol(x_train: np.ndarray, y_train: np.ndarray,
+                  x_test: np.ndarray, kernel: Kernel,
+                  chol=inv_chol) -> np.ndarray:
+    """ Estimate y_test with Cholesky factorization of training covariance. """
+    L, order = chol(x_train, kernel)
+    K_PT = kernel(x_test, x_train[order])
+    L_P = L.T.dot(K_PT.T)
+
+    mu_pred = K_PT@L.dot(L.T.dot(y_train[order]))
+    # cov_pred = kernel(x_test) - L_P.T@L_P
+    var_pred = kernel.diag(x_test) - np.sum(L_P*L_P, axis=0)
+    # assert np.allclose(np.diag(cov_pred), var_pred), \
+    #     "variance not diagonal of covariance"
+    return mu_pred, var_pred
+
+def estimate_chol_joint(x_train: np.ndarray, y_train: np.ndarray,
+                        x_test: np.ndarray, kernel: Kernel,
+                        chol=inv_chol) -> np.ndarray:
+    """ Estimate y_test with Cholesky factorization of joint covariance. """
+    n, m = x_train.shape[0], x_test.shape[0]
+    L, order = chol(x_train, x_test, kernel)
+    inv_test_order, train_order = inv_order(order[:m]), order[m:] - m
+
+    L11 = L[:m, :m]
+    L21 = L[m:, :m]
+
+    mu_pred = -solve_triangular(L11.T, L21.T.dot(y_train[train_order]),
+                                lower=False)
+    # cov_pred = np.linalg.inv(L11.toarray()).T@np.linalg.inv(L11.toarray())
+    e_i = solve_triangular(L11, np.identity(m), lower=True)
+    var_pred = np.sum(e_i*e_i, axis=0)
+    # assert np.allclose(np.diag(cov_pred), var_pred), \
+    #     "variance not diagonal of covariance"
+    return mu_pred[inv_test_order], var_pred[inv_test_order]
 
