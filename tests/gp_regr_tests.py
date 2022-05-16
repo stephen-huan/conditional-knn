@@ -47,11 +47,11 @@ if __name__ == "__main__":
 
     print("exact")
     start = time.time()
-    mu_pred, var_pred = estimate(X_train, y_train, X_test, kernel)
-    print(f"time: {time.time() - start:.3f}")
-    true_loss = np.log(np.mean(rmse(y_test, mu_pred)))
-    print(f"loss: {true_loss:.3f}")
-    print(f" var: {np.mean(np.log(var_pred)):.3f}")
+    mu_pred, var_pred, det = estimate(X_train, y_train, X_test, kernel)
+    print(f"    time: {time.time() - start:.3f}")
+    true_loss = np.mean(np.log(rmse(y_test, mu_pred)))
+    print(f"    loss: {true_loss:.3f}")
+    print(f"  logdet: {det:.3f}")
     print(f"coverage: {np.mean(coverage(y_test, mu_pred, var_pred)):.3f}")
     print()
 
@@ -59,20 +59,22 @@ if __name__ == "__main__":
 
     print("approximate")
     indexes = cknn.select(X_train, X_test, kernel, S)
-    mu_pred, var_pred = estimate(X_train, y_train, X_test, kernel, indexes)
-    print(f"time: {time.time() - start:.3f}")
-    print(f"loss: {np.log(np.mean(rmse(y_test, mu_pred))):.3f}")
-    print(f" var: {np.mean(np.log(var_pred)):.3f}")
+    mu_pred, var_pred, det = estimate(X_train, y_train, X_test,
+                                      kernel, indexes)
+    print(f"    time: {time.time() - start:.3f}")
+    print(f"    loss: {np.mean(np.log(rmse(y_test, mu_pred))):.3f}")
+    print(f"  logdet: {det:.3f}")
     print(f"coverage: {np.mean(coverage(y_test, mu_pred, var_pred)):.3f}")
     print()
 
     print("knn")
     start = time.time()
     indexes = cknn.knn_select(X_train, X_test, kernel, S)
-    mu_pred, var_pred = estimate(X_train, y_train, X_test, kernel, indexes)
-    print(f"time: {time.time() - start:.3f}")
-    print(f"loss: {np.log(np.mean(rmse(y_test, mu_pred))):.3f}")
-    print(f" var: {np.mean(np.log(var_pred)):.3f}")
+    mu_pred, var_pred, det = estimate(X_train, y_train, X_test,
+                                      kernel, indexes)
+    print(f"    time: {time.time() - start:.3f}")
+    print(f"    loss: {np.mean(np.log(rmse(y_test, mu_pred))):.3f}")
+    print(f"  logdet: {det:.3f}")
     print(f"coverage: {np.mean(coverage(y_test, mu_pred, var_pred)):.3f}")
     print()
 
@@ -95,12 +97,12 @@ if __name__ == "__main__":
     for name, chol in funcs:
         print(f"direct {name}")
         start = time.time()
-        mu_pred, var_pred = gp_regr.estimate_chol(X_train, y_train,
-                                                  X_test, kernel, chol=chol)
-        loss = np.log(np.mean(rmse(y_test, mu_pred)))
-        print(f"time: {time.time() - start:.3f}")
-        print(f"loss: {loss:.3f}")
-        print(f" var: {np.mean(np.log(var_pred)):.3f}")
+        mu_pred, var_pred, det = \
+            gp_regr.estimate_chol(X_train, y_train, X_test, kernel, chol=chol)
+        loss = np.mean(np.log(rmse(y_test, mu_pred)))
+        print(f"    time: {time.time() - start:.3f}")
+        print(f"    loss: {np.mean(np.log(rmse(y_test, mu_pred))):.3f}")
+        print(f"  logdet: {det:.3f}")
         print(f"coverage: {np.mean(coverage(y_test, mu_pred, var_pred)):.3f}")
         print()
 
@@ -126,13 +128,13 @@ if __name__ == "__main__":
     for name, chol in funcs:
         print(f"joint {name}")
         start = time.time()
-        mu_pred, var_pred = \
+        mu_pred, var_pred, det = \
             gp_regr.estimate_chol_joint(X_train, y_train, X_test,
                                         kernel, chol=chol)
-        loss = np.log(np.mean(rmse(y_test, mu_pred)))
-        print(f"time: {time.time() - start:.3f}")
-        print(f"loss: {loss:.3f}")
-        print(f" var: {np.mean(np.log(var_pred)):.3f}")
+        loss = np.mean(np.log(rmse(y_test, mu_pred)))
+        print(f"    time: {time.time() - start:.3f}")
+        print(f"    loss: {loss:.3f}")
+        print(f"  logdet: {det:.3f}")
         print(f"coverage: {np.mean(coverage(y_test, mu_pred, var_pred)):.3f}")
         print()
 

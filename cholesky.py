@@ -16,16 +16,20 @@ def kl_div(X: np.ndarray, Y: np.ndarray) -> float:
     # O(n^3)
     return 1/2*(np.trace(solve(Y, X)) + logdet(Y) - logdet(X) - len(X))
 
+def prec_logdet(L: sparse.csc_matrix) -> float:
+    """ Compute the logdet given a Cholesky factor of the precision. """
+    return -2*np.sum(np.log(L.diagonal()))
+
 def sparse_kl_div(L: sparse.csc_matrix, theta: np.ndarray=None) -> float:
     """
     Computes the KL divergence assuming L is optimal.
 
-    Equivalent to kl_div(theta, inv(L@L.T)) + logdet(theta)
+    Equivalent to kl_div(theta, inv(L@L.T)) if theta is provided.
     """
     # O(n^3) if a matrix theta is provided, otherwise O(n)
     logdet_theta = 0 if theta is None else \
         (cknn.logdet(theta) if isinstance(theta, np.ndarray) else theta)
-    return -np.sum(np.log(L.diagonal())) - 1/2*logdet_theta
+    return 1/2*(prec_logdet(L) - logdet_theta)
 
 def inv_order(order: np.ndarray) -> np.ndarray:
     """ Find the inverse permutation of the given order permutation. """
@@ -33,6 +37,13 @@ def inv_order(order: np.ndarray) -> np.ndarray:
     inv_order = np.arange(n)
     inv_order[order] = np.arange(n)
     return inv_order
+
+def chol(theta: np.ndarray, sigma: float=1e-6) -> np.ndarray:
+    """ Cholesky factor for the covariance. """
+    try:
+        return np.linalg.cholesky(theta)
+    except np.linalg.LinAlgError:
+        return np.linalg.cholesky(theta + sigma*np.identity(theta.shape[0]))
 
 ### sparse Cholesky methods
 
@@ -61,7 +72,7 @@ def __cols(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
     """ Computes multiple columns of the sparse Cholesky factor. """
     # O(s^3)
     # equivalent to inv(chol(inv(kernel(x[s]))))
-    L = np.flip(np.linalg.cholesky(np.flip(kernel(x[s])))).T
+    L = np.flip(chol(np.flip(kernel(x[s])))).T
     return L
 
 def __mult_cholesky(x: np.ndarray, kernel: Kernel,

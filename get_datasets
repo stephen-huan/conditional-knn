@@ -1,12 +1,13 @@
 #!/usr/bin/env fish
 
 set root "datasets"
+
+### sparse matrices from SuiteSparse: https://sparse.tamu.edu/ML_Graph
+
 set sparse_root "$root/suitesparse"
 
 # create folders
 mkdir -p $sparse_root
-
-### sparse matrices from SuiteSparse: https://sparse.tamu.edu/ML_Graph
 
 set urls \
 "http://sparse-files.engr.tamu.edu/MM/ML_Graph/JapaneseVowelsSmall_10NN.tar.gz" \
@@ -24,6 +25,25 @@ for url in $urls
         curl $url --output $fname
         tar -xvf $fname -C "$sparse_root"
         rm $fname
+    end
+end
+
+### datasets from the book "Gaussian Processes for Machine Learning":
+# https://gaussianprocess.org/gpml/data/
+
+set gpml_root "$root/gpml"
+mkdir -p $gpml_root
+
+set urls \
+"https://gaussianprocess.org/gpml/data/sarcos_inv.mat" \
+"https://gaussianprocess.org/gpml/data/sarcos_inv_test.mat"
+
+for url in $urls
+    set fname (string split "/" -- $url)[-1]
+    set path "$gpml_root/$fname"
+    # if not downloaded, download
+    if test ! -e $path
+        curl $url --output "$path"
     end
 end
 

@@ -42,6 +42,9 @@ if __name__ == "__main__":
     assert np.allclose(L.toarray(), L2.toarray()), "single cholesky mismatch"
 
     # KL(theta, (L@L.T)^{-1}) = KL(L@L.T, theta^{-1})
+    kl_div = cholesky.kl_div(theta, np.linalg.inv((L2@L2.T).toarray()))
+    assert np.isclose(kl_div, cholesky.sparse_kl_div(L2, theta_det)), \
+        "kl divergence computation wrong"
     print(f"single kl div: {cholesky.sparse_kl_div(L2, theta_det):.3f}")
     print(f"nonzeros: {L2.nnz}")
 

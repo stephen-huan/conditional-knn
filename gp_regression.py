@@ -3,10 +3,10 @@ import numpy as np
 from numpy.fft import fftn, ifftn
 import scipy.linalg
 import scipy.sparse as sparse
-import  scipy.stats as stats
+import scipy.stats as stats
 from sklearn.gaussian_process.kernels import Kernel
 import cholesky
-from cholesky import inv_order
+from cholesky import inv_order, chol, logdet, prec_logdet
 
 # number of samples to take for empirical covariane
 TRIALS = 1000
@@ -33,7 +33,7 @@ def coverage(y_test: np.ndarray, mu_pred: np.ndarray, var_pred: np.ndarray,
 def inv_chol(x: np.ndarray, kernel: Kernel) -> tuple:
     """ Cholesky factor for the precision, theta^{-1}. """
     n = x.shape[0]
-    U = np.flip(np.linalg.cholesky(kernel(x[::-1])))
+    U = np.flip(chol(kernel(x[::-1])))
     Linv = scipy.linalg.solve_triangular(U, np.identity(n), lower=False).T
     return sparse.csc_matrix(Linv), np.arange(n)
 
@@ -110,7 +110,7 @@ def sample_chol(rng: np.random.Generator, sigma: np.ndarray,
         mu = np.zeros(n)
 
     # store Cholesky factor
-    L = np.linalg.cholesky(sigma)
+    L = chol(sigma)
 
     def sample(samples: int=1) -> np.ndarray:
         """ Return samples number of samples from the distribution. """
@@ -130,7 +130,8 @@ def sample_circulant(rng: np.random.Generator, sigma: np.ndarray,
     if mu is None:
         mu = np.zeros(N)
     c = sigma.reshape((n,)*d)
-    eigs = np.sqrt(fftn(c))
+    # force positive definiteness
+    eigs = np.sqrt(fftn(c)).real
 
     def sample(samples: int=1) -> np.ndarray:
         """ Return samples number of samples from the distribution. """
@@ -144,7 +145,7 @@ def sample_grid(rng: np.random.Generator, kernel: Kernel,
                 n: int, a: float=0, b: float=1, d: int=2,
                 mu: np.ndarray=None) -> Sample:
     """ Sample from the hypercube by marginalization of torus. """
-    spaced, width = np.linspace(a, b, int(n**(1/d)), retstep=True)
+    spaced, width = np.linspace(a, b, round(n**(1/d)), retstep=True)
     n = spaced.shape[0]**d
     # make 3^d grid with original grid in the center
     N, sigma = __torus(kernel, (3**d)*n, 3*a - width, 3*b + width, d)
@@ -175,7 +176,7 @@ def empirical_covariance(sample: Sample, trials: int=TRIALS) -> np.ndarray:
 ### estimation methods
 
 def __estimate(x_train: np.ndarray, y_train: np.ndarray,
-               x_test: np.ndarray, kernel: Kernel) -> np.ndarray:
+               x_test: np.ndarray, kernel: Kernel) -> tuple:
     """ Estimate y_test with direct Gaussian process regression. """
     # O(n^3 + n m^2)
     K_TT = kernel(x_train)
@@ -188,34 +189,35 @@ def __estimate(x_train: np.ndarray, y_train: np.ndarray,
     var_pred = kernel.diag(x_test) - np.sum(K_PT_TT.T*K_TP, axis=0)
     assert np.allclose(np.diag(cov_pred), var_pred), \
         "variance not diagonal of covariance"
-    return mu_pred, var_pred
+    return mu_pred, var_pred, logdet(cov_pred)
 
 def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
-             kernel: Kernel, indexes: list=slice(None)) -> np.ndarray:
+             kernel: Kernel, indexes: list=slice(None)) -> tuple:
     """ Estimate y_test according to the given sparsity pattern. """
     return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)
 
 def estimate_chol(x_train: np.ndarray, y_train: np.ndarray,
                   x_test: np.ndarray, kernel: Kernel,
-                  chol=inv_chol) -> np.ndarray:
+                  chol=inv_chol) -> tuple:
     """ Estimate y_test with Cholesky factorization of training covariance. """
     L, order = chol(x_train, kernel)
     K_PT = kernel(x_test, x_train[order])
     L_P = L.T.dot(K_PT.T)
 
     mu_pred = K_PT@L.dot(L.T.dot(y_train[order]))
-    # cov_pred = kernel(x_test) - L_P.T@L_P
+    cov_pred = kernel(x_test) - L_P.T@L_P
     var_pred = kernel.diag(x_test) - np.sum(L_P*L_P, axis=0)
-    # assert np.allclose(np.diag(cov_pred), var_pred), \
-    #     "variance not diagonal of covariance"
-    return mu_pred, var_pred
+    assert np.allclose(np.diag(cov_pred), var_pred), \
+        "variance not diagonal of covariance"
+    return mu_pred, var_pred, logdet(cov_pred)
 
 def estimate_chol_joint(x_train: np.ndarray, y_train: np.ndarray,
                         x_test: np.ndarray, kernel: Kernel,
-                        chol=inv_chol) -> np.ndarray:
+                        chol=inv_chol) -> tuple:
     """ Estimate y_test with Cholesky factorization of joint covariance. """
     n, m = x_train.shape[0], x_test.shape[0]
     L, order = chol(x_train, x_test, kernel)
+    print(L.nnz)
     inv_test_order, train_order = inv_order(order[:m]), order[m:] - m
 
     L11 = L[:m, :m]
@@ -228,5 +230,5 @@ def estimate_chol_joint(x_train: np.ndarray, y_train: np.ndarray,
     var_pred = np.sum(e_i*e_i, axis=0)
     # assert np.allclose(np.diag(cov_pred), var_pred), \
     #     "variance not diagonal of covariance"
-    return mu_pred[inv_test_order], var_pred[inv_test_order]
+    return mu_pred[inv_test_order], var_pred[inv_test_order], prec_logdet(L11)
 
