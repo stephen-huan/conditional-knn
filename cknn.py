@@ -49,7 +49,7 @@ def __naive_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
 def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                   s: int) -> list:
-    """ Greedily select the s entries minimizing conditional covariance. """
+    """ Greedily select the s entries maximizing mutual information. """
     # O(s*(n*s + s^2)) = O(n s^2)
     n = x_train.shape[0]
     points = np.vstack((x_train, x_test))
@@ -325,6 +325,72 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
 
     return indexes
 
+def __budget_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
+                    kernel: Kernel, s: int) -> np.ndarray:
+    """ Greedily select the s entries minimizing conditional covariance. """
+    # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
+    n, m = train.shape[0], test.shape[0]
+    locations = np.append(train, test)
+    points = x[locations]
+    # allow each selected point to condition all the prediction points
+    budget = m*s
+    max_sel = min(n, budget)
+    # initialization
+    indexes = np.zeros(max_sel, dtype=np.int64)
+    order = np.zeros(indexes.shape[0] + test.shape[0], dtype=np.int64)
+    factors = np.zeros((n + m, max_sel + m))
+    var = kernel.diag(x[train])
+    # pre-condition on the m prediction points
+    for i in range(m):
+        __select_point(order, locations, i, n + i,
+                       points, kernel, factors)
+    i = 0
+    while i < indexes.shape[0] and budget > 0:
+        # pick best entry
+        best, best_k = np.inf, 0
+        for j in range(n):
+            # selected already, don't consider as candidate
+            if var[j] == np.inf:
+                continue
+
+            cond_var_j = var[j]
+            index = __insert_index(order, locations, m + i, j)
+            key = -np.log(cond_var_j) if index == 0 else 0
+
+            for col in range(m + i):
+                k = order[col]
+                cond_var_k = factors[k, col]
+                cond_cov_k = factors[j, col]*cond_var_k
+                cond_var_k *= cond_var_k
+                cond_cov_k *= cond_cov_k
+                # remove spurious contribution from selected training point
+                if k < n:
+                    key -= np.log(cond_var_k - (cond_cov_k/cond_var_j
+                                                if col >= index else 0))
+                cond_var_j -= cond_cov_k/cond_var_k
+                # remove spurious contribution of j
+                if col + 1 == index:
+                    key -= np.log(cond_var_j)
+            # add logdet of entire covariance matrix
+            key += np.log(cond_var_j)
+
+            if key < best:
+                best, best_k = key, j
+
+        # subtract number conditioned from budget
+        budget -= sum(i < train[best_k] for i in test)
+        if budget < 0:
+            break
+        indexes[i] = best_k
+        # mark as selected
+        var[best_k] = np.inf
+        # update Cholesky factor
+        __select_point(order, locations, i + m, best_k,
+                       points, kernel, factors)
+        i += 1
+
+    return indexes[:i]
+
 ### high-level selection methods
 
 def random_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
@@ -375,5 +441,17 @@ def nonadj_select(x: np.ndarray,
         return []
     selected = select_method(x, train, test, kernel, s)
     assert len(set(selected)) == s, "selected indices not distinct"
+    return selected
+
+def chol_select(x: np.ndarray,
+                train: np.ndarray, test: np.ndarray, kernel: Kernel,
+                s: int, select_method=ccknn.chol_select) -> np.ndarray:
+    """ Wrapper over selection specialized to Cholesky factorization. """
+    # early exit
+    s = np.clip(s, 0, train.shape[0])
+    if s == 0:
+        return []
+    selected = select_method(x, train, test, kernel, s)
+    assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
 

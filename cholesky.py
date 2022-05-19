@@ -254,19 +254,43 @@ def cholesky_kl(x: np.ndarray, kernel: Kernel,
     sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
+def find_cutoff(sizes: np.ndarray, nonzeros: int) -> int:
+    """ Find the maximum number of nonzeros per column. """
+    l, r = 0, np.max(sizes)
+    while l < r:
+        m = (l + r + 1)//2
+        if np.sum(np.minimum(sizes, m)) <= nonzeros:
+            l = m
+        else:
+            r = m - 1
+    return l
+
 def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
                          ref_sparsity: dict, candidate_sparsity: dict,
                          ref_groups: list, select) -> sparse.csc_matrix:
     """ Subsample Cholesky within a reference sparsity and groups. """
+    select = cknn.chol_select
     sparsity = {}
-    for group in ref_groups:
+    # pre-compute maximum number of nonzeroes per column
+    group_candidates = [np.array(list(
+        {j for i in group for j in candidate_sparsity[i]} - set(group)
+    ), dtype=np.int64) for group in ref_groups]
+    sizes = [size for group, candidates in zip(ref_groups, group_candidates)
+             for size in [len(candidates)]*len(group)]
+    nonzeros = sum(map(len, ref_sparsity.values()))
+    entries_left = nonzeros - sum(m*(m + 1)//2 for m in map(len, ref_groups))
+    cutoff = find_cutoff(sizes, entries_left)
+    # initialize nonzero trackers
+    expected_total = entries_left - np.sum(np.minimum(sizes, cutoff))
+    actual_total = 0
+    columns_left = len(x)
+    # process groups in order of increasing candidate set size
+    for group, candidates in sorted(zip(ref_groups, group_candidates),
+                                    key=lambda g: len(g[1])):
         m = len(group)
         # select within existing sparsity pattern
-        candidates = np.array(list(
-            {k for j in group for k in candidate_sparsity[j]} - set(group)
-        ), dtype=np.int64)
-        num = max(len(ref_sparsity[group[0]]) - len(group), 0)
-        if select == cknn.nonadj_select:
+        num = max(cutoff + (expected_total - actual_total)//columns_left, 0)
+        if select == cknn.chol_select:
             selected = select(x, candidates, np.array(group), kernel, num)
         else:
             selected = select(x[candidates], x[group], kernel, num)
@@ -276,12 +300,16 @@ def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
         for i in group[1:]:
             # fill in blanks for rest to maintain proper number
             sparsity[i] = np.empty(len(s) - positions[i])
+        # update counters
+        expected_total += m*min(cutoff, len(candidates))
+        actual_total += sum(len(sparsity[i]) for i in group) - m*(m + 1)//2
+        columns_left -= m
 
     return __mult_cholesky(x, kernel, sparsity, ref_groups)
 
 def cholesky_subsample(x: np.ndarray, kernel: Kernel, s: float,
                        rho: float, lambd: float=None,
-                       select=cknn.nonadj_select) -> tuple:
+                       select=cknn.chol_select) -> tuple:
     """ Computes Cholesky with a mix of geometric and selection ideas. """
     # standard geometric algorithm
     order, lengths = ordering.reverse_maximin(x)
@@ -315,7 +343,7 @@ def cholesky_joint(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 def cholesky_joint_subsample(x_train: np.ndarray, x_test: np.ndarray,
                              kernel: Kernel, s: float, rho: float,
                              lambd: float=None,
-                             select=cknn.nonadj_select) -> tuple:
+                             select=cknn.chol_select) -> tuple:
     """ Cholesky of the joint covariance with subsampling. """
     # standard geometric algorithm
     x, order, lengths = __joint_order(x_train, x_test)

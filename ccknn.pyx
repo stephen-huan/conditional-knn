@@ -335,6 +335,98 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
 
     return indexes
 
+cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
+                               long[::1] test, Kernel *kernel, int s):
+    """ Greedily select the s entries minimizing conditional covariance. """
+    # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
+    cdef:
+        int n, m, budget, max_sel, i, j, k, best_k, col, index
+        double best, key, cond_cov_k, cond_var_k, cond_var_j
+        long[::1] indexes, order, locations
+        double[:, ::1] points
+        double[::1, :] factors
+        double[::1] var, keys
+
+    n, m = train.shape[0], test.shape[0]
+    locations = np.append(train, test)
+    points = np.asarray(x)[locations]
+    # allow each selected point to condition all the prediction points
+    budget = m*s
+    max_sel = min(n, budget)
+    # initialization
+    indexes = np.zeros(max_sel, dtype=np.int64)
+    order = np.zeros(indexes.shape[0] + test.shape[0], dtype=np.int64)
+    factors = np.zeros((n + m, max_sel + m + 1), order="F")
+    # var = kernel.diag(x[train])
+    var = np.zeros(n)
+    variance_vector(kernel, points[:n], &var[0])
+    keys = np.ones(max_sel + m + 2)
+    # pre-condition on the m prediction points
+    for i in range(m):
+        __select_point(order, locations, i, n + i, points, kernel, factors)
+
+    i = 0
+    while i < indexes.shape[0] and budget > 0:
+        best, best_k = -INFINITY, 0
+        # pick best entry
+        for j in range(n):
+            # selected already, don't consider as candidate
+            if var[j] == INFINITY:
+                continue
+
+            cond_var_j = var[j]
+            index = __insert_index(order, locations, m + i, j)
+            keys[m + i] = 1
+
+            for col in range(index):
+                k = order[col]
+                cond_var_k = factors[k, col]
+                cond_cov_k = factors[j, col]*cond_var_k
+                cond_var_k *= cond_var_k
+                cond_cov_k *= cond_cov_k
+                # remove spurious contribution from selected training point
+                if k < n:
+                    keys[col] = cond_var_k
+                cond_var_j -= cond_cov_k/cond_var_k
+
+            # remove spurious contribution of j
+            keys[m + i] = cond_var_j
+
+            for col in range(index, m + i):
+                k = order[col]
+                cond_var_k = factors[k, col]
+                cond_cov_k = factors[j, col]*cond_var_k
+                cond_var_k *= cond_var_k
+                cond_cov_k *= cond_cov_k
+                # remove spurious contribution from selected training point
+                if k < n:
+                    keys[col] = cond_var_k - cond_cov_k/cond_var_j
+                cond_var_j -= cond_cov_k/cond_var_k
+
+            # add logdet of entire covariance matrix
+            keys[m + i + 1] = 1/cond_var_j
+
+            key = __log_product(m + i + 2, &keys[0], 1)
+            if key > best:
+                best, best_k = key, j
+
+        # subtract number conditioned from budget
+        index = train[best_k]
+        for j in test:
+            budget -= j < index
+        if budget < 0:
+            break
+        # budget -= 1
+        indexes[i] = best_k
+        # mark as selected
+        var[best_k] = INFINITY
+        # update Cholesky factor
+        __select_point(order, locations, i + m, best_k,
+                       points, kernel, factors)
+        i += 1
+
+    return indexes[:i]
+
 ### wrapper functions
 
 def chol_update(double[::1] cov_k, int i, int k,
@@ -365,6 +457,19 @@ def nonadj_select(double[:, ::1] x, long[::1] train, long[::1] test,
         selected = __chol_select(points[train], points[test], kernel, s)
     else:
         selected = __chol_nonadj_select(x, train, test, kernel, s)
+    kernel_cleanup(kernel)
+    return np.asarray(selected)
+
+def chol_select(double[:, ::1] x, long[::1] train, long[::1] test,
+                kernel_object, int s) -> np.ndarray:
+    """ Wrapper over selection specialized to Cholesky factorization. """
+    cdef Kernel *kernel = get_kernel(kernel_object)
+    # single prediction point, use specialized function
+    if test.shape[0] == 1:
+        points = np.asarray(x)
+        selected = __chol_select(points[train], points[test], kernel, s)
+    else:
+        selected = __budget_select(x, train, test, kernel, s)
     kernel_cleanup(kernel)
     return np.asarray(selected)
 
