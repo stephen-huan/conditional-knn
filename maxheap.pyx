@@ -5,6 +5,7 @@ import numpy as np
 ctypedef unsigned long long HEAP_DATA
 
 cdef HEAP_DATA MASK = 0xffffffff00000000
+cdef int REMOVED = -1
 
 cdef HEAP_DATA __heap_value(double dist, int i):
     """ Embed a distance and an integer as a single int64 value. """
@@ -83,7 +84,7 @@ cdef class Heap:
         self.l = np.zeros(self.size + 1, dtype=np.ulonglong)
         for i in range(self.size):
             self.l[i + 1] = __heap_value(dists[i], ids[i])
-        self.ids = np.zeros(self.size, dtype=np.int32)
+        self.ids = np.zeros(np.max(ids) + 1, dtype=np.int32)
         for i in range(self.size):
             self.ids[ids[i]] = i + 1
         # enforce heap ordering
@@ -120,30 +121,37 @@ cdef class Heap:
         # replace with last leaf
         __swap(self.l, self.ids, 1, self.size)
         self.l[self.size] = 0
+        self.ids[__get_id(value)] = REMOVED
         self.size -= 1
         # restore heap property
         __siftdown(self.l, self.ids, 1)
         return __get_distance(value), __get_id(value)
 
-    def update_key(self, int i, double dist) -> None:
+    def update_key(self, int i, double dist) -> bool:
         """ Update the value of key. """
         cdef int k = self.ids[i]
+        if k == REMOVED:
+            return False
         cdef float value = __get_distance(self.l[k])
         # overwrite value
         self.l[k] = __heap_value(dist, i)
         # restore heap property
-        if self.l[k] < value:
+        if dist < value:
             __siftdown(self.l, self.ids, k)
-        if self.l[k] > value:
+        if dist > value:
             __siftup(self.l, self.ids, k)
+        return True
 
-    def decrease_key(self, int i, double dist) -> None:
+    def decrease_key(self, int i, double dist) -> bool:
         """ Decrease the value of key. """
         cdef int k = self.ids[i]
+        if k == REMOVED:
+            return False
         cdef float value = __get_distance(self.l[k])
         # only overwrite value if less
         if dist < value:
             self.l[k] = __heap_value(dist, i)
             # restore heap property
             __siftdown(self.l, self.ids, k)
+        return True
 
