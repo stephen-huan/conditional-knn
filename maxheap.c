@@ -1257,12 +1257,10 @@ typedef npy_double __pyx_t_5numpy_double_t;
  */
 typedef npy_longdouble __pyx_t_5numpy_longdouble_t;
 
-/* "maxheap.pyx":5
- * import numpy as np
- * 
+/* "maxheap.pxd":1
  * ctypedef unsigned long long HEAP_DATA             # <<<<<<<<<<<<<<
  * 
- * cdef HEAP_DATA MASK = 0xffffffff00000000
+ * cdef double __get_distance(HEAP_DATA value)
  */
 typedef unsigned PY_LONG_LONG __pyx_t_7maxheap_HEAP_DATA;
 /* Declarations.proto */
@@ -1333,8 +1331,8 @@ typedef npy_clongdouble __pyx_t_5numpy_clongdouble_t;
  */
 typedef npy_cdouble __pyx_t_5numpy_complex_t;
 
-/* "maxheap.pyx":73
- *     return np.append(array, np.zeros(len(array), np.asarray(array).dtype))
+/* "maxheap.pxd":6
+ * cdef int __get_id(HEAP_DATA value)
  * 
  * cdef class Heap:             # <<<<<<<<<<<<<<
  * 
@@ -1342,6 +1340,7 @@ typedef npy_cdouble __pyx_t_5numpy_complex_t;
  */
 struct __pyx_obj_7maxheap_Heap {
   PyObject_HEAD
+  struct __pyx_vtabstruct_7maxheap_Heap *__pyx_vtab;
   __Pyx_memviewslice l;
   __Pyx_memviewslice ids;
   int size;
@@ -1424,6 +1423,21 @@ struct __pyx_memoryviewslice_obj {
   int (*to_dtype_func)(char *, PyObject *);
 };
 
+
+
+/* "maxheap.pyx":72
+ * 
+ * 
+ * cdef class Heap:             # <<<<<<<<<<<<<<
+ *     """ Maximum heap which stores ids to support update keys. """
+ * 
+ */
+
+struct __pyx_vtabstruct_7maxheap_Heap {
+  __pyx_t_7maxheap_HEAP_DATA (*__pyx___pop)(struct __pyx_obj_7maxheap_Heap *);
+  int (*__pyx___update_key)(struct __pyx_obj_7maxheap_Heap *, int, double);
+};
+static struct __pyx_vtabstruct_7maxheap_Heap *__pyx_vtabptr_7maxheap_Heap;
 
 
 /* "View.MemoryView":105
@@ -1955,14 +1969,14 @@ static PyObject* __Pyx_PyObject_GenericGetAttr(PyObject* obj, PyObject* attr_nam
 #define __Pyx_PyObject_GenericGetAttr PyObject_GenericGetAttr
 #endif
 
+/* SetVTable.proto */
+static int __Pyx_SetVtable(PyObject *dict, void *vtable);
+
 /* PyObjectGetAttrStrNoError.proto */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStrNoError(PyObject* obj, PyObject* attr_name);
 
 /* SetupReduce.proto */
 static int __Pyx_setup_reduce(PyObject* type_obj);
-
-/* SetVTable.proto */
-static int __Pyx_SetVtable(PyObject *dict, void *vtable);
 
 /* TypeImport.proto */
 #ifndef __PYX_HAVE_RT_ImportType_proto
@@ -2216,9 +2230,14 @@ static CYTHON_INLINE char __Pyx_PyInt_As_char(PyObject *);
 /* CheckBinaryVersion.proto */
 static int __Pyx_check_binary_version(void);
 
+/* FunctionExport.proto */
+static int __Pyx_ExportFunction(const char *name, void (*f)(void), const char *sig);
+
 /* InitStrings.proto */
 static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
+static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap_4Heap___pop(struct __pyx_obj_7maxheap_Heap *__pyx_v_self); /* proto*/
+static int __pyx_f_7maxheap_4Heap___update_key(struct __pyx_obj_7maxheap_Heap *__pyx_v_self, int __pyx_v_i, double __pyx_v_dist); /* proto*/
 static PyObject *__pyx_array_get_memview(struct __pyx_array_obj *__pyx_v_self); /* proto*/
 static char *__pyx_memoryview_get_item_pointer(struct __pyx_memoryview_obj *__pyx_v_self, PyObject *__pyx_v_index); /* proto*/
 static PyObject *__pyx_memoryview_is_slice(struct __pyx_memoryview_obj *__pyx_v_self, PyObject *__pyx_v_obj); /* proto*/
@@ -2283,9 +2302,9 @@ static PyObject *contiguous = 0;
 static PyObject *indirect_contiguous = 0;
 static int __pyx_memoryview_thread_locks_used;
 static PyThread_type_lock __pyx_memoryview_thread_locks[8];
-static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double, int); /*proto*/
 static double __pyx_f_7maxheap___get_distance(__pyx_t_7maxheap_HEAP_DATA); /*proto*/
 static int __pyx_f_7maxheap___get_id(__pyx_t_7maxheap_HEAP_DATA); /*proto*/
+static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double, int); /*proto*/
 static void __pyx_f_7maxheap___swap(__Pyx_memviewslice, __Pyx_memviewslice, int, int); /*proto*/
 static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice, __Pyx_memviewslice, int); /*proto*/
 static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice, __Pyx_memviewslice, int); /*proto*/
@@ -2660,7 +2679,7 @@ static PyObject *__pyx_codeobj__25;
 static PyObject *__pyx_codeobj__32;
 /* Late includes */
 
-/* "maxheap.pyx":10
+/* "maxheap.pyx":8
  * cdef int REMOVED = -1
  * 
  * cdef HEAP_DATA __heap_value(double dist, int i):             # <<<<<<<<<<<<<<
@@ -2674,7 +2693,7 @@ static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double __pyx_v_d
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__heap_value", 0);
 
-  /* "maxheap.pyx":13
+  /* "maxheap.pyx":11
  *     """ Embed a distance and an integer as a single int64 value. """
  *     # distances are positive float values
  *     cdef HEAP_DATA value = (<HEAP_DATA *> &dist)[0]             # <<<<<<<<<<<<<<
@@ -2683,7 +2702,7 @@ static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double __pyx_v_d
  */
   __pyx_v_value = (((__pyx_t_7maxheap_HEAP_DATA *)(&__pyx_v_dist))[0]);
 
-  /* "maxheap.pyx":15
+  /* "maxheap.pyx":13
  *     cdef HEAP_DATA value = (<HEAP_DATA *> &dist)[0]
  *     # zero out lower 32 bits, embed integer id in mantissa
  *     value &= MASK             # <<<<<<<<<<<<<<
@@ -2692,7 +2711,7 @@ static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double __pyx_v_d
  */
   __pyx_v_value = (__pyx_v_value & __pyx_v_7maxheap_MASK);
 
-  /* "maxheap.pyx":16
+  /* "maxheap.pyx":14
  *     # zero out lower 32 bits, embed integer id in mantissa
  *     value &= MASK
  *     value |= i             # <<<<<<<<<<<<<<
@@ -2701,7 +2720,7 @@ static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double __pyx_v_d
  */
   __pyx_v_value = (__pyx_v_value | __pyx_v_i);
 
-  /* "maxheap.pyx":17
+  /* "maxheap.pyx":15
  *     value &= MASK
  *     value |= i
  *     return value             # <<<<<<<<<<<<<<
@@ -2711,7 +2730,7 @@ static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double __pyx_v_d
   __pyx_r = __pyx_v_value;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":10
+  /* "maxheap.pyx":8
  * cdef int REMOVED = -1
  * 
  * cdef HEAP_DATA __heap_value(double dist, int i):             # <<<<<<<<<<<<<<
@@ -2725,7 +2744,7 @@ static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap___heap_value(double __pyx_v_d
   return __pyx_r;
 }
 
-/* "maxheap.pyx":19
+/* "maxheap.pyx":17
  *     return value
  * 
  * cdef double __get_distance(HEAP_DATA value):             # <<<<<<<<<<<<<<
@@ -2739,7 +2758,7 @@ static double __pyx_f_7maxheap___get_distance(__pyx_t_7maxheap_HEAP_DATA __pyx_v
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get_distance", 0);
 
-  /* "maxheap.pyx":21
+  /* "maxheap.pyx":19
  * cdef double __get_distance(HEAP_DATA value):
  *     """ Get the distance part of a value. """
  *     cdef HEAP_DATA data = value & MASK             # <<<<<<<<<<<<<<
@@ -2748,7 +2767,7 @@ static double __pyx_f_7maxheap___get_distance(__pyx_t_7maxheap_HEAP_DATA __pyx_v
  */
   __pyx_v_data = (__pyx_v_value & __pyx_v_7maxheap_MASK);
 
-  /* "maxheap.pyx":22
+  /* "maxheap.pyx":20
  *     """ Get the distance part of a value. """
  *     cdef HEAP_DATA data = value & MASK
  *     return (<double *> &data)[0]             # <<<<<<<<<<<<<<
@@ -2758,7 +2777,7 @@ static double __pyx_f_7maxheap___get_distance(__pyx_t_7maxheap_HEAP_DATA __pyx_v
   __pyx_r = (((double *)(&__pyx_v_data))[0]);
   goto __pyx_L0;
 
-  /* "maxheap.pyx":19
+  /* "maxheap.pyx":17
  *     return value
  * 
  * cdef double __get_distance(HEAP_DATA value):             # <<<<<<<<<<<<<<
@@ -2772,7 +2791,7 @@ static double __pyx_f_7maxheap___get_distance(__pyx_t_7maxheap_HEAP_DATA __pyx_v
   return __pyx_r;
 }
 
-/* "maxheap.pyx":24
+/* "maxheap.pyx":22
  *     return (<double *> &data)[0]
  * 
  * cdef int __get_id(HEAP_DATA value):             # <<<<<<<<<<<<<<
@@ -2785,7 +2804,7 @@ static int __pyx_f_7maxheap___get_id(__pyx_t_7maxheap_HEAP_DATA __pyx_v_value) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get_id", 0);
 
-  /* "maxheap.pyx":26
+  /* "maxheap.pyx":24
  * cdef int __get_id(HEAP_DATA value):
  *     """ Get the id part of a value. """
  *     return value & ~MASK             # <<<<<<<<<<<<<<
@@ -2795,7 +2814,7 @@ static int __pyx_f_7maxheap___get_id(__pyx_t_7maxheap_HEAP_DATA __pyx_v_value) {
   __pyx_r = (__pyx_v_value & (~__pyx_v_7maxheap_MASK));
   goto __pyx_L0;
 
-  /* "maxheap.pyx":24
+  /* "maxheap.pyx":22
  *     return (<double *> &data)[0]
  * 
  * cdef int __get_id(HEAP_DATA value):             # <<<<<<<<<<<<<<
@@ -2809,7 +2828,7 @@ static int __pyx_f_7maxheap___get_id(__pyx_t_7maxheap_HEAP_DATA __pyx_v_value) {
   return __pyx_r;
 }
 
-/* "maxheap.pyx":28
+/* "maxheap.pyx":26
  *     return value & ~MASK
  * 
  * cdef void __swap(HEAP_DATA[::1] l, int[::1] ids, int i, int j):             # <<<<<<<<<<<<<<
@@ -2827,7 +2846,7 @@ static void __pyx_f_7maxheap___swap(__Pyx_memviewslice __pyx_v_l, __Pyx_memviews
   Py_ssize_t __pyx_t_6;
   __Pyx_RefNannySetupContext("__swap", 0);
 
-  /* "maxheap.pyx":30
+  /* "maxheap.pyx":28
  * cdef void __swap(HEAP_DATA[::1] l, int[::1] ids, int i, int j):
  *     """ Swap two values in the heap. """
  *     l[i], l[j] = l[j], l[i]             # <<<<<<<<<<<<<<
@@ -2843,7 +2862,7 @@ static void __pyx_f_7maxheap___swap(__Pyx_memviewslice __pyx_v_l, __Pyx_memviews
   __pyx_t_1 = __pyx_v_j;
   *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_l.data) + __pyx_t_1)) )) = __pyx_t_3;
 
-  /* "maxheap.pyx":32
+  /* "maxheap.pyx":30
  *     l[i], l[j] = l[j], l[i]
  *     # update id : index in array mapping
  *     ids[__get_id(l[i])], ids[__get_id(l[j])] = i, j             # <<<<<<<<<<<<<<
@@ -2859,7 +2878,7 @@ static void __pyx_f_7maxheap___swap(__Pyx_memviewslice __pyx_v_l, __Pyx_memviews
   __pyx_t_6 = __pyx_f_7maxheap___get_id((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_l.data) + __pyx_t_1)) ))));
   *((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_ids.data) + __pyx_t_6)) )) = __pyx_t_5;
 
-  /* "maxheap.pyx":28
+  /* "maxheap.pyx":26
  *     return value & ~MASK
  * 
  * cdef void __swap(HEAP_DATA[::1] l, int[::1] ids, int i, int j):             # <<<<<<<<<<<<<<
@@ -2871,7 +2890,7 @@ static void __pyx_f_7maxheap___swap(__Pyx_memviewslice __pyx_v_l, __Pyx_memviews
   __Pyx_RefNannyFinishContext();
 }
 
-/* "maxheap.pyx":34
+/* "maxheap.pyx":32
  *     ids[__get_id(l[i])], ids[__get_id(l[j])] = i, j
  * 
  * cdef void __siftup(HEAP_DATA[::1] l, int[::1] ids, int i):             # <<<<<<<<<<<<<<
@@ -2887,7 +2906,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
   Py_ssize_t __pyx_t_3;
   __Pyx_RefNannySetupContext("__siftup", 0);
 
-  /* "maxheap.pyx":37
+  /* "maxheap.pyx":35
  *     """ Bubble a value upwards. """
  *     # O(log n)
  *     while (i >> 1) > 0:             # <<<<<<<<<<<<<<
@@ -2898,7 +2917,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
     __pyx_t_1 = (((__pyx_v_i >> 1) > 0) != 0);
     if (!__pyx_t_1) break;
 
-    /* "maxheap.pyx":38
+    /* "maxheap.pyx":36
  *     # O(log n)
  *     while (i >> 1) > 0:
  *         parent = i >> 1             # <<<<<<<<<<<<<<
@@ -2907,7 +2926,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
  */
     __pyx_v_parent = (__pyx_v_i >> 1);
 
-    /* "maxheap.pyx":40
+    /* "maxheap.pyx":38
  *         parent = i >> 1
  *         # heap invariant broken, fix
  *         if l[i] > l[parent]:             # <<<<<<<<<<<<<<
@@ -2919,7 +2938,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
     __pyx_t_1 = (((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_l.data) + __pyx_t_2)) ))) > (*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_l.data) + __pyx_t_3)) )))) != 0);
     if (__pyx_t_1) {
 
-      /* "maxheap.pyx":41
+      /* "maxheap.pyx":39
  *         # heap invariant broken, fix
  *         if l[i] > l[parent]:
  *             __swap(l, ids, i, parent)             # <<<<<<<<<<<<<<
@@ -2928,7 +2947,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
  */
       __pyx_f_7maxheap___swap(__pyx_v_l, __pyx_v_ids, __pyx_v_i, __pyx_v_parent);
 
-      /* "maxheap.pyx":42
+      /* "maxheap.pyx":40
  *         if l[i] > l[parent]:
  *             __swap(l, ids, i, parent)
  *             i = parent             # <<<<<<<<<<<<<<
@@ -2937,7 +2956,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
  */
       __pyx_v_i = __pyx_v_parent;
 
-      /* "maxheap.pyx":40
+      /* "maxheap.pyx":38
  *         parent = i >> 1
  *         # heap invariant broken, fix
  *         if l[i] > l[parent]:             # <<<<<<<<<<<<<<
@@ -2947,7 +2966,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
       goto __pyx_L5;
     }
 
-    /* "maxheap.pyx":45
+    /* "maxheap.pyx":43
  *         # heap invariant mantained
  *         else:
  *             break             # <<<<<<<<<<<<<<
@@ -2961,7 +2980,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
   }
   __pyx_L4_break:;
 
-  /* "maxheap.pyx":34
+  /* "maxheap.pyx":32
  *     ids[__get_id(l[i])], ids[__get_id(l[j])] = i, j
  * 
  * cdef void __siftup(HEAP_DATA[::1] l, int[::1] ids, int i):             # <<<<<<<<<<<<<<
@@ -2973,7 +2992,7 @@ static void __pyx_f_7maxheap___siftup(__Pyx_memviewslice __pyx_v_l, __Pyx_memvie
   __Pyx_RefNannyFinishContext();
 }
 
-/* "maxheap.pyx":47
+/* "maxheap.pyx":45
  *             break
  * 
  * cdef void __siftdown(HEAP_DATA[::1] l, int[::1] ids, int i):             # <<<<<<<<<<<<<<
@@ -2995,7 +3014,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
   Py_ssize_t __pyx_t_6;
   __Pyx_RefNannySetupContext("__siftdown", 0);
 
-  /* "maxheap.pyx":50
+  /* "maxheap.pyx":48
  *     """ Bubble a value downwards. """
  *     # O(log n)
  *     size = l.shape[0] - 1             # <<<<<<<<<<<<<<
@@ -3004,7 +3023,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
  */
   __pyx_v_size = ((__pyx_v_l.shape[0]) - 1);
 
-  /* "maxheap.pyx":51
+  /* "maxheap.pyx":49
  *     # O(log n)
  *     size = l.shape[0] - 1
  *     while (i << 1) <= size:             # <<<<<<<<<<<<<<
@@ -3015,7 +3034,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
     __pyx_t_1 = (((__pyx_v_i << 1) <= __pyx_v_size) != 0);
     if (!__pyx_t_1) break;
 
-    /* "maxheap.pyx":52
+    /* "maxheap.pyx":50
  *     size = l.shape[0] - 1
  *     while (i << 1) <= size:
  *         left, right = i << 1, (i << 1) | 1             # <<<<<<<<<<<<<<
@@ -3027,7 +3046,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
     __pyx_v_left = __pyx_t_2;
     __pyx_v_right = __pyx_t_3;
 
-    /* "maxheap.pyx":54
+    /* "maxheap.pyx":52
  *         left, right = i << 1, (i << 1) | 1
  *         # pick larger child
  *         child = left if right > size or l[left] > l[right] else right             # <<<<<<<<<<<<<<
@@ -3052,7 +3071,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
     }
     __pyx_v_child = __pyx_t_3;
 
-    /* "maxheap.pyx":56
+    /* "maxheap.pyx":54
  *         child = left if right > size or l[left] > l[right] else right
  *         # heap invariant broken, fix
  *         if l[child] > l[i]:             # <<<<<<<<<<<<<<
@@ -3064,7 +3083,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
     __pyx_t_1 = (((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_l.data) + __pyx_t_6)) ))) > (*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_l.data) + __pyx_t_5)) )))) != 0);
     if (__pyx_t_1) {
 
-      /* "maxheap.pyx":57
+      /* "maxheap.pyx":55
  *         # heap invariant broken, fix
  *         if l[child] > l[i]:
  *             __swap(l, ids, i, child)             # <<<<<<<<<<<<<<
@@ -3073,7 +3092,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
  */
       __pyx_f_7maxheap___swap(__pyx_v_l, __pyx_v_ids, __pyx_v_i, __pyx_v_child);
 
-      /* "maxheap.pyx":58
+      /* "maxheap.pyx":56
  *         if l[child] > l[i]:
  *             __swap(l, ids, i, child)
  *             i = child             # <<<<<<<<<<<<<<
@@ -3082,7 +3101,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
  */
       __pyx_v_i = __pyx_v_child;
 
-      /* "maxheap.pyx":56
+      /* "maxheap.pyx":54
  *         child = left if right > size or l[left] > l[right] else right
  *         # heap invariant broken, fix
  *         if l[child] > l[i]:             # <<<<<<<<<<<<<<
@@ -3092,7 +3111,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
       goto __pyx_L7;
     }
 
-    /* "maxheap.pyx":61
+    /* "maxheap.pyx":59
  *         # heap invariant mantained
  *         else:
  *             break             # <<<<<<<<<<<<<<
@@ -3106,7 +3125,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
   }
   __pyx_L4_break:;
 
-  /* "maxheap.pyx":47
+  /* "maxheap.pyx":45
  *             break
  * 
  * cdef void __siftdown(HEAP_DATA[::1] l, int[::1] ids, int i):             # <<<<<<<<<<<<<<
@@ -3118,7 +3137,7 @@ static void __pyx_f_7maxheap___siftdown(__Pyx_memviewslice __pyx_v_l, __Pyx_memv
   __Pyx_RefNannyFinishContext();
 }
 
-/* "maxheap.pyx":63
+/* "maxheap.pyx":61
  *             break
  * 
  * cdef void __heapify(HEAP_DATA[::1] l, int[::1] ids):             # <<<<<<<<<<<<<<
@@ -3132,7 +3151,7 @@ static void __pyx_f_7maxheap___heapify(__Pyx_memviewslice __pyx_v_l, __Pyx_memvi
   Py_ssize_t __pyx_t_1;
   __Pyx_RefNannySetupContext("__heapify", 0);
 
-  /* "maxheap.pyx":66
+  /* "maxheap.pyx":64
  *     """ Ensure heap property of data. """
  *     # O(n)
  *     for i in range((l.shape[0] - 1) >> 1, 0, -1):             # <<<<<<<<<<<<<<
@@ -3142,7 +3161,7 @@ static void __pyx_f_7maxheap___heapify(__Pyx_memviewslice __pyx_v_l, __Pyx_memvi
   for (__pyx_t_1 = (((__pyx_v_l.shape[0]) - 1) >> 1); __pyx_t_1 > 0; __pyx_t_1-=1) {
     __pyx_v_i = __pyx_t_1;
 
-    /* "maxheap.pyx":67
+    /* "maxheap.pyx":65
  *     # O(n)
  *     for i in range((l.shape[0] - 1) >> 1, 0, -1):
  *         __siftdown(l, ids, i)             # <<<<<<<<<<<<<<
@@ -3152,7 +3171,7 @@ static void __pyx_f_7maxheap___heapify(__Pyx_memviewslice __pyx_v_l, __Pyx_memvi
     __pyx_f_7maxheap___siftdown(__pyx_v_l, __pyx_v_ids, __pyx_v_i);
   }
 
-  /* "maxheap.pyx":63
+  /* "maxheap.pyx":61
  *             break
  * 
  * cdef void __heapify(HEAP_DATA[::1] l, int[::1] ids):             # <<<<<<<<<<<<<<
@@ -3164,7 +3183,7 @@ static void __pyx_f_7maxheap___heapify(__Pyx_memviewslice __pyx_v_l, __Pyx_memvi
   __Pyx_RefNannyFinishContext();
 }
 
-/* "maxheap.pyx":69
+/* "maxheap.pyx":67
  *         __siftdown(l, ids, i)
  * 
  * def resize(array):             # <<<<<<<<<<<<<<
@@ -3205,30 +3224,30 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("resize", 0);
 
-  /* "maxheap.pyx":71
+  /* "maxheap.pyx":69
  * def resize(array):
  *     """ Double the size of the array. """
  *     return np.append(array, np.zeros(len(array), np.asarray(array).dtype))             # <<<<<<<<<<<<<<
  * 
- * cdef class Heap:
+ * 
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_append); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_append); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_zeros); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_zeros); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_6 = PyObject_Length(__pyx_v_array); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 71, __pyx_L1_error)
-  __pyx_t_4 = PyInt_FromSsize_t(__pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_6 = PyObject_Length(__pyx_v_array); if (unlikely(__pyx_t_6 == ((Py_ssize_t)-1))) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_4 = PyInt_FromSsize_t(__pyx_t_6); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_8, __pyx_n_s_np); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_asarray); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_8, __pyx_n_s_asarray); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __pyx_t_8 = NULL;
@@ -3243,10 +3262,10 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   }
   __pyx_t_7 = (__pyx_t_8) ? __Pyx_PyObject_Call2Args(__pyx_t_9, __pyx_t_8, __pyx_v_array) : __Pyx_PyObject_CallOneArg(__pyx_t_9, __pyx_v_array);
   __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
-  if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 71, __pyx_L1_error)
+  if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_dtype); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 71, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_t_7, __pyx_n_s_dtype); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 69, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __pyx_t_7 = NULL;
@@ -3264,7 +3283,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_5)) {
     PyObject *__pyx_temp[3] = {__pyx_t_7, __pyx_t_4, __pyx_t_9};
-    __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -3274,7 +3293,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_5)) {
     PyObject *__pyx_temp[3] = {__pyx_t_7, __pyx_t_4, __pyx_t_9};
-    __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyCFunction_FastCall(__pyx_t_5, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -3282,7 +3301,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   } else
   #endif
   {
-    __pyx_t_8 = PyTuple_New(2+__pyx_t_10); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_8 = PyTuple_New(2+__pyx_t_10); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     if (__pyx_t_7) {
       __Pyx_GIVEREF(__pyx_t_7); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_7); __pyx_t_7 = NULL;
@@ -3293,7 +3312,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
     PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_10, __pyx_t_9);
     __pyx_t_4 = 0;
     __pyx_t_9 = 0;
-    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_Call(__pyx_t_5, __pyx_t_8, NULL); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   }
@@ -3313,7 +3332,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_3)) {
     PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_v_array, __pyx_t_2};
-    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -3322,14 +3341,14 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_3)) {
     PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_v_array, __pyx_t_2};
-    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_3, __pyx_temp+1-__pyx_t_10, 2+__pyx_t_10); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   } else
   #endif
   {
-    __pyx_t_8 = PyTuple_New(2+__pyx_t_10); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_8 = PyTuple_New(2+__pyx_t_10); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_5); __pyx_t_5 = NULL;
@@ -3340,7 +3359,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
     __Pyx_GIVEREF(__pyx_t_2);
     PyTuple_SET_ITEM(__pyx_t_8, 1+__pyx_t_10, __pyx_t_2);
     __pyx_t_2 = 0;
-    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_8, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 71, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_3, __pyx_t_8, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   }
@@ -3349,7 +3368,7 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":69
+  /* "maxheap.pyx":67
  *         __siftdown(l, ids, i)
  * 
  * def resize(array):             # <<<<<<<<<<<<<<
@@ -3375,8 +3394,8 @@ static PyObject *__pyx_pf_7maxheap_resize(CYTHON_UNUSED PyObject *__pyx_self, Py
   return __pyx_r;
 }
 
-/* "maxheap.pyx":79
- *     cdef int size
+/* "maxheap.pyx":75
+ *     """ Maximum heap which stores ids to support update keys. """
  * 
  *     def __init__(self, double[::1] dists, long[::1] ids):             # <<<<<<<<<<<<<<
  *         """ Construct a new heap from the given data. """
@@ -3421,11 +3440,11 @@ static int __pyx_pw_7maxheap_4Heap_1__init__(PyObject *__pyx_v_self, PyObject *_
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_ids)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(0, 79, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, 1); __PYX_ERR(0, 75, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(0, 79, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "__init__") < 0)) __PYX_ERR(0, 75, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -3433,12 +3452,12 @@ static int __pyx_pw_7maxheap_4Heap_1__init__(PyObject *__pyx_v_self, PyObject *_
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_dists = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_dists.memview)) __PYX_ERR(0, 79, __pyx_L3_error)
-    __pyx_v_ids = __Pyx_PyObject_to_MemoryviewSlice_dc_long(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_ids.memview)) __PYX_ERR(0, 79, __pyx_L3_error)
+    __pyx_v_dists = __Pyx_PyObject_to_MemoryviewSlice_dc_double(values[0], PyBUF_WRITABLE); if (unlikely(!__pyx_v_dists.memview)) __PYX_ERR(0, 75, __pyx_L3_error)
+    __pyx_v_ids = __Pyx_PyObject_to_MemoryviewSlice_dc_long(values[1], PyBUF_WRITABLE); if (unlikely(!__pyx_v_ids.memview)) __PYX_ERR(0, 75, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 79, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__init__", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 75, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("maxheap.Heap.__init__", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -3473,7 +3492,7 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__init__", 0);
 
-  /* "maxheap.pyx":82
+  /* "maxheap.pyx":78
  *         """ Construct a new heap from the given data. """
  *         cdef int i
  *         self.size = dists.shape[0]             # <<<<<<<<<<<<<<
@@ -3482,47 +3501,47 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
  */
   __pyx_v_self->size = (__pyx_v_dists.shape[0]);
 
-  /* "maxheap.pyx":84
+  /* "maxheap.pyx":80
  *         self.size = dists.shape[0]
  *         # dummy value at the front
  *         self.l = np.zeros(self.size + 1, dtype=np.ulonglong)             # <<<<<<<<<<<<<<
  *         for i in range(self.size):
  *             self.l[i + 1] = __heap_value(dists[i], ids[i])
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_1, __pyx_n_s_np); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_zeros); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_zeros); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyInt_From_long((__pyx_v_self->size + 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_long((__pyx_v_self->size + 1)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(1); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_1);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_1);
   __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_np); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_ulonglong); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_ulonglong); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 84, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_1, __pyx_n_s_dtype, __pyx_t_5) < 0) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_3, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_3, __pyx_t_1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn___pyx_t_7maxheap_HEAP_DATA(__pyx_t_5, PyBUF_WRITABLE); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 84, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn___pyx_t_7maxheap_HEAP_DATA(__pyx_t_5, PyBUF_WRITABLE); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 80, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __PYX_XDEC_MEMVIEW(&__pyx_v_self->l, 0);
   __pyx_v_self->l = __pyx_t_6;
   __pyx_t_6.memview = NULL;
   __pyx_t_6.data = NULL;
 
-  /* "maxheap.pyx":85
+  /* "maxheap.pyx":81
  *         # dummy value at the front
  *         self.l = np.zeros(self.size + 1, dtype=np.ulonglong)
  *         for i in range(self.size):             # <<<<<<<<<<<<<<
@@ -3534,7 +3553,7 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_i = __pyx_t_9;
 
-    /* "maxheap.pyx":86
+    /* "maxheap.pyx":82
  *         self.l = np.zeros(self.size + 1, dtype=np.ulonglong)
  *         for i in range(self.size):
  *             self.l[i + 1] = __heap_value(dists[i], ids[i])             # <<<<<<<<<<<<<<
@@ -3547,24 +3566,24 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
     *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_12)) )) = __pyx_f_7maxheap___heap_value((*((double *) ( /* dim=0 */ ((char *) (((double *) __pyx_v_dists.data) + __pyx_t_10)) ))), (*((long *) ( /* dim=0 */ ((char *) (((long *) __pyx_v_ids.data) + __pyx_t_11)) ))));
   }
 
-  /* "maxheap.pyx":87
+  /* "maxheap.pyx":83
  *         for i in range(self.size):
  *             self.l[i + 1] = __heap_value(dists[i], ids[i])
  *         self.ids = np.zeros(np.max(ids) + 1, dtype=np.int32)             # <<<<<<<<<<<<<<
  *         for i in range(self.size):
  *             self.ids[ids[i]] = i + 1
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_n_s_np); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_zeros); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_zeros); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_max); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_max); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_v_ids, 1, (PyObject *(*)(char *)) __pyx_memview_get_long, (int (*)(char *, PyObject *)) __pyx_memview_set_long, 0);; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_v_ids, 1, (PyObject *(*)(char *)) __pyx_memview_get_long, (int (*)(char *, PyObject *)) __pyx_memview_set_long, 0);; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_4 = NULL;
   if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_2))) {
@@ -3579,39 +3598,39 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
   __pyx_t_5 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_2, __pyx_t_4, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyInt_AddObjC(__pyx_t_5, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_AddObjC(__pyx_t_5, __pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_5 = PyTuple_New(1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_5, 0, __pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_int32); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_int32); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_4) < 0) __PYX_ERR(0, 87, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_4) < 0) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_5, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_Call(__pyx_t_1, __pyx_t_5, __pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_13 = __Pyx_PyObject_to_MemoryviewSlice_dc_int(__pyx_t_4, PyBUF_WRITABLE); if (unlikely(!__pyx_t_13.memview)) __PYX_ERR(0, 87, __pyx_L1_error)
+  __pyx_t_13 = __Pyx_PyObject_to_MemoryviewSlice_dc_int(__pyx_t_4, PyBUF_WRITABLE); if (unlikely(!__pyx_t_13.memview)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __PYX_XDEC_MEMVIEW(&__pyx_v_self->ids, 0);
   __pyx_v_self->ids = __pyx_t_13;
   __pyx_t_13.memview = NULL;
   __pyx_t_13.data = NULL;
 
-  /* "maxheap.pyx":88
+  /* "maxheap.pyx":84
  *             self.l[i + 1] = __heap_value(dists[i], ids[i])
  *         self.ids = np.zeros(np.max(ids) + 1, dtype=np.int32)
  *         for i in range(self.size):             # <<<<<<<<<<<<<<
@@ -3623,7 +3642,7 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_i = __pyx_t_9;
 
-    /* "maxheap.pyx":89
+    /* "maxheap.pyx":85
  *         self.ids = np.zeros(np.max(ids) + 1, dtype=np.int32)
  *         for i in range(self.size):
  *             self.ids[ids[i]] = i + 1             # <<<<<<<<<<<<<<
@@ -3635,7 +3654,7 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
     *((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_10)) )) = (__pyx_v_i + 1);
   }
 
-  /* "maxheap.pyx":91
+  /* "maxheap.pyx":87
  *             self.ids[ids[i]] = i + 1
  *         # enforce heap ordering
  *         __heapify(self.l, self.ids)             # <<<<<<<<<<<<<<
@@ -3644,8 +3663,8 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
  */
   __pyx_f_7maxheap___heapify(__pyx_v_self->l, __pyx_v_self->ids);
 
-  /* "maxheap.pyx":79
- *     cdef int size
+  /* "maxheap.pyx":75
+ *     """ Maximum heap which stores ids to support update keys. """
  * 
  *     def __init__(self, double[::1] dists, long[::1] ids):             # <<<<<<<<<<<<<<
  *         """ Construct a new heap from the given data. """
@@ -3672,7 +3691,7 @@ static int __pyx_pf_7maxheap_4Heap___init__(struct __pyx_obj_7maxheap_Heap *__py
   return __pyx_r;
 }
 
-/* "maxheap.pyx":93
+/* "maxheap.pyx":89
  *         __heapify(self.l, self.ids)
  * 
  *     def __len__(self) -> int:             # <<<<<<<<<<<<<<
@@ -3698,7 +3717,7 @@ static Py_ssize_t __pyx_pf_7maxheap_4Heap_2__len__(struct __pyx_obj_7maxheap_Hea
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__len__", 0);
 
-  /* "maxheap.pyx":94
+  /* "maxheap.pyx":90
  * 
  *     def __len__(self) -> int:
  *         return self.size             # <<<<<<<<<<<<<<
@@ -3708,7 +3727,7 @@ static Py_ssize_t __pyx_pf_7maxheap_4Heap_2__len__(struct __pyx_obj_7maxheap_Hea
   __pyx_r = __pyx_v_self->size;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":93
+  /* "maxheap.pyx":89
  *         __heapify(self.l, self.ids)
  * 
  *     def __len__(self) -> int:             # <<<<<<<<<<<<<<
@@ -3722,7 +3741,7 @@ static Py_ssize_t __pyx_pf_7maxheap_4Heap_2__len__(struct __pyx_obj_7maxheap_Hea
   return __pyx_r;
 }
 
-/* "maxheap.pyx":96
+/* "maxheap.pyx":92
  *         return self.size
  * 
  *     def __str__(self) -> str:             # <<<<<<<<<<<<<<
@@ -3762,7 +3781,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_4__str__(struct __pyx_obj_7maxheap_Heap
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__str__", 0);
 
-  /* "maxheap.pyx":97
+  /* "maxheap.pyx":93
  * 
  *     def __str__(self) -> str:
  *         return str([(__get_distance(x), __get_id(x))             # <<<<<<<<<<<<<<
@@ -3771,19 +3790,19 @@ static PyObject *__pyx_pf_7maxheap_4Heap_4__str__(struct __pyx_obj_7maxheap_Heap
  */
   __Pyx_XDECREF(__pyx_r);
   { /* enter inner scope */
-    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L5_error)
+    __pyx_t_1 = PyList_New(0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 93, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "maxheap.pyx":98
+    /* "maxheap.pyx":94
  *     def __str__(self) -> str:
  *         return str([(__get_distance(x), __get_id(x))
  *                     for x in np.asarray(self.l[1: 1 + self.size])])             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self) -> str:
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L5_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_asarray); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 98, __pyx_L5_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_asarray); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_t_5.data = __pyx_v_self->l.data;
@@ -3804,10 +3823,10 @@ static PyObject *__pyx_pf_7maxheap_4Heap_4__str__(struct __pyx_obj_7maxheap_Heap
     0,
     1) < 0))
 {
-    __PYX_ERR(0, 98, __pyx_L5_error)
+    __PYX_ERR(0, 94, __pyx_L5_error)
 }
 
-__pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __pyx_memview_get_nn___pyx_t_7maxheap_HEAP_DATA, (int (*)(char *, PyObject *)) __pyx_memview_set_nn___pyx_t_7maxheap_HEAP_DATA, 0);; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 98, __pyx_L5_error)
+__pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __pyx_memview_get_nn___pyx_t_7maxheap_HEAP_DATA, (int (*)(char *, PyObject *)) __pyx_memview_set_nn___pyx_t_7maxheap_HEAP_DATA, 0);; if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 94, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_3);
     __PYX_XDEC_MEMVIEW(&__pyx_t_5, 1);
     __pyx_t_5.memview = NULL;
@@ -3825,16 +3844,16 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
     __pyx_t_2 = (__pyx_t_7) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_7, __pyx_t_3) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_3);
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L5_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L5_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     if (likely(PyList_CheckExact(__pyx_t_2)) || PyTuple_CheckExact(__pyx_t_2)) {
       __pyx_t_4 = __pyx_t_2; __Pyx_INCREF(__pyx_t_4); __pyx_t_8 = 0;
       __pyx_t_9 = NULL;
     } else {
-      __pyx_t_8 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 98, __pyx_L5_error)
+      __pyx_t_8 = -1; __pyx_t_4 = PyObject_GetIter(__pyx_t_2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 94, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_9 = Py_TYPE(__pyx_t_4)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 98, __pyx_L5_error)
+      __pyx_t_9 = Py_TYPE(__pyx_t_4)->tp_iternext; if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 94, __pyx_L5_error)
     }
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     for (;;) {
@@ -3842,17 +3861,17 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
         if (likely(PyList_CheckExact(__pyx_t_4))) {
           if (__pyx_t_8 >= PyList_GET_SIZE(__pyx_t_4)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 98, __pyx_L5_error)
+          __pyx_t_2 = PyList_GET_ITEM(__pyx_t_4, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 94, __pyx_L5_error)
           #else
-          __pyx_t_2 = PySequence_ITEM(__pyx_t_4, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L5_error)
+          __pyx_t_2 = PySequence_ITEM(__pyx_t_4, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         } else {
           if (__pyx_t_8 >= PyTuple_GET_SIZE(__pyx_t_4)) break;
           #if CYTHON_ASSUME_SAFE_MACROS && !CYTHON_AVOID_BORROWED_REFS
-          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 98, __pyx_L5_error)
+          __pyx_t_2 = PyTuple_GET_ITEM(__pyx_t_4, __pyx_t_8); __Pyx_INCREF(__pyx_t_2); __pyx_t_8++; if (unlikely(0 < 0)) __PYX_ERR(0, 94, __pyx_L5_error)
           #else
-          __pyx_t_2 = PySequence_ITEM(__pyx_t_4, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 98, __pyx_L5_error)
+          __pyx_t_2 = PySequence_ITEM(__pyx_t_4, __pyx_t_8); __pyx_t_8++; if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 94, __pyx_L5_error)
           __Pyx_GOTREF(__pyx_t_2);
           #endif
         }
@@ -3862,7 +3881,7 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else __PYX_ERR(0, 98, __pyx_L5_error)
+            else __PYX_ERR(0, 94, __pyx_L5_error)
           }
           break;
         }
@@ -3871,20 +3890,20 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
       __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_x, __pyx_t_2);
       __pyx_t_2 = 0;
 
-      /* "maxheap.pyx":97
+      /* "maxheap.pyx":93
  * 
  *     def __str__(self) -> str:
  *         return str([(__get_distance(x), __get_id(x))             # <<<<<<<<<<<<<<
  *                     for x in np.asarray(self.l[1: 1 + self.size])])
  * 
  */
-      __pyx_t_10 = __Pyx_PyInt_As_unsigned_PY_LONG_LONG(__pyx_7genexpr__pyx_v_x); if (unlikely((__pyx_t_10 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 97, __pyx_L5_error)
-      __pyx_t_2 = PyFloat_FromDouble(__pyx_f_7maxheap___get_distance(__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L5_error)
+      __pyx_t_10 = __Pyx_PyInt_As_unsigned_PY_LONG_LONG(__pyx_7genexpr__pyx_v_x); if (unlikely((__pyx_t_10 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 93, __pyx_L5_error)
+      __pyx_t_2 = PyFloat_FromDouble(__pyx_f_7maxheap___get_distance(__pyx_t_10)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 93, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_10 = __Pyx_PyInt_As_unsigned_PY_LONG_LONG(__pyx_7genexpr__pyx_v_x); if (unlikely((__pyx_t_10 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 97, __pyx_L5_error)
-      __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_f_7maxheap___get_id(__pyx_t_10)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 97, __pyx_L5_error)
+      __pyx_t_10 = __Pyx_PyInt_As_unsigned_PY_LONG_LONG(__pyx_7genexpr__pyx_v_x); if (unlikely((__pyx_t_10 == (unsigned PY_LONG_LONG)-1) && PyErr_Occurred())) __PYX_ERR(0, 93, __pyx_L5_error)
+      __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_f_7maxheap___get_id(__pyx_t_10)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 93, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_3);
-      __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 97, __pyx_L5_error)
+      __pyx_t_7 = PyTuple_New(2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 93, __pyx_L5_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_GIVEREF(__pyx_t_2);
       PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_2);
@@ -3892,10 +3911,10 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
       PyTuple_SET_ITEM(__pyx_t_7, 1, __pyx_t_3);
       __pyx_t_2 = 0;
       __pyx_t_3 = 0;
-      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 97, __pyx_L5_error)
+      if (unlikely(__Pyx_ListComp_Append(__pyx_t_1, (PyObject*)__pyx_t_7))) __PYX_ERR(0, 93, __pyx_L5_error)
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-      /* "maxheap.pyx":98
+      /* "maxheap.pyx":94
  *     def __str__(self) -> str:
  *         return str([(__get_distance(x), __get_id(x))
  *                     for x in np.asarray(self.l[1: 1 + self.size])])             # <<<<<<<<<<<<<<
@@ -3912,21 +3931,21 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
     __pyx_L8_exit_scope:;
   } /* exit inner scope */
 
-  /* "maxheap.pyx":97
+  /* "maxheap.pyx":93
  * 
  *     def __str__(self) -> str:
  *         return str([(__get_distance(x), __get_id(x))             # <<<<<<<<<<<<<<
  *                     for x in np.asarray(self.l[1: 1 + self.size])])
  * 
  */
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 93, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":96
+  /* "maxheap.pyx":92
  *         return self.size
  * 
  *     def __str__(self) -> str:             # <<<<<<<<<<<<<<
@@ -3951,7 +3970,7 @@ __pyx_t_3 = __pyx_memoryview_fromslice(__pyx_t_5, 1, (PyObject *(*)(char *)) __p
   return __pyx_r;
 }
 
-/* "maxheap.pyx":100
+/* "maxheap.pyx":96
  *                     for x in np.asarray(self.l[1: 1 + self.size])])
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -3984,7 +4003,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_6__repr__(struct __pyx_obj_7maxheap_Hea
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "maxheap.pyx":101
+  /* "maxheap.pyx":97
  * 
  *     def __repr__(self) -> str:
  *         return f"Heap({str(self)})"             # <<<<<<<<<<<<<<
@@ -3992,7 +4011,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_6__repr__(struct __pyx_obj_7maxheap_Hea
  *     def __getitem__(self, int i):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_New(3); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_t_2 = 0;
   __pyx_t_3 = 127;
@@ -4000,7 +4019,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_6__repr__(struct __pyx_obj_7maxheap_Hea
   __pyx_t_2 += 5;
   __Pyx_GIVEREF(__pyx_kp_u_Heap);
   PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_kp_u_Heap);
-  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_t_3 = (__Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) > __pyx_t_3) ? __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_4) : __pyx_t_3;
   __pyx_t_2 += __Pyx_PyUnicode_GET_LENGTH(__pyx_t_4);
@@ -4011,14 +4030,14 @@ static PyObject *__pyx_pf_7maxheap_4Heap_6__repr__(struct __pyx_obj_7maxheap_Hea
   __pyx_t_2 += 1;
   __Pyx_GIVEREF(__pyx_kp_u_);
   PyTuple_SET_ITEM(__pyx_t_1, 2, __pyx_kp_u_);
-  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_1, 3, __pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_r = __pyx_t_4;
   __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":100
+  /* "maxheap.pyx":96
  *                     for x in np.asarray(self.l[1: 1 + self.size])])
  * 
  *     def __repr__(self) -> str:             # <<<<<<<<<<<<<<
@@ -4038,7 +4057,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_6__repr__(struct __pyx_obj_7maxheap_Hea
   return __pyx_r;
 }
 
-/* "maxheap.pyx":103
+/* "maxheap.pyx":99
  *         return f"Heap({str(self)})"
  * 
  *     def __getitem__(self, int i):             # <<<<<<<<<<<<<<
@@ -4057,7 +4076,7 @@ static PyObject *__pyx_pw_7maxheap_4Heap_9__getitem__(PyObject *__pyx_v_self, Py
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__getitem__ (wrapper)", 0);
   assert(__pyx_arg_i); {
-    __pyx_v_i = __Pyx_PyInt_As_int(__pyx_arg_i); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 103, __pyx_L3_error)
+    __pyx_v_i = __Pyx_PyInt_As_int(__pyx_arg_i); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 99, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4082,7 +4101,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_8__getitem__(struct __pyx_obj_7maxheap_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__getitem__", 0);
 
-  /* "maxheap.pyx":104
+  /* "maxheap.pyx":100
  * 
  *     def __getitem__(self, int i):
  *         return self.l[i + 1]             # <<<<<<<<<<<<<<
@@ -4091,13 +4110,13 @@ static PyObject *__pyx_pf_7maxheap_4Heap_8__getitem__(struct __pyx_obj_7maxheap_
  */
   __Pyx_XDECREF(__pyx_r);
   __pyx_t_1 = (__pyx_v_i + 1);
-  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyInt_From_unsigned_PY_LONG_LONG((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )))); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_r = __pyx_t_2;
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":103
+  /* "maxheap.pyx":99
  *         return f"Heap({str(self)})"
  * 
  *     def __getitem__(self, int i):             # <<<<<<<<<<<<<<
@@ -4116,7 +4135,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_8__getitem__(struct __pyx_obj_7maxheap_
   return __pyx_r;
 }
 
-/* "maxheap.pyx":106
+/* "maxheap.pyx":102
  *         return self.l[i + 1]
  * 
  *     def push(self, double dist, int i) -> None:             # <<<<<<<<<<<<<<
@@ -4159,11 +4178,11 @@ static PyObject *__pyx_pw_7maxheap_4Heap_11push(PyObject *__pyx_v_self, PyObject
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_i)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("push", 1, 2, 2, 1); __PYX_ERR(0, 106, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("push", 1, 2, 2, 1); __PYX_ERR(0, 102, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "push") < 0)) __PYX_ERR(0, 106, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "push") < 0)) __PYX_ERR(0, 102, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -4171,12 +4190,12 @@ static PyObject *__pyx_pw_7maxheap_4Heap_11push(PyObject *__pyx_v_self, PyObject
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_dist = __pyx_PyFloat_AsDouble(values[0]); if (unlikely((__pyx_v_dist == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 106, __pyx_L3_error)
-    __pyx_v_i = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 106, __pyx_L3_error)
+    __pyx_v_dist = __pyx_PyFloat_AsDouble(values[0]); if (unlikely((__pyx_v_dist == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 102, __pyx_L3_error)
+    __pyx_v_i = __Pyx_PyInt_As_int(values[1]); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 102, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("push", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 106, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("push", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 102, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("maxheap.Heap.push", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -4206,7 +4225,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("push", 0);
 
-  /* "maxheap.pyx":108
+  /* "maxheap.pyx":104
  *     def push(self, double dist, int i) -> None:
  *         """ Add a value to the heap. """
  *         self.size += 1             # <<<<<<<<<<<<<<
@@ -4215,7 +4234,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
  */
   __pyx_v_self->size = (__pyx_v_self->size + 1);
 
-  /* "maxheap.pyx":110
+  /* "maxheap.pyx":106
  *         self.size += 1
  *         # hit capacity, resize
  *         if self.size == self.l.shape[0]:             # <<<<<<<<<<<<<<
@@ -4225,16 +4244,16 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
   __pyx_t_1 = ((__pyx_v_self->size == (__pyx_v_self->l.shape[0])) != 0);
   if (__pyx_t_1) {
 
-    /* "maxheap.pyx":111
+    /* "maxheap.pyx":107
  *         # hit capacity, resize
  *         if self.size == self.l.shape[0]:
  *             self.l, self.ids = resize(self.l), resize(self.ids)             # <<<<<<<<<<<<<<
  *         # add data at the end
  *         self.l[self.size] = __heap_value(dist, i)
  */
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_resize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_resize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __pyx_memoryview_fromslice(__pyx_v_self->l, 1, (PyObject *(*)(char *)) __pyx_memview_get_nn___pyx_t_7maxheap_HEAP_DATA, (int (*)(char *, PyObject *)) __pyx_memview_set_nn___pyx_t_7maxheap_HEAP_DATA, 0);; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_4 = __pyx_memoryview_fromslice(__pyx_v_self->l, 1, (PyObject *(*)(char *)) __pyx_memview_get_nn___pyx_t_7maxheap_HEAP_DATA, (int (*)(char *, PyObject *)) __pyx_memview_set_nn___pyx_t_7maxheap_HEAP_DATA, 0);; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -4249,14 +4268,14 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
     __pyx_t_2 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_5, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn___pyx_t_7maxheap_HEAP_DATA(__pyx_t_2, PyBUF_WRITABLE); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_to_MemoryviewSlice_dc_nn___pyx_t_7maxheap_HEAP_DATA(__pyx_t_2, PyBUF_WRITABLE); if (unlikely(!__pyx_t_6.memview)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_resize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_resize); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_4 = __pyx_memoryview_fromslice(__pyx_v_self->ids, 1, (PyObject *(*)(char *)) __pyx_memview_get_int, (int (*)(char *, PyObject *)) __pyx_memview_set_int, 0);; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_4 = __pyx_memoryview_fromslice(__pyx_v_self->ids, 1, (PyObject *(*)(char *)) __pyx_memview_get_int, (int (*)(char *, PyObject *)) __pyx_memview_set_int, 0);; if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_t_5 = NULL;
     if (CYTHON_UNPACK_METHODS && unlikely(PyMethod_Check(__pyx_t_3))) {
@@ -4271,10 +4290,10 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
     __pyx_t_2 = (__pyx_t_5) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_5, __pyx_t_4) : __Pyx_PyObject_CallOneArg(__pyx_t_3, __pyx_t_4);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 111, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_7 = __Pyx_PyObject_to_MemoryviewSlice_dc_int(__pyx_t_2, PyBUF_WRITABLE); if (unlikely(!__pyx_t_7.memview)) __PYX_ERR(0, 111, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_to_MemoryviewSlice_dc_int(__pyx_t_2, PyBUF_WRITABLE); if (unlikely(!__pyx_t_7.memview)) __PYX_ERR(0, 107, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __PYX_XDEC_MEMVIEW(&__pyx_v_self->l, 0);
     __pyx_v_self->l = __pyx_t_6;
@@ -4285,7 +4304,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
     __pyx_t_7.memview = NULL;
     __pyx_t_7.data = NULL;
 
-    /* "maxheap.pyx":110
+    /* "maxheap.pyx":106
  *         self.size += 1
  *         # hit capacity, resize
  *         if self.size == self.l.shape[0]:             # <<<<<<<<<<<<<<
@@ -4294,7 +4313,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
  */
   }
 
-  /* "maxheap.pyx":113
+  /* "maxheap.pyx":109
  *             self.l, self.ids = resize(self.l), resize(self.ids)
  *         # add data at the end
  *         self.l[self.size] = __heap_value(dist, i)             # <<<<<<<<<<<<<<
@@ -4304,7 +4323,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
   __pyx_t_8 = __pyx_v_self->size;
   *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_8)) )) = __pyx_f_7maxheap___heap_value(__pyx_v_dist, __pyx_v_i);
 
-  /* "maxheap.pyx":114
+  /* "maxheap.pyx":110
  *         # add data at the end
  *         self.l[self.size] = __heap_value(dist, i)
  *         self.ids[i] = self.size             # <<<<<<<<<<<<<<
@@ -4315,16 +4334,16 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
   __pyx_t_8 = __pyx_v_i;
   *((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_8)) )) = __pyx_t_9;
 
-  /* "maxheap.pyx":116
+  /* "maxheap.pyx":112
  *         self.ids[i] = self.size
  *         # restore heap property
  *         __siftup(self.l, self.ids, self.size)             # <<<<<<<<<<<<<<
  * 
- *     def pop(self) -> tuple:
+ *     cdef HEAP_DATA __pop(self):
  */
   __pyx_f_7maxheap___siftup(__pyx_v_self->l, __pyx_v_self->ids, __pyx_v_self->size);
 
-  /* "maxheap.pyx":106
+  /* "maxheap.pyx":102
  *         return self.l[i + 1]
  * 
  *     def push(self, double dist, int i) -> None:             # <<<<<<<<<<<<<<
@@ -4350,12 +4369,108 @@ static PyObject *__pyx_pf_7maxheap_4Heap_10push(struct __pyx_obj_7maxheap_Heap *
   return __pyx_r;
 }
 
-/* "maxheap.pyx":118
+/* "maxheap.pyx":114
  *         __siftup(self.l, self.ids, self.size)
+ * 
+ *     cdef HEAP_DATA __pop(self):             # <<<<<<<<<<<<<<
+ *         """ Remove a value from the heap. """
+ *         cdef HEAP_DATA value = self.l[1]
+ */
+
+static __pyx_t_7maxheap_HEAP_DATA __pyx_f_7maxheap_4Heap___pop(struct __pyx_obj_7maxheap_Heap *__pyx_v_self) {
+  __pyx_t_7maxheap_HEAP_DATA __pyx_v_value;
+  __pyx_t_7maxheap_HEAP_DATA __pyx_r;
+  __Pyx_RefNannyDeclarations
+  Py_ssize_t __pyx_t_1;
+  __Pyx_RefNannySetupContext("__pop", 0);
+
+  /* "maxheap.pyx":116
+ *     cdef HEAP_DATA __pop(self):
+ *         """ Remove a value from the heap. """
+ *         cdef HEAP_DATA value = self.l[1]             # <<<<<<<<<<<<<<
+ *         # replace with last leaf
+ *         __swap(self.l, self.ids, 1, self.size)
+ */
+  __pyx_t_1 = 1;
+  __pyx_v_value = (*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )));
+
+  /* "maxheap.pyx":118
+ *         cdef HEAP_DATA value = self.l[1]
+ *         # replace with last leaf
+ *         __swap(self.l, self.ids, 1, self.size)             # <<<<<<<<<<<<<<
+ *         self.l[self.size] = 0
+ *         self.ids[__get_id(value)] = REMOVED
+ */
+  __pyx_f_7maxheap___swap(__pyx_v_self->l, __pyx_v_self->ids, 1, __pyx_v_self->size);
+
+  /* "maxheap.pyx":119
+ *         # replace with last leaf
+ *         __swap(self.l, self.ids, 1, self.size)
+ *         self.l[self.size] = 0             # <<<<<<<<<<<<<<
+ *         self.ids[__get_id(value)] = REMOVED
+ *         self.size -= 1
+ */
+  __pyx_t_1 = __pyx_v_self->size;
+  *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )) = 0;
+
+  /* "maxheap.pyx":120
+ *         __swap(self.l, self.ids, 1, self.size)
+ *         self.l[self.size] = 0
+ *         self.ids[__get_id(value)] = REMOVED             # <<<<<<<<<<<<<<
+ *         self.size -= 1
+ *         # restore heap property
+ */
+  __pyx_t_1 = __pyx_f_7maxheap___get_id(__pyx_v_value);
+  *((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_1)) )) = __pyx_v_7maxheap_REMOVED;
+
+  /* "maxheap.pyx":121
+ *         self.l[self.size] = 0
+ *         self.ids[__get_id(value)] = REMOVED
+ *         self.size -= 1             # <<<<<<<<<<<<<<
+ *         # restore heap property
+ *         __siftdown(self.l, self.ids, 1)
+ */
+  __pyx_v_self->size = (__pyx_v_self->size - 1);
+
+  /* "maxheap.pyx":123
+ *         self.size -= 1
+ *         # restore heap property
+ *         __siftdown(self.l, self.ids, 1)             # <<<<<<<<<<<<<<
+ *         return value
+ * 
+ */
+  __pyx_f_7maxheap___siftdown(__pyx_v_self->l, __pyx_v_self->ids, 1);
+
+  /* "maxheap.pyx":124
+ *         # restore heap property
+ *         __siftdown(self.l, self.ids, 1)
+ *         return value             # <<<<<<<<<<<<<<
+ * 
+ *     def pop(self) -> tuple:
+ */
+  __pyx_r = __pyx_v_value;
+  goto __pyx_L0;
+
+  /* "maxheap.pyx":114
+ *         __siftup(self.l, self.ids, self.size)
+ * 
+ *     cdef HEAP_DATA __pop(self):             # <<<<<<<<<<<<<<
+ *         """ Remove a value from the heap. """
+ *         cdef HEAP_DATA value = self.l[1]
+ */
+
+  /* function exit code */
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "maxheap.pyx":126
+ *         return value
  * 
  *     def pop(self) -> tuple:             # <<<<<<<<<<<<<<
  *         """ Remove a value from the heap. """
- *         cdef HEAP_DATA value = self.l[1]
+ *         cdef HEAP_DATA value = self.__pop()
  */
 
 /* Python wrapper */
@@ -4376,109 +4491,60 @@ static PyObject *__pyx_pf_7maxheap_4Heap_12pop(struct __pyx_obj_7maxheap_Heap *_
   __pyx_t_7maxheap_HEAP_DATA __pyx_v_value;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  Py_ssize_t __pyx_t_1;
+  PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   PyObject *__pyx_t_3 = NULL;
-  PyObject *__pyx_t_4 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("pop", 0);
 
-  /* "maxheap.pyx":120
+  /* "maxheap.pyx":128
  *     def pop(self) -> tuple:
  *         """ Remove a value from the heap. """
- *         cdef HEAP_DATA value = self.l[1]             # <<<<<<<<<<<<<<
- *         # replace with last leaf
- *         __swap(self.l, self.ids, 1, self.size)
- */
-  __pyx_t_1 = 1;
-  __pyx_v_value = (*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )));
-
-  /* "maxheap.pyx":122
- *         cdef HEAP_DATA value = self.l[1]
- *         # replace with last leaf
- *         __swap(self.l, self.ids, 1, self.size)             # <<<<<<<<<<<<<<
- *         self.l[self.size] = 0
- *         self.ids[__get_id(value)] = REMOVED
- */
-  __pyx_f_7maxheap___swap(__pyx_v_self->l, __pyx_v_self->ids, 1, __pyx_v_self->size);
-
-  /* "maxheap.pyx":123
- *         # replace with last leaf
- *         __swap(self.l, self.ids, 1, self.size)
- *         self.l[self.size] = 0             # <<<<<<<<<<<<<<
- *         self.ids[__get_id(value)] = REMOVED
- *         self.size -= 1
- */
-  __pyx_t_1 = __pyx_v_self->size;
-  *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )) = 0;
-
-  /* "maxheap.pyx":124
- *         __swap(self.l, self.ids, 1, self.size)
- *         self.l[self.size] = 0
- *         self.ids[__get_id(value)] = REMOVED             # <<<<<<<<<<<<<<
- *         self.size -= 1
- *         # restore heap property
- */
-  __pyx_t_1 = __pyx_f_7maxheap___get_id(__pyx_v_value);
-  *((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_1)) )) = __pyx_v_7maxheap_REMOVED;
-
-  /* "maxheap.pyx":125
- *         self.l[self.size] = 0
- *         self.ids[__get_id(value)] = REMOVED
- *         self.size -= 1             # <<<<<<<<<<<<<<
- *         # restore heap property
- *         __siftdown(self.l, self.ids, 1)
- */
-  __pyx_v_self->size = (__pyx_v_self->size - 1);
-
-  /* "maxheap.pyx":127
- *         self.size -= 1
- *         # restore heap property
- *         __siftdown(self.l, self.ids, 1)             # <<<<<<<<<<<<<<
+ *         cdef HEAP_DATA value = self.__pop()             # <<<<<<<<<<<<<<
  *         return __get_distance(value), __get_id(value)
  * 
  */
-  __pyx_f_7maxheap___siftdown(__pyx_v_self->l, __pyx_v_self->ids, 1);
+  __pyx_v_value = ((struct __pyx_vtabstruct_7maxheap_Heap *)__pyx_v_self->__pyx_vtab)->__pyx___pop(__pyx_v_self);
 
-  /* "maxheap.pyx":128
- *         # restore heap property
- *         __siftdown(self.l, self.ids, 1)
+  /* "maxheap.pyx":129
+ *         """ Remove a value from the heap. """
+ *         cdef HEAP_DATA value = self.__pop()
  *         return __get_distance(value), __get_id(value)             # <<<<<<<<<<<<<<
  * 
- *     def update_key(self, int i, double dist) -> bool:
+ *     cdef int __update_key(self, int i, double dist):
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2 = PyFloat_FromDouble(__pyx_f_7maxheap___get_distance(__pyx_v_value)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_7maxheap___get_distance(__pyx_v_value)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyInt_From_int(__pyx_f_7maxheap___get_id(__pyx_v_value)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_f_7maxheap___get_id(__pyx_v_value)); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 129, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = PyTuple_New(2); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
+  __Pyx_GIVEREF(__pyx_t_1);
+  PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_2);
-  PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_2);
-  __Pyx_GIVEREF(__pyx_t_3);
-  PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3);
+  PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_t_2);
+  __pyx_t_1 = 0;
   __pyx_t_2 = 0;
+  __pyx_r = ((PyObject*)__pyx_t_3);
   __pyx_t_3 = 0;
-  __pyx_r = ((PyObject*)__pyx_t_4);
-  __pyx_t_4 = 0;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":118
- *         __siftup(self.l, self.ids, self.size)
+  /* "maxheap.pyx":126
+ *         return value
  * 
  *     def pop(self) -> tuple:             # <<<<<<<<<<<<<<
  *         """ Remove a value from the heap. """
- *         cdef HEAP_DATA value = self.l[1]
+ *         cdef HEAP_DATA value = self.__pop()
  */
 
   /* function exit code */
   __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_XDECREF(__pyx_t_4);
   __Pyx_AddTraceback("maxheap.Heap.pop", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -4487,12 +4553,168 @@ static PyObject *__pyx_pf_7maxheap_4Heap_12pop(struct __pyx_obj_7maxheap_Heap *_
   return __pyx_r;
 }
 
-/* "maxheap.pyx":130
+/* "maxheap.pyx":131
  *         return __get_distance(value), __get_id(value)
+ * 
+ *     cdef int __update_key(self, int i, double dist):             # <<<<<<<<<<<<<<
+ *         """ Update the value of key. """
+ *         cdef:
+ */
+
+static int __pyx_f_7maxheap_4Heap___update_key(struct __pyx_obj_7maxheap_Heap *__pyx_v_self, int __pyx_v_i, double __pyx_v_dist) {
+  int __pyx_v_k;
+  float __pyx_v_value;
+  int __pyx_r;
+  __Pyx_RefNannyDeclarations
+  Py_ssize_t __pyx_t_1;
+  int __pyx_t_2;
+  __Pyx_RefNannySetupContext("__update_key", 0);
+
+  /* "maxheap.pyx":137
+ *             float value
+ * 
+ *         k = self.ids[i]             # <<<<<<<<<<<<<<
+ *         if k == REMOVED:
+ *             return 0
+ */
+  __pyx_t_1 = __pyx_v_i;
+  __pyx_v_k = (*((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_1)) )));
+
+  /* "maxheap.pyx":138
+ * 
+ *         k = self.ids[i]
+ *         if k == REMOVED:             # <<<<<<<<<<<<<<
+ *             return 0
+ *         value = __get_distance(self.l[k])
+ */
+  __pyx_t_2 = ((__pyx_v_k == __pyx_v_7maxheap_REMOVED) != 0);
+  if (__pyx_t_2) {
+
+    /* "maxheap.pyx":139
+ *         k = self.ids[i]
+ *         if k == REMOVED:
+ *             return 0             # <<<<<<<<<<<<<<
+ *         value = __get_distance(self.l[k])
+ *         # overwrite value
+ */
+    __pyx_r = 0;
+    goto __pyx_L0;
+
+    /* "maxheap.pyx":138
+ * 
+ *         k = self.ids[i]
+ *         if k == REMOVED:             # <<<<<<<<<<<<<<
+ *             return 0
+ *         value = __get_distance(self.l[k])
+ */
+  }
+
+  /* "maxheap.pyx":140
+ *         if k == REMOVED:
+ *             return 0
+ *         value = __get_distance(self.l[k])             # <<<<<<<<<<<<<<
+ *         # overwrite value
+ *         self.l[k] = __heap_value(dist, i)
+ */
+  __pyx_t_1 = __pyx_v_k;
+  __pyx_v_value = __pyx_f_7maxheap___get_distance((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) ))));
+
+  /* "maxheap.pyx":142
+ *         value = __get_distance(self.l[k])
+ *         # overwrite value
+ *         self.l[k] = __heap_value(dist, i)             # <<<<<<<<<<<<<<
+ *         # restore heap property
+ *         if dist < value:
+ */
+  __pyx_t_1 = __pyx_v_k;
+  *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )) = __pyx_f_7maxheap___heap_value(__pyx_v_dist, __pyx_v_i);
+
+  /* "maxheap.pyx":144
+ *         self.l[k] = __heap_value(dist, i)
+ *         # restore heap property
+ *         if dist < value:             # <<<<<<<<<<<<<<
+ *             __siftdown(self.l, self.ids, k)
+ *         if dist > value:
+ */
+  __pyx_t_2 = ((__pyx_v_dist < __pyx_v_value) != 0);
+  if (__pyx_t_2) {
+
+    /* "maxheap.pyx":145
+ *         # restore heap property
+ *         if dist < value:
+ *             __siftdown(self.l, self.ids, k)             # <<<<<<<<<<<<<<
+ *         if dist > value:
+ *             __siftup(self.l, self.ids, k)
+ */
+    __pyx_f_7maxheap___siftdown(__pyx_v_self->l, __pyx_v_self->ids, __pyx_v_k);
+
+    /* "maxheap.pyx":144
+ *         self.l[k] = __heap_value(dist, i)
+ *         # restore heap property
+ *         if dist < value:             # <<<<<<<<<<<<<<
+ *             __siftdown(self.l, self.ids, k)
+ *         if dist > value:
+ */
+  }
+
+  /* "maxheap.pyx":146
+ *         if dist < value:
+ *             __siftdown(self.l, self.ids, k)
+ *         if dist > value:             # <<<<<<<<<<<<<<
+ *             __siftup(self.l, self.ids, k)
+ *         return 1
+ */
+  __pyx_t_2 = ((__pyx_v_dist > __pyx_v_value) != 0);
+  if (__pyx_t_2) {
+
+    /* "maxheap.pyx":147
+ *             __siftdown(self.l, self.ids, k)
+ *         if dist > value:
+ *             __siftup(self.l, self.ids, k)             # <<<<<<<<<<<<<<
+ *         return 1
+ * 
+ */
+    __pyx_f_7maxheap___siftup(__pyx_v_self->l, __pyx_v_self->ids, __pyx_v_k);
+
+    /* "maxheap.pyx":146
+ *         if dist < value:
+ *             __siftdown(self.l, self.ids, k)
+ *         if dist > value:             # <<<<<<<<<<<<<<
+ *             __siftup(self.l, self.ids, k)
+ *         return 1
+ */
+  }
+
+  /* "maxheap.pyx":148
+ *         if dist > value:
+ *             __siftup(self.l, self.ids, k)
+ *         return 1             # <<<<<<<<<<<<<<
+ * 
+ *     def update_key(self, int i, double dist) -> bool:
+ */
+  __pyx_r = 1;
+  goto __pyx_L0;
+
+  /* "maxheap.pyx":131
+ *         return __get_distance(value), __get_id(value)
+ * 
+ *     cdef int __update_key(self, int i, double dist):             # <<<<<<<<<<<<<<
+ *         """ Update the value of key. """
+ *         cdef:
+ */
+
+  /* function exit code */
+  __pyx_L0:;
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "maxheap.pyx":150
+ *         return 1
  * 
  *     def update_key(self, int i, double dist) -> bool:             # <<<<<<<<<<<<<<
  *         """ Update the value of key. """
- *         cdef int k = self.ids[i]
+ *         return bool(self.__update_key(i, dist))
  */
 
 /* Python wrapper */
@@ -4530,11 +4752,11 @@ static PyObject *__pyx_pw_7maxheap_4Heap_15update_key(PyObject *__pyx_v_self, Py
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dist)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("update_key", 1, 2, 2, 1); __PYX_ERR(0, 130, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("update_key", 1, 2, 2, 1); __PYX_ERR(0, 150, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "update_key") < 0)) __PYX_ERR(0, 130, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "update_key") < 0)) __PYX_ERR(0, 150, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -4542,12 +4764,12 @@ static PyObject *__pyx_pw_7maxheap_4Heap_15update_key(PyObject *__pyx_v_self, Py
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_i = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L3_error)
-    __pyx_v_dist = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_dist == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 130, __pyx_L3_error)
+    __pyx_v_i = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 150, __pyx_L3_error)
+    __pyx_v_dist = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_dist == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 150, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("update_key", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 130, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("update_key", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 150, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("maxheap.Heap.update_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -4561,164 +4783,58 @@ static PyObject *__pyx_pw_7maxheap_4Heap_15update_key(PyObject *__pyx_v_self, Py
 }
 
 static PyObject *__pyx_pf_7maxheap_4Heap_14update_key(struct __pyx_obj_7maxheap_Heap *__pyx_v_self, int __pyx_v_i, double __pyx_v_dist) {
-  int __pyx_v_k;
-  float __pyx_v_value;
   PyObject *__pyx_r = NULL;
   __Pyx_RefNannyDeclarations
-  Py_ssize_t __pyx_t_1;
+  PyObject *__pyx_t_1 = NULL;
   int __pyx_t_2;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("update_key", 0);
 
-  /* "maxheap.pyx":132
+  /* "maxheap.pyx":152
  *     def update_key(self, int i, double dist) -> bool:
  *         """ Update the value of key. """
- *         cdef int k = self.ids[i]             # <<<<<<<<<<<<<<
- *         if k == REMOVED:
- *             return False
- */
-  __pyx_t_1 = __pyx_v_i;
-  __pyx_v_k = (*((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_1)) )));
-
-  /* "maxheap.pyx":133
- *         """ Update the value of key. """
- *         cdef int k = self.ids[i]
- *         if k == REMOVED:             # <<<<<<<<<<<<<<
- *             return False
- *         cdef float value = __get_distance(self.l[k])
- */
-  __pyx_t_2 = ((__pyx_v_k == __pyx_v_7maxheap_REMOVED) != 0);
-  if (__pyx_t_2) {
-
-    /* "maxheap.pyx":134
- *         cdef int k = self.ids[i]
- *         if k == REMOVED:
- *             return False             # <<<<<<<<<<<<<<
- *         cdef float value = __get_distance(self.l[k])
- *         # overwrite value
- */
-    __Pyx_XDECREF(__pyx_r);
-    __Pyx_INCREF(Py_False);
-    __pyx_r = Py_False;
-    goto __pyx_L0;
-
-    /* "maxheap.pyx":133
- *         """ Update the value of key. """
- *         cdef int k = self.ids[i]
- *         if k == REMOVED:             # <<<<<<<<<<<<<<
- *             return False
- *         cdef float value = __get_distance(self.l[k])
- */
-  }
-
-  /* "maxheap.pyx":135
- *         if k == REMOVED:
- *             return False
- *         cdef float value = __get_distance(self.l[k])             # <<<<<<<<<<<<<<
- *         # overwrite value
- *         self.l[k] = __heap_value(dist, i)
- */
-  __pyx_t_1 = __pyx_v_k;
-  __pyx_v_value = __pyx_f_7maxheap___get_distance((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) ))));
-
-  /* "maxheap.pyx":137
- *         cdef float value = __get_distance(self.l[k])
- *         # overwrite value
- *         self.l[k] = __heap_value(dist, i)             # <<<<<<<<<<<<<<
- *         # restore heap property
- *         if dist < value:
- */
-  __pyx_t_1 = __pyx_v_k;
-  *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )) = __pyx_f_7maxheap___heap_value(__pyx_v_dist, __pyx_v_i);
-
-  /* "maxheap.pyx":139
- *         self.l[k] = __heap_value(dist, i)
- *         # restore heap property
- *         if dist < value:             # <<<<<<<<<<<<<<
- *             __siftdown(self.l, self.ids, k)
- *         if dist > value:
- */
-  __pyx_t_2 = ((__pyx_v_dist < __pyx_v_value) != 0);
-  if (__pyx_t_2) {
-
-    /* "maxheap.pyx":140
- *         # restore heap property
- *         if dist < value:
- *             __siftdown(self.l, self.ids, k)             # <<<<<<<<<<<<<<
- *         if dist > value:
- *             __siftup(self.l, self.ids, k)
- */
-    __pyx_f_7maxheap___siftdown(__pyx_v_self->l, __pyx_v_self->ids, __pyx_v_k);
-
-    /* "maxheap.pyx":139
- *         self.l[k] = __heap_value(dist, i)
- *         # restore heap property
- *         if dist < value:             # <<<<<<<<<<<<<<
- *             __siftdown(self.l, self.ids, k)
- *         if dist > value:
- */
-  }
-
-  /* "maxheap.pyx":141
- *         if dist < value:
- *             __siftdown(self.l, self.ids, k)
- *         if dist > value:             # <<<<<<<<<<<<<<
- *             __siftup(self.l, self.ids, k)
- *         return True
- */
-  __pyx_t_2 = ((__pyx_v_dist > __pyx_v_value) != 0);
-  if (__pyx_t_2) {
-
-    /* "maxheap.pyx":142
- *             __siftdown(self.l, self.ids, k)
- *         if dist > value:
- *             __siftup(self.l, self.ids, k)             # <<<<<<<<<<<<<<
- *         return True
- * 
- */
-    __pyx_f_7maxheap___siftup(__pyx_v_self->l, __pyx_v_self->ids, __pyx_v_k);
-
-    /* "maxheap.pyx":141
- *         if dist < value:
- *             __siftdown(self.l, self.ids, k)
- *         if dist > value:             # <<<<<<<<<<<<<<
- *             __siftup(self.l, self.ids, k)
- *         return True
- */
-  }
-
-  /* "maxheap.pyx":143
- *         if dist > value:
- *             __siftup(self.l, self.ids, k)
- *         return True             # <<<<<<<<<<<<<<
+ *         return bool(self.__update_key(i, dist))             # <<<<<<<<<<<<<<
  * 
  *     def decrease_key(self, int i, double dist) -> bool:
  */
   __Pyx_XDECREF(__pyx_r);
-  __Pyx_INCREF(Py_True);
-  __pyx_r = Py_True;
+  __pyx_t_1 = __Pyx_PyInt_From_int(((struct __pyx_vtabstruct_7maxheap_Heap *)__pyx_v_self->__pyx_vtab)->__pyx___update_key(__pyx_v_self, __pyx_v_i, __pyx_v_dist)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(__pyx_t_1); if (unlikely(__pyx_t_2 < 0)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = __Pyx_PyBool_FromLong((!(!__pyx_t_2))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 152, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":130
- *         return __get_distance(value), __get_id(value)
+  /* "maxheap.pyx":150
+ *         return 1
  * 
  *     def update_key(self, int i, double dist) -> bool:             # <<<<<<<<<<<<<<
  *         """ Update the value of key. """
- *         cdef int k = self.ids[i]
+ *         return bool(self.__update_key(i, dist))
  */
 
   /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("maxheap.Heap.update_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "maxheap.pyx":145
- *         return True
+/* "maxheap.pyx":154
+ *         return bool(self.__update_key(i, dist))
  * 
  *     def decrease_key(self, int i, double dist) -> bool:             # <<<<<<<<<<<<<<
  *         """ Decrease the value of key. """
- *         cdef int k = self.ids[i]
+ *         cdef:
  */
 
 /* Python wrapper */
@@ -4756,11 +4872,11 @@ static PyObject *__pyx_pw_7maxheap_4Heap_17decrease_key(PyObject *__pyx_v_self, 
         case  1:
         if (likely((values[1] = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_dist)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("decrease_key", 1, 2, 2, 1); __PYX_ERR(0, 145, __pyx_L3_error)
+          __Pyx_RaiseArgtupleInvalid("decrease_key", 1, 2, 2, 1); __PYX_ERR(0, 154, __pyx_L3_error)
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "decrease_key") < 0)) __PYX_ERR(0, 145, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "decrease_key") < 0)) __PYX_ERR(0, 154, __pyx_L3_error)
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -4768,12 +4884,12 @@ static PyObject *__pyx_pw_7maxheap_4Heap_17decrease_key(PyObject *__pyx_v_self, 
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_i = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L3_error)
-    __pyx_v_dist = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_dist == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 145, __pyx_L3_error)
+    __pyx_v_i = __Pyx_PyInt_As_int(values[0]); if (unlikely((__pyx_v_i == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L3_error)
+    __pyx_v_dist = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_dist == (double)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("decrease_key", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 145, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("decrease_key", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 154, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("maxheap.Heap.decrease_key", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -4795,31 +4911,31 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
   int __pyx_t_2;
   __Pyx_RefNannySetupContext("decrease_key", 0);
 
-  /* "maxheap.pyx":147
- *     def decrease_key(self, int i, double dist) -> bool:
- *         """ Decrease the value of key. """
- *         cdef int k = self.ids[i]             # <<<<<<<<<<<<<<
+  /* "maxheap.pyx":160
+ *             float value
+ * 
+ *         k = self.ids[i]             # <<<<<<<<<<<<<<
  *         if k == REMOVED:
  *             return False
  */
   __pyx_t_1 = __pyx_v_i;
   __pyx_v_k = (*((int *) ( /* dim=0 */ ((char *) (((int *) __pyx_v_self->ids.data) + __pyx_t_1)) )));
 
-  /* "maxheap.pyx":148
- *         """ Decrease the value of key. """
- *         cdef int k = self.ids[i]
+  /* "maxheap.pyx":161
+ * 
+ *         k = self.ids[i]
  *         if k == REMOVED:             # <<<<<<<<<<<<<<
  *             return False
- *         cdef float value = __get_distance(self.l[k])
+ *         value = __get_distance(self.l[k])
  */
   __pyx_t_2 = ((__pyx_v_k == __pyx_v_7maxheap_REMOVED) != 0);
   if (__pyx_t_2) {
 
-    /* "maxheap.pyx":149
- *         cdef int k = self.ids[i]
+    /* "maxheap.pyx":162
+ *         k = self.ids[i]
  *         if k == REMOVED:
  *             return False             # <<<<<<<<<<<<<<
- *         cdef float value = __get_distance(self.l[k])
+ *         value = __get_distance(self.l[k])
  *         # only overwrite value if less
  */
     __Pyx_XDECREF(__pyx_r);
@@ -4827,27 +4943,27 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
     __pyx_r = Py_False;
     goto __pyx_L0;
 
-    /* "maxheap.pyx":148
- *         """ Decrease the value of key. """
- *         cdef int k = self.ids[i]
+    /* "maxheap.pyx":161
+ * 
+ *         k = self.ids[i]
  *         if k == REMOVED:             # <<<<<<<<<<<<<<
  *             return False
- *         cdef float value = __get_distance(self.l[k])
+ *         value = __get_distance(self.l[k])
  */
   }
 
-  /* "maxheap.pyx":150
+  /* "maxheap.pyx":163
  *         if k == REMOVED:
  *             return False
- *         cdef float value = __get_distance(self.l[k])             # <<<<<<<<<<<<<<
+ *         value = __get_distance(self.l[k])             # <<<<<<<<<<<<<<
  *         # only overwrite value if less
  *         if dist < value:
  */
   __pyx_t_1 = __pyx_v_k;
   __pyx_v_value = __pyx_f_7maxheap___get_distance((*((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) ))));
 
-  /* "maxheap.pyx":152
- *         cdef float value = __get_distance(self.l[k])
+  /* "maxheap.pyx":165
+ *         value = __get_distance(self.l[k])
  *         # only overwrite value if less
  *         if dist < value:             # <<<<<<<<<<<<<<
  *             self.l[k] = __heap_value(dist, i)
@@ -4856,7 +4972,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
   __pyx_t_2 = ((__pyx_v_dist < __pyx_v_value) != 0);
   if (__pyx_t_2) {
 
-    /* "maxheap.pyx":153
+    /* "maxheap.pyx":166
  *         # only overwrite value if less
  *         if dist < value:
  *             self.l[k] = __heap_value(dist, i)             # <<<<<<<<<<<<<<
@@ -4866,7 +4982,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
     __pyx_t_1 = __pyx_v_k;
     *((__pyx_t_7maxheap_HEAP_DATA *) ( /* dim=0 */ ((char *) (((__pyx_t_7maxheap_HEAP_DATA *) __pyx_v_self->l.data) + __pyx_t_1)) )) = __pyx_f_7maxheap___heap_value(__pyx_v_dist, __pyx_v_i);
 
-    /* "maxheap.pyx":155
+    /* "maxheap.pyx":168
  *             self.l[k] = __heap_value(dist, i)
  *             # restore heap property
  *             __siftdown(self.l, self.ids, k)             # <<<<<<<<<<<<<<
@@ -4875,8 +4991,8 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
  */
     __pyx_f_7maxheap___siftdown(__pyx_v_self->l, __pyx_v_self->ids, __pyx_v_k);
 
-    /* "maxheap.pyx":152
- *         cdef float value = __get_distance(self.l[k])
+    /* "maxheap.pyx":165
+ *         value = __get_distance(self.l[k])
  *         # only overwrite value if less
  *         if dist < value:             # <<<<<<<<<<<<<<
  *             self.l[k] = __heap_value(dist, i)
@@ -4884,7 +5000,7 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
  */
   }
 
-  /* "maxheap.pyx":156
+  /* "maxheap.pyx":169
  *             # restore heap property
  *             __siftdown(self.l, self.ids, k)
  *         return True             # <<<<<<<<<<<<<<
@@ -4895,12 +5011,12 @@ static PyObject *__pyx_pf_7maxheap_4Heap_16decrease_key(struct __pyx_obj_7maxhea
   __pyx_r = Py_True;
   goto __pyx_L0;
 
-  /* "maxheap.pyx":145
- *         return True
+  /* "maxheap.pyx":154
+ *         return bool(self.__update_key(i, dist))
  * 
  *     def decrease_key(self, int i, double dist) -> bool:             # <<<<<<<<<<<<<<
  *         """ Decrease the value of key. """
- *         cdef int k = self.ids[i]
+ *         cdef:
  */
 
   /* function exit code */
@@ -19660,6 +19776,7 @@ static PyObject *__pyx_unpickle_Enum__set_state(struct __pyx_MemviewEnum_obj *__
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
+static struct __pyx_vtabstruct_7maxheap_Heap __pyx_vtable_7maxheap_Heap;
 
 static PyObject *__pyx_tp_new_7maxheap_Heap(PyTypeObject *t, CYTHON_UNUSED PyObject *a, CYTHON_UNUSED PyObject *k) {
   struct __pyx_obj_7maxheap_Heap *p;
@@ -19671,6 +19788,7 @@ static PyObject *__pyx_tp_new_7maxheap_Heap(PyTypeObject *t, CYTHON_UNUSED PyObj
   }
   if (unlikely(!o)) return 0;
   p = ((struct __pyx_obj_7maxheap_Heap *)o);
+  p->__pyx_vtab = __pyx_vtabptr_7maxheap_Heap;
   p->l.data = NULL;
   p->l.memview = NULL;
   p->ids.data = NULL;
@@ -19757,7 +19875,7 @@ static PyTypeObject __pyx_type_7maxheap_Heap = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_CHECKTYPES|Py_TPFLAGS_HAVE_NEWBUFFER|Py_TPFLAGS_BASETYPE, /*tp_flags*/
-  0, /*tp_doc*/
+  " Maximum heap which stores ids to support update keys. ", /*tp_doc*/
   0, /*tp_traverse*/
   0, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -20685,7 +20803,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {0, 0, 0, 0, 0, 0, 0}
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 66, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 64, __pyx_L1_error)
   __pyx_builtin_ImportError = __Pyx_GetBuiltinName(__pyx_n_s_ImportError); if (!__pyx_builtin_ImportError) __PYX_ERR(2, 945, __pyx_L1_error)
   __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) __PYX_ERR(1, 133, __pyx_L1_error)
   __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_n_s_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(1, 148, __pyx_L1_error)
@@ -20917,17 +21035,17 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_GOTREF(__pyx_tuple__21);
   __Pyx_GIVEREF(__pyx_tuple__21);
 
-  /* "maxheap.pyx":69
+  /* "maxheap.pyx":67
  *         __siftdown(l, ids, i)
  * 
  * def resize(array):             # <<<<<<<<<<<<<<
  *     """ Double the size of the array. """
  *     return np.append(array, np.zeros(len(array), np.asarray(array).dtype))
  */
-  __pyx_tuple__22 = PyTuple_Pack(1, __pyx_n_s_array); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_tuple__22 = PyTuple_Pack(1, __pyx_n_s_array); if (unlikely(!__pyx_tuple__22)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple__22);
   __Pyx_GIVEREF(__pyx_tuple__22);
-  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_maxheap_pyx, __pyx_n_s_resize, 69, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_codeobj__23 = (PyObject*)__Pyx_PyCode_New(1, 0, 1, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__22, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_maxheap_pyx, __pyx_n_s_resize, 67, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__23)) __PYX_ERR(0, 67, __pyx_L1_error)
 
   /* "(tree fragment)":1
  * def __pyx_unpickle_Heap(__pyx_type, long __pyx_checksum, __pyx_state):             # <<<<<<<<<<<<<<
@@ -21053,10 +21171,18 @@ static int __Pyx_modinit_variable_export_code(void) {
 
 static int __Pyx_modinit_function_export_code(void) {
   __Pyx_RefNannyDeclarations
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__Pyx_modinit_function_export_code", 0);
   /*--- Function export code ---*/
+  if (__Pyx_ExportFunction("__get_distance", (void (*)(void))__pyx_f_7maxheap___get_distance, "double (__pyx_t_7maxheap_HEAP_DATA)") < 0) __PYX_ERR(0, 1, __pyx_L1_error)
+  if (__Pyx_ExportFunction("__get_id", (void (*)(void))__pyx_f_7maxheap___get_id, "int (__pyx_t_7maxheap_HEAP_DATA)") < 0) __PYX_ERR(0, 1, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
+  __pyx_L1_error:;
+  __Pyx_RefNannyFinishContext();
+  return -1;
 }
 
 static int __Pyx_modinit_type_init_code(void) {
@@ -21066,7 +21192,10 @@ static int __Pyx_modinit_type_init_code(void) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
-  if (PyType_Ready(&__pyx_type_7maxheap_Heap) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_vtabptr_7maxheap_Heap = &__pyx_vtable_7maxheap_Heap;
+  __pyx_vtable_7maxheap_Heap.__pyx___pop = (__pyx_t_7maxheap_HEAP_DATA (*)(struct __pyx_obj_7maxheap_Heap *))__pyx_f_7maxheap_4Heap___pop;
+  __pyx_vtable_7maxheap_Heap.__pyx___update_key = (int (*)(struct __pyx_obj_7maxheap_Heap *, int, double))__pyx_f_7maxheap_4Heap___update_key;
+  if (PyType_Ready(&__pyx_type_7maxheap_Heap) < 0) __PYX_ERR(0, 72, __pyx_L1_error)
   #if PY_VERSION_HEX < 0x030800B1
   __pyx_type_7maxheap_Heap.tp_print = 0;
   #endif
@@ -21075,7 +21204,7 @@ static int __Pyx_modinit_type_init_code(void) {
   }
   #if CYTHON_COMPILING_IN_CPYTHON
   {
-    PyObject *wrapper = PyObject_GetAttrString((PyObject *)&__pyx_type_7maxheap_Heap, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 73, __pyx_L1_error)
+    PyObject *wrapper = PyObject_GetAttrString((PyObject *)&__pyx_type_7maxheap_Heap, "__init__"); if (unlikely(!wrapper)) __PYX_ERR(0, 72, __pyx_L1_error)
     if (Py_TYPE(wrapper) == &PyWrapperDescr_Type) {
       __pyx_wrapperbase_7maxheap_4Heap___init__ = *((PyWrapperDescrObject *)wrapper)->d_base;
       __pyx_wrapperbase_7maxheap_4Heap___init__.doc = __pyx_doc_7maxheap_4Heap___init__;
@@ -21083,8 +21212,9 @@ static int __Pyx_modinit_type_init_code(void) {
     }
   }
   #endif
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Heap_2, (PyObject *)&__pyx_type_7maxheap_Heap) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_7maxheap_Heap) < 0) __PYX_ERR(0, 73, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_type_7maxheap_Heap.tp_dict, __pyx_vtabptr_7maxheap_Heap) < 0) __PYX_ERR(0, 72, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_Heap_2, (PyObject *)&__pyx_type_7maxheap_Heap) < 0) __PYX_ERR(0, 72, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_7maxheap_Heap) < 0) __PYX_ERR(0, 72, __pyx_L1_error)
   __pyx_ptype_7maxheap_Heap = &__pyx_type_7maxheap_Heap;
   __pyx_vtabptr_array = &__pyx_vtable_array;
   __pyx_vtable_array.get_memview = (PyObject *(*)(struct __pyx_array_obj *))__pyx_array_get_memview;
@@ -21411,7 +21541,7 @@ if (!__Pyx_RefNanny) {
   /*--- Global type/function init code ---*/
   (void)__Pyx_modinit_global_init_code();
   (void)__Pyx_modinit_variable_export_code();
-  (void)__Pyx_modinit_function_export_code();
+  if (unlikely(__Pyx_modinit_function_export_code() < 0)) __PYX_ERR(0, 1, __pyx_L1_error)
   if (unlikely(__Pyx_modinit_type_init_code() < 0)) __PYX_ERR(0, 1, __pyx_L1_error)
   if (unlikely(__Pyx_modinit_type_import_code() < 0)) __PYX_ERR(0, 1, __pyx_L1_error)
   (void)__Pyx_modinit_variable_import_code();
@@ -21426,15 +21556,15 @@ if (!__Pyx_RefNanny) {
  * cimport numpy as np
  * import numpy as np             # <<<<<<<<<<<<<<
  * 
- * ctypedef unsigned long long HEAP_DATA
+ * cdef HEAP_DATA MASK = 0xffffffff00000000
  */
   __pyx_t_1 = __Pyx_Import(__pyx_n_s_numpy, 0, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 3, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_np, __pyx_t_1) < 0) __PYX_ERR(0, 3, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "maxheap.pyx":7
- * ctypedef unsigned long long HEAP_DATA
+  /* "maxheap.pyx":5
+ * import numpy as np
  * 
  * cdef HEAP_DATA MASK = 0xffffffff00000000             # <<<<<<<<<<<<<<
  * cdef int REMOVED = -1
@@ -21442,7 +21572,7 @@ if (!__Pyx_RefNanny) {
  */
   __pyx_v_7maxheap_MASK = 0xffffffff00000000;
 
-  /* "maxheap.pyx":8
+  /* "maxheap.pyx":6
  * 
  * cdef HEAP_DATA MASK = 0xffffffff00000000
  * cdef int REMOVED = -1             # <<<<<<<<<<<<<<
@@ -21451,16 +21581,16 @@ if (!__Pyx_RefNanny) {
  */
   __pyx_v_7maxheap_REMOVED = -1;
 
-  /* "maxheap.pyx":69
+  /* "maxheap.pyx":67
  *         __siftdown(l, ids, i)
  * 
  * def resize(array):             # <<<<<<<<<<<<<<
  *     """ Double the size of the array. """
  *     return np.append(array, np.zeros(len(array), np.asarray(array).dtype))
  */
-  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7maxheap_1resize, NULL, __pyx_n_s_maxheap); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 69, __pyx_L1_error)
+  __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_7maxheap_1resize, NULL, __pyx_n_s_maxheap); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (PyDict_SetItem(__pyx_d, __pyx_n_s_resize, __pyx_t_1) < 0) __PYX_ERR(0, 69, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_d, __pyx_n_s_resize, __pyx_t_1) < 0) __PYX_ERR(0, 67, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "(tree fragment)":1
@@ -23481,6 +23611,24 @@ static PyObject* __Pyx_PyObject_GenericGetAttr(PyObject* obj, PyObject* attr_nam
 }
 #endif
 
+/* SetVTable */
+static int __Pyx_SetVtable(PyObject *dict, void *vtable) {
+#if PY_VERSION_HEX >= 0x02070000
+    PyObject *ob = PyCapsule_New(vtable, 0, 0);
+#else
+    PyObject *ob = PyCObject_FromVoidPtr(vtable, 0);
+#endif
+    if (!ob)
+        goto bad;
+    if (PyDict_SetItem(dict, __pyx_n_s_pyx_vtable, ob) < 0)
+        goto bad;
+    Py_DECREF(ob);
+    return 0;
+bad:
+    Py_XDECREF(ob);
+    return -1;
+}
+
 /* PyObjectGetAttrStrNoError */
 static void __Pyx_PyObject_GetAttrStr_ClearAttributeError(void) {
     __Pyx_PyThreadState_declare
@@ -23585,24 +23733,6 @@ __PYX_GOOD:
     Py_XDECREF(setstate);
     Py_XDECREF(setstate_cython);
     return ret;
-}
-
-/* SetVTable */
-static int __Pyx_SetVtable(PyObject *dict, void *vtable) {
-#if PY_VERSION_HEX >= 0x02070000
-    PyObject *ob = PyCapsule_New(vtable, 0, 0);
-#else
-    PyObject *ob = PyCObject_FromVoidPtr(vtable, 0);
-#endif
-    if (!ob)
-        goto bad;
-    if (PyDict_SetItem(dict, __pyx_n_s_pyx_vtable, ob) < 0)
-        goto bad;
-    Py_DECREF(ob);
-    return 0;
-bad:
-    Py_XDECREF(ob);
-    return -1;
 }
 
 /* TypeImport */
@@ -26144,6 +26274,43 @@ raise_neg_overflow:
         return PyErr_WarnEx(NULL, message, 1);
     }
     return 0;
+}
+
+/* FunctionExport */
+  static int __Pyx_ExportFunction(const char *name, void (*f)(void), const char *sig) {
+    PyObject *d = 0;
+    PyObject *cobj = 0;
+    union {
+        void (*fp)(void);
+        void *p;
+    } tmp;
+    d = PyObject_GetAttrString(__pyx_m, (char *)"__pyx_capi__");
+    if (!d) {
+        PyErr_Clear();
+        d = PyDict_New();
+        if (!d)
+            goto bad;
+        Py_INCREF(d);
+        if (PyModule_AddObject(__pyx_m, (char *)"__pyx_capi__", d) < 0)
+            goto bad;
+    }
+    tmp.fp = f;
+#if PY_VERSION_HEX >= 0x02070000
+    cobj = PyCapsule_New(tmp.p, sig, 0);
+#else
+    cobj = PyCObject_FromVoidPtrAndDesc(tmp.p, (void *)sig, 0);
+#endif
+    if (!cobj)
+        goto bad;
+    if (PyDict_SetItemString(d, name, cobj) < 0)
+        goto bad;
+    Py_DECREF(cobj);
+    Py_DECREF(d);
+    return 0;
+bad:
+    Py_XDECREF(cobj);
+    Py_XDECREF(d);
+    return -1;
 }
 
 /* InitStrings */

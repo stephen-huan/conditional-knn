@@ -2,8 +2,6 @@
 cimport numpy as np
 import numpy as np
 
-ctypedef unsigned long long HEAP_DATA
-
 cdef HEAP_DATA MASK = 0xffffffff00000000
 cdef int REMOVED = -1
 
@@ -70,11 +68,9 @@ def resize(array):
     """ Double the size of the array. """
     return np.append(array, np.zeros(len(array), np.asarray(array).dtype))
 
-cdef class Heap:
 
-    cdef HEAP_DATA[::1] l
-    cdef int[::1] ids
-    cdef int size
+cdef class Heap:
+    """ Maximum heap which stores ids to support update keys. """
 
     def __init__(self, double[::1] dists, long[::1] ids):
         """ Construct a new heap from the given data. """
@@ -115,7 +111,7 @@ cdef class Heap:
         # restore heap property
         __siftup(self.l, self.ids, self.size)
 
-    def pop(self) -> tuple:
+    cdef HEAP_DATA __pop(self):
         """ Remove a value from the heap. """
         cdef HEAP_DATA value = self.l[1]
         # replace with last leaf
@@ -125,14 +121,23 @@ cdef class Heap:
         self.size -= 1
         # restore heap property
         __siftdown(self.l, self.ids, 1)
+        return value
+
+    def pop(self) -> tuple:
+        """ Remove a value from the heap. """
+        cdef HEAP_DATA value = self.__pop()
         return __get_distance(value), __get_id(value)
 
-    def update_key(self, int i, double dist) -> bool:
+    cdef int __update_key(self, int i, double dist):
         """ Update the value of key. """
-        cdef int k = self.ids[i]
+        cdef:
+            int k
+            float value
+
+        k = self.ids[i]
         if k == REMOVED:
-            return False
-        cdef float value = __get_distance(self.l[k])
+            return 0
+        value = __get_distance(self.l[k])
         # overwrite value
         self.l[k] = __heap_value(dist, i)
         # restore heap property
@@ -140,14 +145,22 @@ cdef class Heap:
             __siftdown(self.l, self.ids, k)
         if dist > value:
             __siftup(self.l, self.ids, k)
-        return True
+        return 1
+
+    def update_key(self, int i, double dist) -> bool:
+        """ Update the value of key. """
+        return bool(self.__update_key(i, dist))
 
     def decrease_key(self, int i, double dist) -> bool:
         """ Decrease the value of key. """
-        cdef int k = self.ids[i]
+        cdef:
+            int k
+            float value
+
+        k = self.ids[i]
         if k == REMOVED:
             return False
-        cdef float value = __get_distance(self.l[k])
+        value = __get_distance(self.l[k])
         # only overwrite value if less
         if dist < value:
             self.l[k] = __heap_value(dist, i)
