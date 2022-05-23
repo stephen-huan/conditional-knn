@@ -3,6 +3,7 @@ import scipy.linalg
 import scipy.spatial.distance
 from sklearn.gaussian_process.kernels import Kernel, Matern
 import ccknn
+from maxheap import Heap
 
 ### helper methods
 
@@ -81,6 +82,31 @@ def __prec_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
 
     return indexes
 
+def __chol_update(cov_k: np.ndarray, i: int, k: int, factors: np.ndarray,
+                  cond_var: np.ndarray, cond_cov: np.ndarray=None) -> None:
+    """ Updates the ith column of the Cholesky factor with column k. """
+    n = cond_var.shape[0]
+    # update Cholesky factors
+    factors[:, i] = cov_k
+    factors[:, i] -= factors[:, :i]@factors[k, :i]
+    factors[:, i] /= np.sqrt(factors[k, i])
+    # update conditional variance and covariance
+    cond_var -= factors[:, i][:n]**2
+    if cond_cov is not None:
+        cond_cov -= np.outer(factors[:, i][:n], factors[:, i][n:])
+
+def __select_update(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
+                    i: int, k: int, factors: np.ndarray,
+                    cond_var: np.ndarray, cond_cov: np.ndarray) -> None:
+    """ Update the selection data structures after selecting a point. """
+    n = x_train.shape[0]
+    points = np.vstack((x_train, x_test))
+    cov_k = kernel(points, x_train[k: k + 1]).flatten()
+    __chol_update(cov_k, i, k, factors, cond_var, cond_cov[:, np.newaxis])
+    # mark index as selected
+    if k < n:
+        cond_var[k] = np.inf
+
 def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                   s: int) -> list:
     """ Select the s most informative entries, storing a Cholesky factor. """
@@ -98,14 +124,9 @@ def __chol_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         k = max(candidates, key=lambda j: cond_cov[j]**2/cond_var[j])
         indexes.append(k)
         candidates.remove(k)
-        # update Cholesky factors
-        i = len(indexes) - 1
-        factors[:, i] = kernel(points, [x_train[k]]).flatten()
-        factors[:, i] -= factors[:, :i]@factors[k, :i]
-        factors[:, i] /= np.sqrt(factors[k, i])
-        # update conditional variance and covariance
-        cond_var -= factors[:, i][:n]**2
-        cond_cov -= factors[:, i][:n]*factors[n, i]
+        # update data structures
+        __select_update(x_train, x_test, kernel, len(indexes) - 1, k,
+                        factors, cond_var, cond_cov)
 
     return indexes
 
@@ -172,19 +193,6 @@ def __prec_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         cond_cov -= np.outer(cond_cov_k[:n], cond_cov_k[n:])
 
     return indexes
-
-def __chol_update(cov_k: np.ndarray, i: int, k: int, factors: np.ndarray,
-                  cond_var: np.ndarray, cond_cov: np.ndarray=None) -> None:
-    """ Updates the ith column of the Cholesky factor with column k. """
-    n = cond_var.shape[0]
-    # update Cholesky factors
-    factors[:, i] = cov_k
-    factors[:, i] -= factors[:, :i]@factors[k, :i]
-    factors[:, i] /= np.sqrt(factors[k, i])
-    # update conditional variance and covariance
-    cond_var -= factors[:, i][:n]**2
-    if cond_cov is not None:
-        cond_cov -= np.outer(factors[:, i][:n], factors[:, i][n:])
 
 def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
                        s: int) -> np.ndarray:
@@ -454,4 +462,68 @@ def chol_select(x: np.ndarray,
     selected = select_method(x, train, test, kernel, s)
     assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
+
+### global selection
+
+def __global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
+                    candidate_sparsity: dict, ref_groups: list) -> dict:
+    """ Construct a sparsity pattern from a candidate set over all columns. """
+    sparsity = {group[0]: [] for group in ref_groups}
+    n = len(x)
+    group_candidates = [np.array(list(
+        {j for i in group for j in candidate_sparsity[i]} - set(group)
+    ), dtype=np.int64) for group in ref_groups]
+    nonzeros = sum(map(len, ref_sparsity.values()))
+    entries_left = nonzeros - sum(m*(m + 1)//2 for m in map(len, ref_groups))
+    max_sel = 3*(entries_left//n)
+    # initialize data structures
+    factors, cond_covs, cond_vars = [], [], []
+    for group, candidates in zip(ref_groups, group_candidates):
+        factor = np.zeros((len(candidates) + len(group), max_sel), order="F")
+        factors.append(factor)
+        cond_covs.append(kernel(x[candidates], x[group]).flatten())
+        cond_vars.append(kernel.diag(x[candidates]))
+    num_sel = np.zeros(len(ref_groups), dtype=np.int64)
+    group_var = kernel.diag(x[[i for group in ref_groups for i in group]])
+    # add candidates to max heap
+    values, ids = [], []
+    for i, (group, candidates) in enumerate(zip(ref_groups, group_candidates)):
+        cond_var, cond_cov, var = cond_vars[i], cond_covs[i], group_var[i]
+        for j in range(len(candidates)):
+            values.append((cond_cov[j]**2/cond_var[j])/var)
+            ids.append(n*j + i)
+    values, ids = np.array(values), np.array(ids, dtype=np.int64)
+    heap = Heap(values, ids)
+    while len(heap) > 0 and entries_left > 0:
+        _, entry = heap.pop()
+        k, i = entry//n, entry % n
+        # do not select if group already has enough entries
+        if num_sel[i] >= max_sel:
+            continue
+        group, candidates = ref_groups[i], group_candidates[i]
+        factor, cond_var, cond_cov = factors[i], cond_vars[i], cond_covs[i]
+        # add entry to sparsity pattern
+        sparsity[group[0]].append(candidates[k])
+        # update data structures
+        group_var[i] -= cond_cov[k]**2/cond_var[k]
+        __select_update(x[candidates], x[group], kernel, num_sel[i], k,
+                        factor, cond_var, cond_cov)
+        # update affected candidates
+        for j in range(len(candidates)):
+            # if hasn't been selected already
+            if cond_var[j] != np.inf:
+                heap.update_key(n*j + i,
+                                (cond_cov[j]**2/cond_var[j])/group_var[i])
+        num_sel[i] += 1
+        entries_left -= len(group)
+
+    return {group[0]: sorted(group + sparsity[group[0]])
+            for group in ref_groups}
+
+def global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
+                  candidate_sparsity: dict, ref_groups: list,
+                  select_method=ccknn.global_select) -> dict:
+    """ Construct a sparsity pattern from a candidate set over all columns. """
+    return select_method(x, kernel,
+                         ref_sparsity, candidate_sparsity, ref_groups)
 

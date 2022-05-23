@@ -7,6 +7,10 @@ cimport scipy.linalg.cython_blas as blas
 cimport mkl
 from c_kernels cimport Kernel, get_kernel, kernel_cleanup
 from c_kernels cimport covariance_vector, variance_vector
+cimport maxheap
+from maxheap cimport Heap
+cimport sequence
+from sequence cimport Sequence
 
 ### selection methods
 
@@ -49,13 +53,32 @@ cdef void __chol_update(int n, int i, int k,
     if k < cond_var.shape[0]:
         cond_var[k] = INFINITY
 
+cdef void __select_update(double[:, ::1] x_train, double[:, ::1] x_test,
+                          Kernel *kernel, int i, int k, double[::1, :] factors,
+                          double[::1] cond_var, double[::1] cond_cov):
+    """ Update the selection data structures after selecting a point. """
+    cdef:
+        int n, incx
+        double alpha
+
+    n = x_train.shape[0]
+    # update Cholesky factors
+    covariance_vector(kernel, x_train, x_train[k], &factors[0, i])
+    covariance_vector(kernel, x_test, x_train[k], &factors[n, i])
+    __chol_update(n + 1, i, k, factors, cond_var)
+    # update conditional covariance
+    # cond_cov -= factors[:, i][:n]*factors[n, i]
+    alpha = -factors[n, i]
+    incx = 1
+    blas.daxpy(&n, &alpha, &factors[0, i], &incx, &cond_cov[0], &incx)
+
 cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
                              Kernel *kernel, int s):
     """ Select the s most informative entries, storing a Cholesky factor. """
     # O(s*(n*s)) = O(n s^2)
     cdef:
-        int n, i, j, k, incx
-        double best, alpha
+        int n, i, j, k
+        double best
         long[::1] indexes
         double[::1, :] factors
         double[::1] cond_var, cond_cov
@@ -81,15 +104,9 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
                 k = j
                 best = cond_cov[j]*cond_cov[j]/cond_var[j]
         indexes[i] = k
-        # update Cholesky factors
-        covariance_vector(kernel, x_train, x_train[k], &factors[0, i])
-        covariance_vector(kernel, x_test, x_train[k], &factors[n, i])
-        __chol_update(n + 1, i, k, factors, cond_var)
-        # update conditional covariance
-        # cond_cov -= factors[:, i][:n]*factors[n, i]
-        alpha = -factors[n, i]
-        incx = 1
-        blas.daxpy(&n, &alpha, &factors[0, i], &incx, &cond_cov[0], &incx)
+        # update data structures
+        __select_update(x_train, x_test, kernel, i, k,
+                        factors, cond_var, cond_cov)
         i += 1
 
     return indexes
@@ -159,14 +176,16 @@ cdef int __get_exponent(double x):
 cdef double __log_product(int n, double *x, int incx):
     """ Return the log of the product of the entries of a vector. """
     cdef:
+        unsigned long long *y
         unsigned long long value
         double mantissa
         int i, exponent
 
+    y = <unsigned long long *> x
     mantissa = 1
     exponent = 0
     for i in range(n):
-        value = (<unsigned long long *> (x + i*incx))[0]
+        value = y[i*incx]
         exponent += ((value & EXPONENT_MASK) >> 52) - 1023
         value = MANTISSA_BASE + (value & MANTISSA_MASK)
         mantissa *= (<double *> &value)[0]
@@ -472,4 +491,142 @@ def chol_select(double[:, ::1] x, long[::1] train, long[::1] test,
         selected = __budget_select(x, train, test, kernel, s)
     kernel_cleanup(kernel)
     return np.asarray(selected)
+
+### global selection
+
+cdef long[:, ::1] __global_select(double[:, ::1] points,
+                                  Kernel *kernel, int nonzeros,
+                                  list group_candidates, list ref_groups):
+    """ Construct a sparsity pattern from a candidate set over all columns. """
+    cdef:
+        int n, i, j, k, total_candidates, entries_left, max_sel, entry, lda, s
+        long[::1] group_sizes, candidate_sizes, group, candidates, ids
+        long[:, ::1] indexes
+        double key, var
+        double[::1] group_var, values, cond_var, cond_cov
+        double[::1, :] factor
+        Sequence *group_list
+        Sequence *candidate_list
+        Sequence *factors
+        Sequence *cond_covs
+        Sequence *cond_vars
+        Heap heap
+
+    n = points.shape[0]
+    x = np.asarray(points)
+
+    group_list = sequence.from_list(ref_groups)
+    group_sizes = sequence.size_list(ref_groups)
+    candidate_list = sequence.from_list(group_candidates)
+    candidate_sizes = sequence.size_list(group_candidates)
+
+    total_candidates = 0
+    for i in range(candidate_sizes.shape[0]):
+        total_candidates += candidate_sizes[i]
+    entries_left = nonzeros
+    for i in range(group_sizes.shape[0]):
+        j = group_sizes[i]
+        entries_left -= j*(j + 1)//2
+    max_sel = 3*(entries_left//n)
+
+    # reserve last entry for number selected
+    indexes = np.zeros((group_list.size, max_sel + 1), dtype=np.int64)
+
+    # initialize data structures
+    factors = sequence.new_sequence(group_list.size)
+    cond_covs = sequence.new_sequence(group_list.size)
+    cond_vars = sequence.new_sequence(group_list.size)
+    for i in range(group_list.size):
+        group = <long[:group_sizes[i]:1]> group_list.data[i]
+        lda = candidate_sizes[i]
+        if lda == 0:
+            continue
+        candidates = <long[:lda:1]> candidate_list.data[i]
+        sequence.add_item(factors, i, (lda + group.shape[0])*max_sel)
+        sequence.add_item(cond_covs, i, lda)
+        covariance_vector(kernel, x[candidates], x[group[0]],
+                          <double *> cond_covs.data[i])
+        sequence.add_item(cond_vars, i, lda)
+        variance_vector(kernel, x[candidates], <double *> cond_vars.data[i])
+
+    group_var = np.zeros(group_list.size)
+    variance_vector(kernel, x[[group[0] for group in ref_groups]],
+                    &group_var[0])
+
+    # add candidates to max heap
+    values = np.zeros(total_candidates)
+    ids = np.zeros(total_candidates, dtype=np.int64)
+    k = 0
+    for i in range(group_list.size):
+        var = group_var[i]
+        lda = candidate_sizes[i]
+        if lda == 0:
+            continue
+        cond_cov = <double[:lda:1]> cond_covs.data[i]
+        cond_var = <double[:lda:1]> cond_vars.data[i]
+        for j in range(candidate_sizes[i]):
+            values[k] = (cond_cov[j]*cond_cov[j]/cond_var[j])/var
+            ids[k] = n*j + i
+            k += 1
+
+    heap = Heap(values, ids)
+    while heap.size > 0 and entries_left > 0:
+        entry = maxheap.__get_id(heap.__pop())
+        k, i = entry//n, entry % n
+        # do not select if group already has enough entries
+        s = indexes[i, max_sel]
+        if s >= max_sel:
+            continue
+        lda = candidate_sizes[i]
+        candidates = <long[:lda:1]> candidate_list.data[i]
+        cond_cov = <double[:lda:1]> cond_covs.data[i]
+        cond_var = <double[:lda:1]> cond_vars.data[i]
+        group = <long[:group_sizes[i]:1]> group_list.data[i]
+        lda = candidates.shape[0] + group.shape[0]
+        factor = <double[:lda:1, :max_sel]> factors.data[i]
+        # add entry to sparsity pattern
+        indexes[i, s] = candidates[k]
+        # update data structures
+        group_var[i] -= cond_cov[k]*cond_cov[k]/cond_var[k]
+        __select_update(x[candidates], x[group], kernel, s, k,
+                        factor, cond_var, cond_cov)
+        # update affected candidates
+        for j in range(candidates.shape[0]):
+            # if hasn't been selected already
+            if cond_var[j] != INFINITY:
+                key = (cond_cov[j]*cond_cov[j]/cond_var[j])/group_var[i]
+                heap.__update_key(n*j + i, key)
+        indexes[i, max_sel] += 1
+        entries_left -= group_sizes[i]
+
+    sequence.cleanup(group_list, &group_sizes[0])
+    sequence.cleanup(candidate_list, &candidate_sizes[0])
+    sequence.cleanup(factors)
+    sequence.cleanup(cond_covs)
+    sequence.cleanup(cond_vars)
+    return indexes
+
+def global_select(double[:, ::1] x, kernel_object, dict ref_sparsity,
+                  dict candidate_sparsity, list ref_groups) -> dict:
+    """ Construct a sparsity pattern from a candidate set over all columns. """
+    cdef:
+        int i, nonzeros, max_sel
+        Kernel *kernel
+        long[:, ::1] indexes
+
+    nonzeros = sum(map(len, ref_sparsity.values()))
+    groups = [np.array(group, dtype=np.int64) for group in ref_groups]
+    group_candidates = [np.array(list(
+        {j for i in group for j in candidate_sparsity[i]} - set(group)
+    ), dtype=np.int64) for group in ref_groups]
+
+    kernel = get_kernel(kernel_object)
+    indexes = __global_select(x, kernel, nonzeros, group_candidates, groups)
+    kernel_cleanup(kernel)
+
+    max_sel = indexes.shape[1] - 1
+    sparsity = {group[0]: sorted(group + \
+                                 list(indexes[i, :indexes[i, max_sel]]))
+                for i, group in enumerate(ref_groups)}
+    return sparsity
 

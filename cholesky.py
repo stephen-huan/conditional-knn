@@ -269,7 +269,6 @@ def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
                          ref_sparsity: dict, candidate_sparsity: dict,
                          ref_groups: list, select) -> sparse.csc_matrix:
     """ Subsample Cholesky within a reference sparsity and groups. """
-    select = cknn.chol_select
     sparsity = {}
     # pre-compute maximum number of nonzeroes per column
     group_candidates = [np.array(list(
@@ -319,6 +318,19 @@ def cholesky_subsample(x: np.ndarray, kernel: Kernel, s: float,
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s*rho)
     return __cholesky_subsample(x, kernel, sparsity, candidate_sparsity,
                                 groups, select), order
+
+def cholesky_global(x: np.ndarray, kernel: Kernel, s: float,
+                    rho: float, lambd: float=None) -> tuple:
+    """ Computes Cholesky by global subsampling. """
+    # standard geometric algorithm
+    order, lengths = ordering.reverse_maximin(x)
+    x = x[order]
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    # create bigger sparsity pattern for candidates
+    candidate_sparsity = ordering.sparsity_pattern(x, lengths, s*rho)
+    new_sparsity = cknn.global_select(x, kernel,
+                                      sparsity, candidate_sparsity, groups)
+    return __mult_cholesky(x, kernel, new_sparsity, groups), order
 
 ### Joint covariance methods for Gaussian process regression
 
