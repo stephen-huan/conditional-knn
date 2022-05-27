@@ -212,8 +212,7 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         __chol_update(cov_k, i, n + i, factors_pr, cond_var_pr)
     factors_pr = factors_pr[:n]
 
-    i = 0
-    while i < indexes.shape[0]:
+    for i in range(indexes.shape[0]):
         # pick best entry
         k = min(set(range(n)) - set(indexes[:i]),
                 key=lambda j: cond_var_pr[j]/cond_var[j])
@@ -222,7 +221,6 @@ def __chol_mult_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
         cov_k = kernel(x_train, [x_train[k]]).flatten()
         __chol_update(cov_k, i, k, factors, cond_var)
         __chol_update(cov_k, i + m, k, factors_pr, cond_var_pr)
-        i += 1
 
     return indexes
 
@@ -262,8 +260,9 @@ def __insert_index(order: np.ndarray, locations: np.ndarray,
             return index
     return index + 1
 
-def __select_point(order: np.ndarray, locations: np.ndarray, i: int, k: int,
-                   points: np.ndarray, kernel: Kernel, factors: np.ndarray):
+def __select_point(order: np.ndarray, locations: np.ndarray,
+                   points: np.ndarray, i: int, k: int, kernel: Kernel,
+                   factors: np.ndarray, var: np.ndarray):
     """ Add the kth point to the Cholesky factor. """
     index = __insert_index(order, locations, i, k)
     # shift values over to make room for k at index
@@ -273,6 +272,51 @@ def __select_point(order: np.ndarray, locations: np.ndarray, i: int, k: int,
     # update Cholesky factor
     cov_k = kernel(points, [points[k]]).flatten()
     __chol_insert(cov_k, order, i, index, k, factors)
+    # mark as selected
+    if k < var.shape[0]:
+        var[k] = np.inf
+
+def __scores_update(order: np.ndarray, locations: np.ndarray, i: int,
+                    factors: np.ndarray,
+                    var: np.ndarray, scores: np.ndarray) -> int:
+    """ Update the scores for each candidate. """
+    n, m = var.shape[0], locations.shape[0] - var.shape[0]
+    # compute baseline log determinant before conditioning
+    prev_logdet = 0
+    for col in range(i):
+        k = order[col]
+        # add log conditional variance of prediction point
+        if k >= n:
+            prev_logdet += 2*np.log(factors[k, col])
+    # pick best entry
+    best, best_k = -np.inf, 0
+    for j in range(scores.shape[0]):
+        # selected already, don't consider as candidate
+        if var[j] == np.inf:
+            continue
+
+        cond_var_j = var[j]
+        index = __insert_index(order, locations, i, j)
+        key = 0
+
+        for col in range(i):
+            k = order[col]
+            cond_var_k = factors[k, col]
+            cond_cov_k = factors[j, col]*cond_var_k
+            cond_var_k *= cond_var_k
+            cond_cov_k *= cond_cov_k
+            # add log conditional variance of prediction point
+            if k >= n:
+                key += np.log(cond_var_k - (cond_cov_k/cond_var_j
+                                            if col >= index else 0))
+            cond_var_j -= cond_cov_k/cond_var_k
+
+        key = prev_logdet - key
+        scores[j] = key
+        if key > best:
+            best, best_k = key, j
+
+    return best_k
 
 def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
                          kernel: Kernel, s: int) -> np.ndarray:
@@ -286,50 +330,18 @@ def __chol_nonadj_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
     order = np.zeros(indexes.shape[0] + test.shape[0], dtype=np.int64)
     factors = np.zeros((n + m, s + m))
     var = kernel.diag(x[train])
+    scores = np.zeros(n)
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, i, n + i,
-                       points, kernel, factors)
-    i = 0
-    while i < indexes.shape[0]:
+        __select_point(order, locations, points, i, n + i,
+                       kernel, factors, var)
+    for i in range(indexes.shape[0]):
         # pick best entry
-        best, best_k = np.inf, 0
-        for j in range(n):
-            # selected already, don't consider as candidate
-            if var[j] == np.inf:
-                continue
-
-            cond_var_j = var[j]
-            index = __insert_index(order, locations, m + i, j)
-            key = -np.log(cond_var_j) if index == 0 else 0
-
-            for col in range(m + i):
-                k = order[col]
-                cond_var_k = factors[k, col]
-                cond_cov_k = factors[j, col]*cond_var_k
-                cond_var_k *= cond_var_k
-                cond_cov_k *= cond_cov_k
-                # remove spurious contribution from selected training point
-                if k < n:
-                    key -= np.log(cond_var_k - (cond_cov_k/cond_var_j
-                                                if col >= index else 0))
-                cond_var_j -= cond_cov_k/cond_var_k
-                # remove spurious contribution of j
-                if col + 1 == index:
-                    key -= np.log(cond_var_j)
-            # add logdet of entire covariance matrix
-            key += np.log(cond_var_j)
-
-            if key < best:
-                best, best_k = key, j
-
-        indexes[i] = best_k
-        # mark as selected
-        var[best_k] = np.inf
+        k = __scores_update(order, locations, i + m, factors, var, scores)
+        indexes[i] = k
         # update Cholesky factor
-        __select_point(order, locations, i + m, best_k,
-                       points, kernel, factors)
-        i += 1
+        __select_point(order, locations, points, i + m, k,
+                       kernel, factors, var)
 
     return indexes
 
@@ -348,53 +360,27 @@ def __budget_select(x: np.ndarray, train: np.ndarray, test: np.ndarray,
     order = np.zeros(indexes.shape[0] + test.shape[0], dtype=np.int64)
     factors = np.zeros((n + m, max_sel + m))
     var = kernel.diag(x[train])
+    scores = np.zeros(n)
+    num_cond = np.array([sum(i < train[k] for i in test)
+                         for k in range(len(train))])
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, i, n + i,
-                       points, kernel, factors)
+        __select_point(order, locations, points, i, n + i,
+                       kernel, factors, var)
     i = 0
     while i < indexes.shape[0] and budget > 0:
         # pick best entry
-        best, best_k = np.inf, 0
-        for j in range(n):
-            # selected already, don't consider as candidate
-            if var[j] == np.inf:
-                continue
-
-            cond_var_j = var[j]
-            index = __insert_index(order, locations, m + i, j)
-            key = -np.log(cond_var_j) if index == 0 else 0
-
-            for col in range(m + i):
-                k = order[col]
-                cond_var_k = factors[k, col]
-                cond_cov_k = factors[j, col]*cond_var_k
-                cond_var_k *= cond_var_k
-                cond_cov_k *= cond_cov_k
-                # remove spurious contribution from selected training point
-                if k < n:
-                    key -= np.log(cond_var_k - (cond_cov_k/cond_var_j
-                                                if col >= index else 0))
-                cond_var_j -= cond_cov_k/cond_var_k
-                # remove spurious contribution of j
-                if col + 1 == index:
-                    key -= np.log(cond_var_j)
-            # add logdet of entire covariance matrix
-            key += np.log(cond_var_j)
-
-            if key < best:
-                best, best_k = key, j
-
+        __scores_update(order, locations, i + m, factors, var, scores)
+        k = max(set(range(len(train))) - set(indexes[:i]),
+                key=lambda i: scores[i]/num_cond[i])
         # subtract number conditioned from budget
-        budget -= sum(i < train[best_k] for i in test)
+        budget -= num_cond[k]
         if budget < 0:
             break
-        indexes[i] = best_k
-        # mark as selected
-        var[best_k] = np.inf
+        indexes[i] = k
         # update Cholesky factor
-        __select_point(order, locations, i + m, best_k,
-                       points, kernel, factors)
+        __select_point(order, locations, points, i + m, k,
+                       kernel, factors, var)
         i += 1
 
     return indexes[:i]

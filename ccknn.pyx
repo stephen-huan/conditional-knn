@@ -189,7 +189,7 @@ cdef double __log_product(int n, double *x, int incx):
         exponent += ((value & EXPONENT_MASK) >> 52) - 1023
         value = MANTISSA_BASE + (value & MANTISSA_MASK)
         mantissa *= (<double *> &value)[0]
-        # prevent underflow by periodic normalization
+        # prevent overflow by periodic normalization
         if i & 512:
             exponent += __get_exponent(mantissa)
             mantissa = __get_mantissa(mantissa)
@@ -255,9 +255,9 @@ cdef int __insert_index(long[::1] order, long[::1] locations, int i, int k):
             return index
     return index + 1
 
-cdef void __select_point(long[::1] order, long[::1] locations, int i, int k,
-                         double[:, ::1] points, Kernel *kernel,
-                         double[::1, :] factors):
+cdef void __select_point(long[::1] order, long[::1] locations,
+                         double[:, ::1] points, int i, int k, Kernel *kernel,
+                         double[::1, :] factors, double[::1] var):
     """ Add the kth point to the Cholesky factor. """
     cdef int col, index, last
 
@@ -271,18 +271,69 @@ cdef void __select_point(long[::1] order, long[::1] locations, int i, int k,
     last = factors.shape[1] - 1
     covariance_vector(kernel, points, points[k], &factors[0, last])
     __chol_insert(order, i, index, k, factors)
+    # mark as selected
+    if k < var.shape[0]:
+        var[k] = INFINITY
+
+cdef int __scores_update(long[::1] order, long[::1] locations, int i,
+                         double[::1, :] factors, double[::1] var,
+                         double[::1] scores, double[::1] keys):
+    """ Update the scores for each candidate. """
+    cdef:
+        int n, m, j, k, best_k, col, index, count
+        double prev_logdet, best, key, cond_cov_k, cond_var_k, cond_var_j
+
+    n, m = var.shape[0], locations.shape[0] - var.shape[0]
+    best, best_k = -INFINITY, 0
+    # compute baseline log determinant before conditioning
+    count = 0
+    for col in range(i):
+        k = order[col]
+        # add log conditional variance of prediction point
+        if k >= n:
+            keys[count] = factors[k, col]
+            count += 1
+    prev_logdet = 2*__log_product(m, &keys[0], 1)
+    # pick best entry
+    for j in range(n):
+        # selected already, don't consider as candidate
+        if var[j] == INFINITY:
+            continue
+
+        cond_var_j = var[j]
+        index = __insert_index(order, locations, i, j)
+        count = 0
+
+        for col in range(i):
+            k = order[col]
+            cond_var_k = factors[k, col]
+            cond_cov_k = factors[j, col]*cond_var_k
+            cond_var_k *= cond_var_k
+            cond_cov_k *= cond_cov_k
+            # add log conditional variance of prediction point
+            if k >= n:
+                keys[count] = cond_var_k - (cond_cov_k/cond_var_j
+                                            if col >= index else 0)
+                count += 1
+            cond_var_j -= cond_cov_k/cond_var_k
+
+        key = prev_logdet - __log_product(m, &keys[0], 1)
+        scores[j] = key
+        if key > best:
+            best, best_k = key, j
+
+    return best_k
 
 cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
                                     long[::1] test, Kernel *kernel, int s):
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
-        int n, m, i, j, k, best_k, col, index
-        double best, key, cond_cov_k, cond_var_k, cond_var_j
+        int n, m, i, k
         long[::1] indexes, order, locations
         double[:, ::1] points
         double[::1, :] factors
-        double[::1] var, keys
+        double[::1] var, scores, keys
 
     n, m = train.shape[0], test.shape[0]
     locations = np.append(train, test)
@@ -294,63 +345,21 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
     # var = kernel.diag(x[train])
     var = np.zeros(n)
     variance_vector(kernel, points[:n], &var[0])
-    keys = np.ones(s + m + 2)
+    scores = np.zeros(n)
+    keys = np.zeros(m)
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, i, n + i, points, kernel, factors)
+        __select_point(order, locations, points, i, n + i,
+                       kernel, factors, var)
 
-    i = 0
-    while i < indexes.shape[0]:
-        best, best_k = -INFINITY, 0
+    for i in range(indexes.shape[0]):
         # pick best entry
-        for j in range(n):
-            # selected already, don't consider as candidate
-            if var[j] == INFINITY:
-                continue
-
-            cond_var_j = var[j]
-            index = __insert_index(order, locations, m + i, j)
-            keys[m + i] = 1
-
-            for col in range(index):
-                k = order[col]
-                cond_var_k = factors[k, col]
-                cond_cov_k = factors[j, col]*cond_var_k
-                cond_var_k *= cond_var_k
-                cond_cov_k *= cond_cov_k
-                # remove spurious contribution from selected training point
-                if k < n:
-                    keys[col] = cond_var_k
-                cond_var_j -= cond_cov_k/cond_var_k
-
-            # remove spurious contribution of j
-            keys[m + i] = cond_var_j
-
-            for col in range(index, m + i):
-                k = order[col]
-                cond_var_k = factors[k, col]
-                cond_cov_k = factors[j, col]*cond_var_k
-                cond_var_k *= cond_var_k
-                cond_cov_k *= cond_cov_k
-                # remove spurious contribution from selected training point
-                if k < n:
-                    keys[col] = cond_var_k - cond_cov_k/cond_var_j
-                cond_var_j -= cond_cov_k/cond_var_k
-
-            # add logdet of entire covariance matrix
-            keys[m + i + 1] = 1/cond_var_j
-
-            key = __log_product(m + i + 2, &keys[0], 1)
-            if key > best:
-                best, best_k = key, j
-
-        indexes[i] = best_k
-        # mark as selected
-        var[best_k] = INFINITY
+        k = __scores_update(order, locations, i + m,
+                            factors, var, scores, keys)
+        indexes[i] = k
         # update Cholesky factor
-        __select_point(order, locations, i + m, best_k,
-                       points, kernel, factors)
-        i += 1
+        __select_point(order, locations, points, i + m, k,
+                       kernel, factors, var)
 
     return indexes
 
@@ -359,12 +368,13 @@ cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
     """ Greedily select the s entries minimizing conditional covariance. """
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
-        int n, m, budget, max_sel, i, j, k, best_k, col, index
-        double best, key, cond_cov_k, cond_var_k, cond_var_j
-        long[::1] indexes, order, locations
+        int n, m, budget, max_sel, i, j, k, index
+        long count
+        double best, key
+        long[::1] indexes, order, locations, num_cond
         double[:, ::1] points
         double[::1, :] factors
-        double[::1] var, keys
+        double[::1] var, scores, keys
 
     n, m = train.shape[0], test.shape[0]
     locations = np.append(train, test)
@@ -379,69 +389,41 @@ cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
     # var = kernel.diag(x[train])
     var = np.zeros(n)
     variance_vector(kernel, points[:n], &var[0])
-    keys = np.ones(max_sel + m + 2)
+    scores = np.zeros(n)
+    keys = np.zeros(m)
+    num_cond = np.zeros(n, dtype=np.int64)
+    for i in range(n):
+        index = train[i]
+        count = 0
+        for j in range(m):
+            count += test[j] < index
+        num_cond[i] = count
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, i, n + i, points, kernel, factors)
+        __select_point(order, locations, points, i, n + i,
+                       kernel, factors, var)
 
     i = 0
     while i < indexes.shape[0] and budget > 0:
-        best, best_k = -INFINITY, 0
         # pick best entry
+        best, k = -INFINITY, 0
+        __scores_update(order, locations, i + m, factors, var, scores, keys)
         for j in range(n):
             # selected already, don't consider as candidate
             if var[j] == INFINITY:
                 continue
 
-            cond_var_j = var[j]
-            index = __insert_index(order, locations, m + i, j)
-            keys[m + i] = 1
-
-            for col in range(index):
-                k = order[col]
-                cond_var_k = factors[k, col]
-                cond_cov_k = factors[j, col]*cond_var_k
-                cond_var_k *= cond_var_k
-                cond_cov_k *= cond_cov_k
-                # remove spurious contribution from selected training point
-                if k < n:
-                    keys[col] = cond_var_k
-                cond_var_j -= cond_cov_k/cond_var_k
-
-            # remove spurious contribution of j
-            keys[m + i] = cond_var_j
-
-            for col in range(index, m + i):
-                k = order[col]
-                cond_var_k = factors[k, col]
-                cond_cov_k = factors[j, col]*cond_var_k
-                cond_var_k *= cond_var_k
-                cond_cov_k *= cond_cov_k
-                # remove spurious contribution from selected training point
-                if k < n:
-                    keys[col] = cond_var_k - cond_cov_k/cond_var_j
-                cond_var_j -= cond_cov_k/cond_var_k
-
-            # add logdet of entire covariance matrix
-            keys[m + i + 1] = 1/cond_var_j
-
-            key = __log_product(m + i + 2, &keys[0], 1)
+            key = scores[j]/num_cond[j]
             if key > best:
-                best, best_k = key, j
-
+                best, k = key, j
         # subtract number conditioned from budget
-        index = train[best_k]
-        for j in test:
-            budget -= j < index
+        budget -= num_cond[k]
         if budget < 0:
             break
-        # budget -= 1
-        indexes[i] = best_k
-        # mark as selected
-        var[best_k] = INFINITY
+        indexes[i] = k
         # update Cholesky factor
-        __select_point(order, locations, i + m, best_k,
-                       points, kernel, factors)
+        __select_point(order, locations, points, i + m, k,
+                       kernel, factors, var)
         i += 1
 
     return indexes[:i]
