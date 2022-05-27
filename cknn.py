@@ -455,13 +455,15 @@ def __global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
                     candidate_sparsity: dict, ref_groups: list) -> dict:
     """ Construct a sparsity pattern from a candidate set over all columns. """
     sparsity = {group[0]: [] for group in ref_groups}
-    n = len(x)
+    N = len(x)
+
     group_candidates = [np.array(list(
         {j for i in group for j in candidate_sparsity[i]} - set(group)
     ), dtype=np.int64) for group in ref_groups]
     nonzeros = sum(map(len, ref_sparsity.values()))
     entries_left = nonzeros - sum(m*(m + 1)//2 for m in map(len, ref_groups))
-    max_sel = 3*(entries_left//n)
+    max_sel = 3*(entries_left//N)
+
     # initialize data structures
     factors, cond_covs, cond_vars = [], [], []
     for group, candidates in zip(ref_groups, group_candidates):
@@ -469,25 +471,30 @@ def __global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
         factors.append(factor)
         cond_covs.append(kernel(x[candidates], x[group]).flatten())
         cond_vars.append(kernel.diag(x[candidates]))
+
     num_sel = np.zeros(len(ref_groups), dtype=np.int64)
     group_var = kernel.diag(x[[i for group in ref_groups for i in group]])
+
     # add candidates to max heap
     values, ids = [], []
     for i, (group, candidates) in enumerate(zip(ref_groups, group_candidates)):
         cond_var, cond_cov, var = cond_vars[i], cond_covs[i], group_var[i]
         for j in range(len(candidates)):
             values.append((cond_cov[j]**2/cond_var[j])/var)
-            ids.append(n*j + i)
+            ids.append(N*j + i)
     values, ids = np.array(values), np.array(ids, dtype=np.int64)
+
     heap = Heap(values, ids)
     while len(heap) > 0 and entries_left > 0:
         _, entry = heap.pop()
-        k, i = entry//n, entry % n
+        k, i = entry//N, entry % N
         # do not select if group already has enough entries
         if num_sel[i] >= max_sel:
             continue
+
         group, candidates = ref_groups[i], group_candidates[i]
         factor, cond_var, cond_cov = factors[i], cond_vars[i], cond_covs[i]
+
         # add entry to sparsity pattern
         sparsity[group[0]].append(candidates[k])
         # update data structures
@@ -498,17 +505,110 @@ def __global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
         for j in range(len(candidates)):
             # if hasn't been selected already
             if cond_var[j] != np.inf:
-                heap.update_key(n*j + i,
+                heap.update_key(N*j + i,
                                 (cond_cov[j]**2/cond_var[j])/group_var[i])
+
         num_sel[i] += 1
         entries_left -= len(group)
 
     return {group[0]: sorted(group + sparsity[group[0]])
             for group in ref_groups}
 
+def __global_mult_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
+                         candidate_sparsity: dict, ref_groups: list) -> dict:
+    """ Construct a sparsity pattern from a candidate set over all columns. """
+    sparsity = {group[0]: [] for group in ref_groups}
+    N = len(x)
+
+    group_candidates = [np.array(list(
+        {j for i in group for j in candidate_sparsity[i]} - set(group)
+    ), dtype=np.int64) for group in ref_groups]
+    nonzeros = sum(map(len, ref_sparsity.values()))
+    entries_left = nonzeros - sum(m*(m + 1)//2 for m in map(len, ref_groups))
+    max_sel = 3*(entries_left//N)
+
+    # initialize data structures
+    factors, orders, init_vars, scores = [], [], [], []
+    for i, (group, candidates) in enumerate(zip(ref_groups, group_candidates)):
+        n, m = len(candidates), len(group)
+        factor = np.zeros((n + m, max_sel + m), order="F")
+        factors.append(factor)
+        order = np.zeros(min(n, max_sel) + m, dtype=np.int64)
+        orders.append(order)
+        var = kernel.diag(x[candidates])
+        init_vars.append(var)
+        score = np.zeros(n)
+        scores.append(score)
+        # pre-condition on the m prediction points
+        locations = np.append(candidates, group)
+        points = x[locations]
+        for j in range(m):
+            __select_point(order, locations, points, j, n + j,
+                           kernel, factor, var)
+        __scores_update(order, locations, m, factor, var, score)
+
+    num_sel = np.zeros(len(ref_groups), dtype=np.int64)
+    # pre-compute prediction points conditioned for each candidate
+    num_conds = [[sum(i < candidates[k] for i in group)
+                 for k in range(len(candidates))]
+                 for group, candidates in zip(ref_groups, group_candidates)]
+
+    # add candidates to max heap
+    values, ids = [], []
+    for i, (group, candidates) in enumerate(zip(ref_groups, group_candidates)):
+        score, num_cond = scores[i], num_conds[i]
+        for j in range(len(candidates)):
+            values.append(score[j]/num_cond[j])
+            ids.append(N*j + i)
+    values, ids = np.array(values), np.array(ids, dtype=np.int64)
+
+    heap = Heap(values, ids)
+    while len(heap) > 0 and entries_left > 0:
+        _, entry = heap.pop()
+        k, i = entry//N, entry % N
+        num_cond = num_conds[i]
+        # do not select if group already has enough entries
+        # or there are not enough entries left
+        if num_sel[i] >= max_sel or num_cond[k] > entries_left:
+            continue
+
+        group, candidates = ref_groups[i], group_candidates[i]
+        n, m = len(candidates), len(group)
+        locations = np.append(candidates, group)
+        points = x[locations]
+        factor = factors[i]
+        order, var, score = orders[i], init_vars[i], scores[i]
+
+        # add entry to sparsity pattern
+        sparsity[group[0]].append(candidates[k])
+        # update data structures
+        __select_point(order, locations, points, num_sel[i] + m, k, kernel,
+                       factor, var)
+        num_sel[i] += 1
+        __scores_update(order, locations, num_sel[i] + m, factor, var, score)
+        # update affected candidates
+        for j in range(len(candidates)):
+            # if hasn't been selected already
+            if var[j] != np.inf:
+                heap.update_key(N*j + i, score[j]/num_cond[j])
+
+        entries_left -= num_cond[k]
+
+    # construct groups
+    for group in ref_groups:
+        s = sorted(group + list(sparsity[group[0]]))
+        sparsity[group[0]] = s
+        positions = {i: k for k, i in enumerate(s)}
+        for i in group[1:]:
+            # fill in blanks for rest to maintain proper number
+            sparsity[i] = np.empty(len(s) - positions[i])
+
+    return sparsity
+
 def global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
                   candidate_sparsity: dict, ref_groups: list,
                   select_method=ccknn.global_select) -> dict:
+                  # select_method=__global_mult_select) -> dict:
     """ Construct a sparsity pattern from a candidate set over all columns. """
     return select_method(x, kernel,
                          ref_sparsity, candidate_sparsity, ref_groups)

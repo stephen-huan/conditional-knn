@@ -481,7 +481,7 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
                                   list group_candidates, list ref_groups):
     """ Construct a sparsity pattern from a candidate set over all columns. """
     cdef:
-        int n, i, j, k, total_candidates, entries_left, max_sel, entry, lda, s
+        int N, n, m, i, j, k, total_candidates, entries_left, max_sel, entry, s
         long[::1] group_sizes, candidate_sizes, group, candidates, ids
         long[:, ::1] indexes
         double key, var
@@ -494,7 +494,7 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
         Sequence *cond_vars
         Heap heap
 
-    n = points.shape[0]
+    N = points.shape[0]
     x = np.asarray(points)
 
     group_list = sequence.from_list(ref_groups)
@@ -509,7 +509,7 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
     for i in range(group_sizes.shape[0]):
         j = group_sizes[i]
         entries_left -= j*(j + 1)//2
-    max_sel = 3*(entries_left//n)
+    max_sel = min(3*(entries_left//N), np.max(candidate_sizes))
 
     # reserve last entry for number selected
     indexes = np.zeros((group_list.size, max_sel + 1), dtype=np.int64)
@@ -518,17 +518,20 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
     factors = sequence.new_sequence(group_list.size)
     cond_covs = sequence.new_sequence(group_list.size)
     cond_vars = sequence.new_sequence(group_list.size)
+
     for i in range(group_list.size):
-        group = <long[:group_sizes[i]:1]> group_list.data[i]
-        lda = candidate_sizes[i]
-        if lda == 0:
+        n = candidate_sizes[i]
+        if n == 0:
             continue
-        candidates = <long[:lda:1]> candidate_list.data[i]
-        sequence.add_item(factors, i, (lda + group.shape[0])*max_sel)
-        sequence.add_item(cond_covs, i, lda)
+        candidates = <long[:n:1]> candidate_list.data[i]
+        m = group_sizes[i]
+        group = <long[:m:1]> group_list.data[i]
+
+        sequence.add_item(factors, i, (n + m)*max_sel)
+        sequence.add_item(cond_covs, i, n)
         covariance_vector(kernel, x[candidates], x[group[0]],
                           <double *> cond_covs.data[i])
-        sequence.add_item(cond_vars, i, lda)
+        sequence.add_item(cond_vars, i, n)
         variance_vector(kernel, x[candidates], <double *> cond_vars.data[i])
 
     group_var = np.zeros(group_list.size)
@@ -541,31 +544,33 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
     k = 0
     for i in range(group_list.size):
         var = group_var[i]
-        lda = candidate_sizes[i]
-        if lda == 0:
+        n = candidate_sizes[i]
+        if n == 0:
             continue
-        cond_cov = <double[:lda:1]> cond_covs.data[i]
-        cond_var = <double[:lda:1]> cond_vars.data[i]
-        for j in range(candidate_sizes[i]):
+        cond_cov = <double[:n:1]> cond_covs.data[i]
+        cond_var = <double[:n:1]> cond_vars.data[i]
+        for j in range(n):
+            ids[k] = N*j + i
             values[k] = (cond_cov[j]*cond_cov[j]/cond_var[j])/var
-            ids[k] = n*j + i
             k += 1
 
     heap = Heap(values, ids)
     while heap.size > 0 and entries_left > 0:
         entry = maxheap.__get_id(heap.__pop())
-        k, i = entry//n, entry % n
+        k, i = entry//N, entry % N
         # do not select if group already has enough entries
         s = indexes[i, max_sel]
         if s >= max_sel:
             continue
-        lda = candidate_sizes[i]
-        candidates = <long[:lda:1]> candidate_list.data[i]
-        cond_cov = <double[:lda:1]> cond_covs.data[i]
-        cond_var = <double[:lda:1]> cond_vars.data[i]
-        group = <long[:group_sizes[i]:1]> group_list.data[i]
-        lda = candidates.shape[0] + group.shape[0]
-        factor = <double[:lda:1, :max_sel]> factors.data[i]
+
+        n = candidate_sizes[i]
+        m = group_sizes[i]
+        candidates = <long[:n:1]> candidate_list.data[i]
+        group = <long[:m:1]> group_list.data[i]
+        cond_cov = <double[:n:1]> cond_covs.data[i]
+        cond_var = <double[:n:1]> cond_vars.data[i]
+        factor = <double[:n + m:1, :max_sel]> factors.data[i]
+
         # add entry to sparsity pattern
         indexes[i, s] = candidates[k]
         # update data structures
@@ -573,19 +578,176 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
         __select_update(x[candidates], x[group], kernel, s, k,
                         factor, cond_var, cond_cov)
         # update affected candidates
-        for j in range(candidates.shape[0]):
+        for j in range(n):
             # if hasn't been selected already
             if cond_var[j] != INFINITY:
                 key = (cond_cov[j]*cond_cov[j]/cond_var[j])/group_var[i]
-                heap.__update_key(n*j + i, key)
+                heap.__update_key(N*j + i, key)
+
         indexes[i, max_sel] += 1
-        entries_left -= group_sizes[i]
+        entries_left -= m
 
     sequence.cleanup(group_list, &group_sizes[0])
     sequence.cleanup(candidate_list, &candidate_sizes[0])
     sequence.cleanup(factors)
     sequence.cleanup(cond_covs)
     sequence.cleanup(cond_vars)
+
+    return indexes
+
+cdef long[:, ::1] __global_mult_select(double[:, ::1] x,
+                                       Kernel *kernel, int nonzeros,
+                                       list group_candidates, list ref_groups):
+    """ Construct a sparsity pattern from a candidate set over all columns. """
+    cdef:
+        int N, n, m, i, j, k, total_candidates, entries_left, max_sel, entry, s
+        long count, index
+        long[::1] group_sizes, candidate_sizes, group, candidates, \
+            locations, order, num_cond, ids
+        long[:, ::1] indexes
+        double[::1] values, var, score, key
+        double[:, ::1] points
+        double[::1, :] factor
+        Sequence *group_list
+        Sequence *candidate_list
+        Sequence *factors
+        Sequence *orders
+        Sequence *init_vars
+        Sequence *scores
+        Sequence *keys
+        Sequence *num_conds
+        Heap heap
+
+    x_numpy = np.asarray(x)
+    N = x.shape[0]
+
+    group_list = sequence.from_list(ref_groups)
+    group_sizes = sequence.size_list(ref_groups)
+    candidate_list = sequence.from_list(group_candidates)
+    candidate_sizes = sequence.size_list(group_candidates)
+
+    total_candidates = 0
+    for i in range(candidate_sizes.shape[0]):
+        total_candidates += candidate_sizes[i]
+    entries_left = nonzeros
+    for i in range(group_sizes.shape[0]):
+        j = group_sizes[i]
+        entries_left -= j*(j + 1)//2
+    max_sel = min(3*(entries_left//N), np.max(candidate_sizes))
+
+    # reserve last entry for number selected
+    indexes = np.zeros((group_list.size, max_sel + 1), dtype=np.int64)
+
+    # initialize data structures
+    factors = sequence.new_sequence(group_list.size)
+    orders = sequence.new_sequence(group_list.size)
+    init_vars = sequence.new_sequence(group_list.size)
+    scores = sequence.new_sequence(group_list.size)
+    keys = sequence.new_sequence(group_list.size)
+    num_conds = sequence.new_sequence(group_list.size)
+
+    for i in range(group_list.size):
+        n = candidate_sizes[i]
+        if n == 0:
+            continue
+        candidates = <long[:n:1]> candidate_list.data[i]
+        m = group_sizes[i]
+        group = <long[:m:1]> group_list.data[i]
+
+        sequence.add_item(factors, i, (n + m)*(max_sel + m))
+        sequence.add_item(orders, i, min(n, max_sel) + m, sizeof(long))
+        sequence.add_item(init_vars, i, n)
+        variance_vector(kernel, x_numpy[candidates],
+                        <double *> init_vars.data[i])
+        sequence.add_item(scores, i, n)
+        sequence.add_item(num_conds, i, n, sizeof(long))
+        sequence.add_item(keys, i, m)
+
+        factor = <double[:n + m:1, :max_sel + m]> factors.data[i]
+        order = <long[:min(n, max_sel) + m:1]> orders.data[i]
+        var = <double[:n:1]> init_vars.data[i]
+        score = <double[:n:1]> scores.data[i]
+        num_cond = <long[:n:1]> num_conds.data[i]
+        key = <double[:m:1]> keys.data[i]
+
+        # pre-compute prediction points conditioned for each candidate
+        for k in range(n):
+            index = candidates[k]
+            count = 0
+            for j in range(m):
+                count += group[j] < index
+            num_cond[k] = count
+        # pre-condition on the m prediction points
+        locations = np.append(candidates, group)
+        points = x_numpy[locations]
+        for j in range(m):
+            __select_point(order, locations, points, j, n + j,
+                           kernel, factor, var)
+        __scores_update(order, locations, m, factor, var, score, key)
+
+    # add candidates to max heap
+    values = np.zeros(total_candidates)
+    ids = np.zeros(total_candidates, dtype=np.int64)
+    k = 0
+    for i in range(group_list.size):
+        n = candidate_sizes[i]
+        if n == 0:
+            continue
+        score = <double[:n:1]> scores.data[i]
+        num_cond = <long[:n:1]> num_conds.data[i]
+        for j in range(n):
+            ids[k] = N*j + i
+            values[k] = score[j]/num_cond[j]
+            k += 1
+
+    heap = Heap(values, ids)
+    while heap.size > 0 and entries_left > 0:
+        entry = maxheap.__get_id(heap.__pop())
+        k, i = entry//N, entry % N
+        # do not select if group already has enough entries
+        # or there are not enough entries left
+        s = indexes[i, max_sel]
+        n = candidate_sizes[i]
+        num_cond = <long[:n:1]> num_conds.data[i]
+        if s >= max_sel or num_cond[k] > entries_left:
+            continue
+
+        m = group_sizes[i]
+        candidates = <long[:n:1]> candidate_list.data[i]
+        group = <long[:m:1]> group_list.data[i]
+        locations = np.append(candidates, group)
+        points = x_numpy[locations]
+
+        factor = <double[:n + m:1, :max_sel + m]> factors.data[i]
+        order = <long[:min(n, max_sel) + m:1]> orders.data[i]
+        var = <double[:n:1]> init_vars.data[i]
+        score = <double[:n:1]> scores.data[i]
+        key = <double[:m:1]> keys.data[i]
+
+        # add entry to sparsity pattern
+        indexes[i, s] = candidates[k]
+        # update data structures
+        __select_point(order, locations, points, s + m, k, kernel,
+                       factor, var)
+        __scores_update(order, locations, s + m + 1, factor, var, score, key)
+        # update affected candidates
+        for j in range(n):
+            # if hasn't been selected already
+            if var[j] != INFINITY:
+                heap.__update_key(N*j + i, score[j]/num_cond[j])
+
+        indexes[i, max_sel] += 1
+        entries_left -= num_cond[k]
+
+    sequence.cleanup(group_list, &group_sizes[0])
+    sequence.cleanup(candidate_list, &candidate_sizes[0])
+    sequence.cleanup(factors)
+    sequence.cleanup(orders)
+    sequence.cleanup(init_vars)
+    sequence.cleanup(scores)
+    sequence.cleanup(keys)
+    sequence.cleanup(num_conds)
+
     return indexes
 
 def global_select(double[:, ::1] x, kernel_object, dict ref_sparsity,
@@ -603,12 +765,28 @@ def global_select(double[:, ::1] x, kernel_object, dict ref_sparsity,
     ), dtype=np.int64) for group in ref_groups]
 
     kernel = get_kernel(kernel_object)
-    indexes = __global_select(x, kernel, nonzeros, group_candidates, groups)
-    kernel_cleanup(kernel)
+    # not aggregated, use specialized function
+    if all(len(group) == 1 for group in ref_groups):
+        indexes = __global_select(x, kernel, nonzeros,
+                                  group_candidates, groups)
+        max_sel = indexes.shape[1] - 1
+        sparsity = {group[0]: sorted(group + \
+                                    list(indexes[i, :indexes[i, max_sel]]))
+                    for i, group in enumerate(ref_groups)}
+    else:
+        indexes = __global_mult_select(x, kernel, nonzeros,
+                                       group_candidates, groups)
+        max_sel = indexes.shape[1] - 1
+        sparsity = {}
+        # construct groups
+        for i, group in enumerate(ref_groups):
+            s = sorted(group + list(indexes[i, :indexes[i, max_sel]]))
+            sparsity[group[0]] = s
+            positions = {i: k for k, i in enumerate(s)}
+            for i in group[1:]:
+                # fill in blanks for rest to maintain proper number
+                sparsity[i] = np.empty(len(s) - positions[i])
 
-    max_sel = indexes.shape[1] - 1
-    sparsity = {group[0]: sorted(group + \
-                                 list(indexes[i, :indexes[i, max_sel]]))
-                for i, group in enumerate(ref_groups)}
+    kernel_cleanup(kernel)
     return sparsity
 

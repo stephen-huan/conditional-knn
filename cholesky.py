@@ -365,6 +365,19 @@ def cholesky_joint_subsample(x_train: np.ndarray, x_test: np.ndarray,
     return __cholesky_subsample(x, kernel, sparsity, candidate_sparsity,
                                 groups, select), order
 
+def cholesky_joint_global(x_train: np.ndarray, x_test: np.ndarray,
+                          kernel: Kernel, s: float, rho: float,
+                          lambd: float=None,
+                          select=cknn.global_select) -> tuple:
+    """ Cholesky of the joint covariance with subsampling. """
+    # standard geometric algorithm
+    x, order, lengths = __joint_order(x_train, x_test)
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    # create bigger sparsity pattern for candidates
+    candidate_sparsity = ordering.sparsity_pattern(x, lengths, s*rho)
+    new_sparsity = select(x, kernel, sparsity, candidate_sparsity, groups)
+    return __mult_cholesky(x, kernel, new_sparsity, groups), order
+
 ### Gaussian process sensor placement
 
 # see: "Near-Optimal Sensor Placements in Gaussian Processes: Theory,
