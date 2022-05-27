@@ -34,8 +34,10 @@ Pre-compiled `*.c` files are also provided.
 ### Downloading Datasets
 
 We use datasets from the [SuiteSparse Matrix
-Collection](https://sparse.tamu.edu/) and the [UCI Machine Learning
-Repository](https://archive.ics.uci.edu/ml/datasets.php). Download the datasets
+Collection](https://sparse.tamu.edu/), the [UCI Machine Learning
+Repository](https://archive.ics.uci.edu/ml/datasets.php),
+and the book [_Gaussian Processes for Machine
+Learning_](https://gaussianprocess.org/gpml/data/). Download the datasets
 with the provided [fish](https://fishshell.com/) script:
 ```shell
 chmod +x get_datasets

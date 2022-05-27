@@ -217,7 +217,6 @@ def estimate_chol_joint(x_train: np.ndarray, y_train: np.ndarray,
     """ Estimate y_test with Cholesky factorization of joint covariance. """
     n, m = x_train.shape[0], x_test.shape[0]
     L, order = chol(x_train, x_test, kernel)
-    print(L.nnz)
     inv_test_order, train_order = inv_order(order[:m]), order[m:] - m
 
     L11 = L[:m, :m]
