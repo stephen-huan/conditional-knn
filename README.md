@@ -36,7 +36,8 @@ Pre-compiled `*.c` files are also provided.
 We use datasets from the [SuiteSparse Matrix
 Collection](https://sparse.tamu.edu/), the [UCI Machine Learning
 Repository](https://archive.ics.uci.edu/ml/datasets.php),
-and the book [_Gaussian Processes for Machine
+[LIBSVM](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/), a library
+for support vector machines, and the book [_Gaussian Processes for Machine
 Learning_](https://gaussianprocess.org/gpml/data/). Download the datasets
 with the provided [fish](https://fishshell.com/) script:
 ```shell

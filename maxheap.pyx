@@ -80,7 +80,8 @@ cdef class Heap:
         self.l = np.zeros(self.size + 1, dtype=np.ulonglong)
         for i in range(self.size):
             self.l[i + 1] = __heap_value(dists[i], ids[i])
-        self.ids = np.zeros(np.max(ids) + 1, dtype=np.int32)
+        length = max(np.max(ids) + 1 if ids.shape[0] > 0 else 1, 1)
+        self.ids = np.zeros(length, dtype=np.int32)
         for i in range(self.size):
             self.ids[ids[i]] = i + 1
         # enforce heap ordering

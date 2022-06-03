@@ -47,3 +47,66 @@ for url in $urls
     end
 end
 
+### datasets from LIBSVM
+# https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/
+
+set libsvm_root "$root/libsvm/cod-rna"
+mkdir -p $libsvm_root
+
+set urls \
+"https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/cod-rna" \
+"https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/cod-rna.t" \
+"https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary/cod-rna.r"
+
+for url in $urls
+    set fname (string split "/" -- $url)[-1]
+    set path "$libsvm_root/$fname"
+    # if not downloaded, download
+    if test ! -e $path
+        curl $url --output "$path"
+    end
+end
+
+### datasets from the UCI machine learning repository:
+# https://archive.ics.uci.edu/ml/datasets.php
+
+set uci_root "$root/uci"
+mkdir -p $uci_root
+
+set uci_url "https://archive.ics.uci.edu/ml/machine-learning-databases"
+
+## Statlog (Shuttle) dataset
+
+set shuttle_root "$uci_root/shuttle"
+mkdir -p $shuttle_root
+
+set url1 "$uci_url/statlog/shuttle/shuttle.trn.Z"
+set url2 "$uci_url/statlog/shuttle/shuttle.tst"
+
+set path1 "$shuttle_root/shuttle.trn"
+set path1_compressed "$shuttle_root/shuttle.trn.Z"
+set path2 "$shuttle_root/shuttle.tst"
+
+if test ! -e $path1
+    curl $url1 --output $path1_compressed
+    gzip -d $path1_compressed
+end
+if test ! -e $path2
+    curl $url2 --output "$path2"
+end
+
+### SUSY dataset
+
+set susy_root "$uci_root/susy"
+mkdir -p $susy_root
+
+set url1 "$uci_url/00279/SUSY.csv.gz"
+
+set path1 "$susy_root/SUSY.csv"
+set path1_compressed "$susy_root/SUSY.csv.gz"
+
+if test ! -e $path1
+    curl $url1 --output $path1_compressed
+    gzip -d $path1_compressed
+end
+

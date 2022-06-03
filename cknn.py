@@ -608,7 +608,6 @@ def __global_mult_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
 def global_select(x: np.ndarray, kernel: Kernel, ref_sparsity: dict,
                   candidate_sparsity: dict, ref_groups: list,
                   select_method=ccknn.global_select) -> dict:
-                  # select_method=__global_mult_select) -> dict:
     """ Construct a sparsity pattern from a candidate set over all columns. """
     return select_method(x, kernel,
                          ref_sparsity, candidate_sparsity, ref_groups)

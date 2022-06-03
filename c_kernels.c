@@ -11,7 +11,7 @@
         ],
         "depends": [],
         "include_dirs": [
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include"
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include"
         ],
         "name": "c_kernels",
         "sources": [
