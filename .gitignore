@@ -25,10 +25,17 @@ Manifest.toml
 
 # Datasets used for the experiments
 data/
+datasets/
 
 # Cython build artifacts
 *.html
 
 # conda virtual environment
 venv
+
+# numpy arrays
+*.npy
+
+# images
+*.png
 

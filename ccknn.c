@@ -10,14 +10,14 @@
             ]
         ],
         "depends": [
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/arrayobject.h",
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/arrayscalars.h",
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/ndarrayobject.h",
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/ndarraytypes.h",
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/ufuncobject.h"
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/arrayobject.h",
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/arrayscalars.h",
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/ndarrayobject.h",
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/ndarraytypes.h",
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include/numpy/ufuncobject.h"
         ],
         "include_dirs": [
-            "/Users/stephenhuan/Programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include"
+            "/home/stephenhuan/programs/research/cholesky/conditional-knn/venv/lib/python3.10/site-packages/numpy/core/include"
         ],
         "name": "ccknn",
         "sources": [
