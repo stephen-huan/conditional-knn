@@ -190,3 +190,26 @@ def supernodes(sparsity: dict, lengths: np.ndarray, lambd: float) -> tuple:
 
     return groups, agg_sparsity
 
+def supernodes_contiguous(sparsity: dict, lengths: np.ndarray,
+                          lambd: float) -> tuple:
+    """ Aggregate indices into contiguous supernodes. """
+    # O(n s)
+    ref_groups, _ = supernodes(sparsity, lengths, lambd)
+    groups = []
+    agg_sparsity = {}
+    i = 0
+    while i < lengths.shape[0]:
+        # take average group size: points left over groups left
+        size = (lengths.shape[0] - i)//(len(ref_groups) - len(groups))
+        group = list(range(i, i + size))
+        groups.append(group)
+        # only store sparsity pattern for highest entry
+        s = sorted({k for j in group for k in sparsity[j]})
+        agg_sparsity[i] = s
+        for k, j in enumerate(group[1:]):
+            # fill in blanks for rest to maintain proper number
+            agg_sparsity[j] = np.empty(len(s) - 1 - k)
+        i += size
+
+    return groups, agg_sparsity
+
