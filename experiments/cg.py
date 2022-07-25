@@ -176,7 +176,7 @@ if __name__ == "__main__":
     RHO = 4
     S = 2
     LAMBDA = 1.5
-    sizes = 2**np.arange(16)
+    sizes = 2**np.arange(17)
 
     if GENERATE_N:
         for N in sizes:
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
     kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
 
-    N = 2**15
+    N = 2**16
     S = 2
     LAMBDA = 1.5
     rhos = np.arange(1, 9)
