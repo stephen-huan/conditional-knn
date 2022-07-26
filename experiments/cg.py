@@ -19,7 +19,7 @@ KL = True     # compute true KL divergence (requires computing logdet)
 
 MAX_ITERS = 10**5
 RTOL = 10**-12 # relative tolerance for conjugate gradient
-EPS = 1e-2     # precision on binary search
+EPS = 1e-3     # precision on binary search
 
 TRIALS = 1    # number of trials
 avg_results = lambda f, trials=TRIALS: avg_results__(f, trials)
