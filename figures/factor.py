@@ -25,7 +25,6 @@ def save_points(fname: str, points: np.ndarray) -> None:
     """ Write the points to the file. """
     save_1d(fname, (points[:, 0], points[:, 1]))
 
-
 if __name__ == "__main__":
     kernel = kernels.Matern(length_scale=1, nu=5/2)
     x = rng.random((N, D))

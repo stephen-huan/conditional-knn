@@ -412,7 +412,7 @@ def knn_select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     # for Matern, sorting by kernel is equivalent to sorting by distance
     # aggregate for multiple prediction points
     dists = np.max(kernel(x_train, x_test), axis=1)
-    return np.argsort(dists)[x_train.shape[0] - s:]
+    return np.argsort(dists)[-1:-1 - s:-1]
 
 def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
            s: int, select_method=ccknn.select) -> np.ndarray:

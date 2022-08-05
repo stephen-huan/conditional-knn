@@ -60,6 +60,16 @@ def grid(n: int, a: float=0, b: float=1, d: int=2) -> np.ndarray:
     cube = (spaced,)*d
     return np.stack(np.meshgrid(*cube), axis=-1).reshape(-1, d)
 
+def perturbed_grid(rng: np.random.Generator, n: int, a: float=0, b: float=1,
+                   d: int=2, delta: float=None) -> np.ndarray:
+    """ Generate n points roughly evenly spaced in a [a, b]^d hypercube. """
+    points = grid(n, a, b, d)
+    # compute level of perturbation as half width
+    if delta is None:
+        width = (b - a)/(n**(1/d) - 1)
+        delta = 1/2*width
+    return points + rng.uniform(-delta, delta, points.shape)
+
 def __torus(kernel: Kernel, n: int,
             a: float=0, b: float=1, d: int=2, row: int=0) -> np.ndarray:
     """ Generate a row of the covariance matrix on a d-dimensional torus. """

@@ -16,7 +16,7 @@ class MatrixKernel(Kernel):
 
     def __flatten(self, m: np.ndarray) -> np.ndarray:
         """ Flatten m for use in indexing. """
-        return np.array(m).flatten().astype(np.int64)
+        return np.asarray(m).flatten().astype(np.int64)
 
     def __call__(self, X: np.ndarray, Y: np.ndarray=None,
                  eval_gradient: bool=False) -> np.ndarray:
