@@ -182,7 +182,10 @@ if __name__ == "__main__":
 
         # Cholesky factor
 
-        tikz_factor(f"{root}/cholesky_factor_{i_str}.tex", out, i)
+        # hide everything before ith column
+        last_i = out.copy()
+        last_i[:, :i] = 0
+        tikz_factor(f"{root}/cholesky_factor_{i_str}.tex", last_i, i)
 
         # points
 
