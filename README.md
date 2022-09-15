@@ -29,7 +29,6 @@ Build [Cython](https://cython.org/) extensions:
 ```shell
 python setup.py build_ext --inplace
 ```
-Pre-compiled `*.c` files are also provided.
 
 ### Downloading Datasets
 
