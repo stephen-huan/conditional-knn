@@ -53,10 +53,10 @@ if __name__ == "__main__":
     start = time.time()
     while len(heap) > 0:
         heapq.heappop(heap)
-    print(f" pyheap build: {time.time() - start:.3f}")
+    print(f" pyheap   pop: {time.time() - start:.3f}")
 
     start = time.time()
     for i in range(N):
         heapq.heappush(heap, l[i])
-    print(f" pyheap build: {time.time() - start:.3f}")
+    print(f" pyheap  push: {time.time() - start:.3f}")
 

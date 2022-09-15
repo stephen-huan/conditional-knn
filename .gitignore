@@ -28,6 +28,7 @@ data/
 datasets/
 
 # Cython build artifacts
+*.c
 *.html
 
 # conda virtual environment
