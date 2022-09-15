@@ -12,9 +12,9 @@ save_1d = lambda *args, **kwargs: save_1d__(*args, **kwargs, root=ROOT)
 N = 51   # size of grid
 S = 265  # number of points to select
 
-SMALL_POINT = 10 # small point
-POINT_SIZE =  20 # point sizes
-BIG_POINT  =  40 # large point
+SMALL_POINT =  40 # small point
+POINT_SIZE =   80 # point sizes
+BIG_POINT  =  160 # large point
 
 ANIMATE = True   # draw animation
 # number of points selected to animate to
@@ -42,6 +42,10 @@ if __name__ == "__main__":
     x = gp_regr.perturbed_grid(rng, N*N, delta=1e-5)
 
     s = UP_TO if ANIMATE else S
+
+    dpi = 100
+    fig, ax = plt.subplots(figsize=(1920/dpi, 1080/dpi), dpi=dpi)
+
     for i in range(4):
         point = (N + 1)*(N - 1)//2
         target = x[point: point + 1]
@@ -84,20 +88,19 @@ if __name__ == "__main__":
         plt.scatter(x[selected[:S], 0], x[selected[:S], 1], label="selected",
                     s=POINT_SIZE, zorder=3, color=seagreen)
         plt.scatter(target[:, 0], target[:, 1], label="target",
-                    s=POINT_SIZE, zorder=3.5, color=rust)
+                    s=POINT_SIZE, zorder=3.5, color=orange)
         plt.axis("off")
         plt.axis("square")
         plt.tight_layout()
-        plt.savefig(f"{ROOT}/points_{i + 1}.png")
+        plt.savefig(f"{ROOT}/points_{i + 1}.png",
+                    bbox_inches="tight", pad_inches=0)
         plt.clf()
 
         save_points(f"points.csv", x)
-        save_points(f"selected_{i + 1}", x[selected])
+        save_points(f"selected_{i + 1}.csv", x[selected[:S]])
         save_points(f"target.csv", target)
 
         # animate the order of points being selected
-        fig, ax = plt.subplots()
-
         all_plot, = plt.plot(x[:, 0], x[:, 1], "o ", label="all points",
                              markersize=np.sqrt(POINT_SIZE), color=silver,
                              zorder=2.5, animated=True)
@@ -105,13 +108,14 @@ if __name__ == "__main__":
                              markersize=np.sqrt(POINT_SIZE), color=seagreen,
                              zorder=3, animated=True)
         tgt_plot, = plt.plot(target[:, 0], target[:, 1], "o ", label="target",
-                             markersize=np.sqrt(POINT_SIZE), color=rust,
+                             markersize=np.sqrt(POINT_SIZE), color=orange,
                              zorder=3.5, animated=True)
 
         if ANIMATE:
             anime = FuncAnimation(fig, update, frames=np.arange(0, s + 1, 1),
                                   init_func=init, blit=True, interval=10)
-            anime.save(f"{ROOT}/points_{i + 1}.mp4", writer="ffmpeg", fps=60)
+            anime.save(f"{ROOT}/points_{i + 1}.mp4", writer="ffmpeg",
+                       fps=60, dpi=dpi)
             # plt.show()
 
         plt.clf()

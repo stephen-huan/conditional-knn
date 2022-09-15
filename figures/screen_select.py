@@ -33,7 +33,8 @@ def estimate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
 if __name__ == "__main__":
     colors = [lightblue, orange, silver, seagreen, rust]
 
-    kernel = kernels.Matern(length_scale=1, nu=NU1/NU2)
+    # high smoothness has some interesting (but complex) structure
+    kernel = kernels.Matern(length_scale=1, nu=1/2)
 
     ## kernel function
 
@@ -41,14 +42,20 @@ if __name__ == "__main__":
     ax = fig.add_subplot(121, projection="3d")
 
     v = np.zeros((1, D))
-    n = 16
-    x = gp_regr.grid(n**2, -2, 2)
-    s = 0.5
+    n = 21
+    x = gp_regr.grid(n**2, -1, 1)
+    s = 0.25
     points = np.array([[s, s], [s, -s], [-s, s], [-s, -s]])
-    ax.scatter(points[:, 0], points[:, 1], kernel(points, v),
+
+    corr = lambda x, v: kernel(x, v).flatten()/\
+        np.sqrt(np.diagonal(kernel(x))*kernel(v).flatten())
+
+    points_corr, x_corr = corr(points, v), corr(x, v)
+
+    ax.scatter(points[:, 0], points[:, 1], points_corr,
                label="points", zorder=3, s=BIG_POINT, color=colors[1])
     surf = ax.plot_wireframe(x[:, 0].reshape(n, n), x[:, 1].reshape(n, n),
-                             kernel(x, v).reshape(n, n),
+                             x_corr.reshape(n, n),
                              color=colors[0], alpha=0.8)
 
     ax.set_zlim3d(-0.1, 1)
@@ -56,21 +63,28 @@ if __name__ == "__main__":
     save("matern_uncond_points.csv", 1,
          (points[:, 0].flatten(),
           points[:, 1].flatten(),
-          kernel(points, v).flatten()))
+          points_corr.flatten()))
     save("matern_uncond.csv", n,
          (x[:, 0].flatten(),
           x[:, 1].flatten(),
-          kernel(x, v).flatten()))
+          x_corr.flatten()))
 
     # conditional
+
     ax = fig.add_subplot(122, projection="3d")
 
-    sigma = kernel(x, v) - \
-        kernel(x, points)@cknn.inv(kernel(points, points))@kernel(points, v)
+    cond = lambda i, j, k: kernel(i, j) - \
+        kernel(i, k)@gp_regr.solve(kernel(k), kernel(k, j))
+
+    cond_corr = lambda i, j, k: cond(i, j, k).flatten()/\
+        np.sqrt(np.diagonal(cond(i, i, k))*np.diagonal(cond(j, j, k)))
+
+    x_cond_corr = cond_corr(x, v, points)
+
     ax.scatter(points[:, 0], points[:, 1], np.zeros(len(points)),
                label="points", zorder=3, s=BIG_POINT, color=colors[1])
     surf = ax.plot_wireframe(x[:, 0].reshape(n, n), x[:, 1].reshape(n, n),
-                             sigma.reshape(n, n),
+                             x_cond_corr.reshape(n, n),
                              color=colors[-2])
     ax.set_zlim3d(-0.1, 1)
     plt.savefig(f"{ROOT}/kernel.png")
@@ -83,7 +97,7 @@ if __name__ == "__main__":
     save("matern_cond.csv", n,
          (x[:, 0].flatten(),
           x[:, 1].flatten(),
-          sigma.flatten()))
+          x_cond_corr.flatten()))
 
     ## training and testing data
 
@@ -100,6 +114,9 @@ if __name__ == "__main__":
     plt.rc("legend", fontsize=27) # fontsize of the legend
 
     # hand-craft points
+
+    kernel = kernels.Matern(length_scale=1, nu=NU1/NU2)
+
     x_train = np.array([-0.9, -0.70, -0.57,
                         0.50, 0.56, 0.71, 0.8, 0.9]).reshape(-1, 1)
     x_train += rng.uniform(-0.001, 0.001, x_train.shape)
@@ -178,18 +195,19 @@ if __name__ == "__main__":
         plt.savefig(f"{ROOT}/predict_knn_{s}.png")
         plt.clf()
 
+        save_1d(f"knn_selected_{s}.csv",
+                (x_train[selected].flatten(), y_train[selected]))
+        save_1d(f"knn_mean_{s}.csv",
+                (x.flatten(), mu))
+        save_1d(f"knn_std_upper_{s}.csv",
+                (x.flatten(), mu + 2*std))
+        save_1d(f"knn_std_lower_{s}.csv",
+                (x.flatten(), mu - 2*std))
+
     save_1d("train.csv",
             (x_train.flatten(), y_train))
     save_1d("test.csv",
             (x_test.flatten(), y_test))
-    save_1d("knn_selected.csv",
-            (x_train[selected].flatten(), y_train[selected]))
-    save_1d("knn_mean.csv",
-            (x.flatten(), mu))
-    save_1d("knn_std_upper.csv",
-            (x.flatten(), mu + 2*std))
-    save_1d("knn_std_lower.csv",
-            (x.flatten(), mu - 2*std))
 
     ## regression wrt. conditional sparse selection
 
@@ -217,12 +235,12 @@ if __name__ == "__main__":
         plt.savefig(f"{ROOT}/predict_cknn_{s}.png")
         plt.clf()
 
-    save_1d(f"cknn_selected.csv",
-            (x_train[selected].flatten(), y_train[selected]))
-    save_1d("cknn_mean.csv",
-            (x.flatten(), mu))
-    save_1d("cknn_std_upper.csv",
-            (x.flatten(), mu + 2*std))
-    save_1d("cknn_std_lower.csv",
-            (x.flatten(), mu - 2*std))
+        save_1d(f"cknn_selected_{s}.csv",
+                (x_train[selected].flatten(), y_train[selected]))
+        save_1d(f"cknn_mean_{s}.csv",
+                (x.flatten(), mu))
+        save_1d(f"cknn_std_upper_{s}.csv",
+                (x.flatten(), mu + 2*std))
+        save_1d(f"cknn_std_lower_{s}.csv",
+                (x.flatten(), mu - 2*std))
 
