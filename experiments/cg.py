@@ -1,4 +1,5 @@
 import copy
+import cknn
 import cholesky
 from . import *
 
@@ -148,6 +149,12 @@ if __name__ == "__main__":
          lambda: test_chol(cholesky.cholesky_subsample, S, RHO)),
         # ("select-global", darkorange,
         #  lambda: test_chol(cholesky.cholesky_global, S, RHO)),
+        ("select-KNN", silver,
+         lambda: test_chol(
+             lambda *args: \
+                 cholesky.cholesky_subsample(*args, select=cknn.knn_select),
+             S, RHO
+         )),
         ("KL (agg)", seagreen,
          lambda: test_chol(cholesky.cholesky_kl, RHO, LAMBDA)),
         ("select (agg)", rust,
@@ -348,7 +355,8 @@ if __name__ == "__main__":
             x_data = rhos
             if y_name == "iter":
                 # remove rho = 1 which skews the iteration plot
-                x_data, y_data = rhos[1:], y_data[:, 1:]
+                # x_data, y_data = rhos[1:], y_data[:, 1:]
+                pass
 
             plot(x_data, y_data, names, colors, "rho", y_name, plot_callback)
 
