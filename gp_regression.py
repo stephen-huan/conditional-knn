@@ -66,7 +66,8 @@ def perturbed_grid(rng: np.random.Generator, n: int, a: float=0, b: float=1,
     points = grid(n, a, b, d)
     # compute level of perturbation as half width
     if delta is None:
-        width = (b - a)/(n**(1/d) - 1)
+        # one point, width ill-defined
+        width = (b - a)/(n**(1/d) - 1) if n**(1/d) > 1 else 0
         delta = 1/2*width
     return points + rng.uniform(-delta, delta, points.shape)
 

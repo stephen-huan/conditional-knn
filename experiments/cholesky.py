@@ -1,5 +1,6 @@
 import cholesky
 import cknn
+import gp_regression as gp_regr
 from . import *
 
 ROOT = f"experiments/cholesky"
@@ -10,7 +11,7 @@ load_data = lambda *args, **kwargs: load_data__(*args, **kwargs, root=ROOT)
 save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
 plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
-D = 3        # dimension of points
+D = 2        # dimension of points
 RHO = 2      # tuning parameter, number of nonzero entries
 S = 2        # tuning parameter, factor larger to make rho in subsampling
 LAMBDA = 1.5 # tuning parameter, size of groups
@@ -34,7 +35,9 @@ PLOT_S       = True  # plot data for s
 
 def get_points(n: int, d: int) -> np.ndarray:
     """ Return a n points of dimension d. """
-    return rng.random((n, d))
+    # return rng.random((n, d))
+    width = 1/(n**(1/d) - 1) if n**(1/d) > 1 else 0
+    return gp_regr.perturbed_grid(rng, n, 0, 1, d, 1/3*width)
 
 def test_chol(points: np.ndarray, kernel: Kernel,
               logdet_theta: float, inv_chol) -> tuple:
