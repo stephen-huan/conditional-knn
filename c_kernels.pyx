@@ -20,7 +20,8 @@ cdef (Kernel *) get_kernel(kernel_object: kernels.Kernel):
     kernel.cleanup = False
 
     # specialize to optimized C if possible
-    if isinstance(kernel_object, kernels.Matern):
+    if isinstance(kernel_object, kernels.Matern) and \
+            isinstance(kernel_object.length_scale, float):
         kernel.params = __matern_params(kernel_object)
         kernel.kernel_function = &__matern_covariance
         kernel.diag = &__matern_variance

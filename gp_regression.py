@@ -220,7 +220,7 @@ def estimate_chol(x_train: np.ndarray, y_train: np.ndarray,
     var_pred = kernel.diag(x_test) - np.sum(L_P*L_P, axis=0)
     assert np.allclose(np.diag(cov_pred), var_pred), \
         "variance not diagonal of covariance"
-    return mu_pred, var_pred, logdet(cov_pred)
+    return mu_pred, var_pred, logdet(cov_pred), L
 
 def estimate_chol_joint(x_train: np.ndarray, y_train: np.ndarray,
                         x_test: np.ndarray, kernel: Kernel,
@@ -240,5 +240,6 @@ def estimate_chol_joint(x_train: np.ndarray, y_train: np.ndarray,
     var_pred = np.sum(e_i*e_i, axis=0)
     # assert np.allclose(np.diag(cov_pred), var_pred), \
     #     "variance not diagonal of covariance"
-    return mu_pred[inv_test_order], var_pred[inv_test_order], prec_logdet(L11)
+    return (mu_pred[inv_test_order], var_pred[inv_test_order],
+            prec_logdet(L11), L)
 

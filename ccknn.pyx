@@ -1,7 +1,6 @@
 # cython: profile=False
 from libc.math cimport INFINITY, sqrt, log2
 cimport numpy as np
-# we rely on importing numpy to also load intel mkl libraries, see README.md
 import numpy as np
 cimport scipy.linalg.cython_blas as blas
 cimport mkl

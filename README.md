@@ -1,7 +1,7 @@
 # conditional-knn
 
 A repository to explore the usefulness of the
-conditional _k_-th nearest neighbor estimator.
+conditional _k_-nearest neighbor estimator.
 
 ## Installing
 

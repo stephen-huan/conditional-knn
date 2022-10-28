@@ -97,7 +97,7 @@ if __name__ == "__main__":
     for name, chol in funcs:
         print(f"direct {name}")
         start = time.time()
-        mu_pred, var_pred, det = \
+        mu_pred, var_pred, det, *L = \
             gp_regr.estimate_chol(X_train, y_train, X_test, kernel, chol=chol)
         loss = np.mean(np.log(rmse(y_test, mu_pred)))
         print(f"    time: {time.time() - start:.3f}")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     for name, chol in funcs:
         print(f"joint {name}")
         start = time.time()
-        mu_pred, var_pred, det = \
+        mu_pred, var_pred, det, *L = \
             gp_regr.estimate_chol_joint(X_train, y_train, X_test,
                                         kernel, chol=chol)
         loss = np.mean(np.log(rmse(y_test, mu_pred)))

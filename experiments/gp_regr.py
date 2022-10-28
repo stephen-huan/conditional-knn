@@ -7,7 +7,7 @@ import gp_regression as gp_regr
 from gp_regression import estimate, grid, rmse, coverage
 from . import *
 
-DATASET = "random"
+DATASET = "sarcos"
 ROOT = f"experiments/gp/{DATASET}"
 
 fnamey = f"{ROOT}/y.npy"
@@ -22,6 +22,7 @@ plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 D = 3         # dimension of points
 # D = 6         # dimension of points
 N = 2**16     # number of total points
+# N = 2**10
 TTS = 0.1     # percentage of testing points
 
 RHO = 2       # tuning parameter, number of nonzero entries
@@ -61,9 +62,13 @@ def get_dataset(dataset: str) -> tuple:
     """ Return a dataset (X_train, y_train, X_test, y_test) from the name. """
     # certain datasets come with both training data and validation set
     m = 0
+    # certian datasetes come with labels
+    y = None
 
     if dataset == "grid":
         points = grid(N, 0, 1, d=D)
+    elif dataset == "perturbed-grid":
+        points = gp_regr.perturbed_grid(rng, N, 0, 1, D)
     elif dataset == "random":
         # random looks more "clumped" than one would intuitively suspect
         points = rng.random((N, D))
@@ -83,12 +88,23 @@ def get_dataset(dataset: str) -> tuple:
         root = "datasets/gpml"
         X_train = io.loadmat(f"{root}/sarcos_inv.mat")["sarcos_inv"]
         X_test = io.loadmat(f"{root}/sarcos_inv_test.mat")["sarcos_inv_test"]
-        X_train = X_train[:N]
-        X_test = X_test[:2**6]
+        # https://gaussianprocess.org/gpml/data/
+        # first 21 variables input data, 22nd column target variable
+        target = 21
+        # M = round(N*TTS)
+        M = X_test.shape[0]
+        X_train, y_train = X_train[:N, :target], X_train[:N, target]
+        X_test, y_test = X_test[:M, :target], X_test[:M, target]
         points = np.vstack((X_test, X_train))
+        y = np.concatenate((y_test[:, np.newaxis], y_train[:, np.newaxis]))
+        y = None
         m = X_test.shape[0]
-        # graphing, data exploration
-        # x perturbation numerical error
+        # it turns out most of the testing are an exact duplicate of training
+        # go through normal train-test-split with just training data
+        # points = X_train
+        # y = None
+        # # y = y_train[:, np.newaxis]
+        # m = 0
     elif dataset == "shuttle":
         root = "datasets/uci/shuttle"
         X_train = np.loadtxt(f"{root}/shuttle.trn")
@@ -116,11 +132,14 @@ def get_dataset(dataset: str) -> tuple:
     else:
         raise ValueError(f"invalid dataset: {dataset}")
 
-    return points, m
+    return points, y, m
 
-def get_sample(points: np.ndarray, m: int, kernel: cknn.Kernel) -> tuple:
+def get_sample(points: np.ndarray, y: np.ndarray, m: int,
+               kernel: cknn.Kernel) -> tuple:
     """ Generate y labels from the features. """
-    if os.path.exists(fnamey) and not GEN_Y:
+    if y is not None:
+        pass
+    elif os.path.exists(fnamey) and not GEN_Y:
         y = np.load(fnamey)
     # sample from covariance
     else:
@@ -155,14 +174,14 @@ def test_regr(X_train: np.ndarray, y_train: np.ndarray,
               X_test: np.ndarray, y_test: np.ndarray, inv_chol) -> tuple:
     """ Evaluate inverse Cholesky for Gaussian process regression. """
     start = time.time()
-    mu_pred, var_pred, det = \
+    mu_pred, var_pred, det, L = \
         gp_regr.estimate_chol_joint(X_train, y_train, X_test,
                                     kernel, chol=inv_chol)
     time_regr = time.time() - start
     loss = np.mean(rmse(y_test, mu_pred))
     emperical_coverage = np.mean(coverage(y_test, mu_pred, var_pred))
 
-    return loss, det, emperical_coverage, time_regr
+    return loss, det, emperical_coverage, time_regr, L.nnz
 
 if __name__ == "__main__":
     ### GP regression
@@ -170,11 +189,26 @@ if __name__ == "__main__":
     kernel = kernels.Matern(length_scale=1, nu=5/2)
 
     if GENERATE:
-        points, m = get_dataset(DATASET)
+        points, y, m = get_dataset(DATASET)
+        # length_scales = np.array([np.var(points[m:, d]) for d in range(21)])
+        length_scales = np.array(
+            [np.max(points[m:, d]) - np.min(points[m:, d]) for d in range(21)]
+        )
+        kernel = kernels.Matern(length_scale=128, nu=3/2)
+        # kernel = kernels.Matern(length_scale=1e0*length_scales, nu=3/2)
         # generate all points together
-        X_train, X_test, y_train, y_test = get_sample(points, m, kernel)
+        X_train, X_test, y_train, y_test = get_sample(points, y, m, kernel)
         points = np.vstack((X_test, X_train))
         n = points.shape[0]
+
+    # print(kernel(X_train))
+    # y_pred = kernel(X_test, X_train)@y_train
+    # print(y_test.flatten())
+    # print(y_pred.flatten())
+    # print(np.sum((y_test - y_pred)**2))
+    # print(np.sum(kernel(X_test, X_train), axis=1))
+    # print(length_scales)
+    # exit()
 
     ### graph points
 
@@ -237,6 +271,10 @@ if __name__ == "__main__":
         ("select", orange, lambda x_train, x_test, kernel: \
          cholesky.cholesky_joint_subsample(x_train, x_test, kernel,
                                            RHO_S, RHO)),
+        ("select-KNN", silver, lambda x_train, x_test, kernel: \
+         cholesky.cholesky_joint_subsample(x_train, x_test, kernel,
+                                           RHO_S, RHO,
+                                           select=cknn.knn_select)),
         # ("select-global", darkorange, lambda x_train, x_test, kernel: \
         #  cholesky.cholesky_joint_global(x_train, x_test, kernel, RHO_S, RHO)),
         ("KL (agg)", seagreen, lambda x_train, x_test, kernel: \
@@ -257,6 +295,7 @@ if __name__ == "__main__":
         ("logdet", "Log determinant"),
         ("coverage", "Coverage"),
         ("time", "Time (seconds)"),
+        ("nnz", "Nonzeros"),
     ]
     y_names, y_labels = zip(*y)
 
@@ -264,7 +303,7 @@ if __name__ == "__main__":
     ### changing rho
 
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    losses, logdets, emperical_coverages, times = data
+    losses, logdets, emperical_coverages, times, nnz = data
 
     rhos = np.arange(1, 9)
 
@@ -276,15 +315,15 @@ if __name__ == "__main__":
                 for d, result in enumerate(test(f)):
                     data[d][i].append(result)
 
-                    if d == len(y) - 1:
+                    if d == len(y) - 2:
                         print(f"{RHO} {names[i]:12} {data[d][i][-1]:.3f}")
 
         save_data(data, rhos, "rho", y_names, names)
         data = np.array(data)
-        losses, logdets, emperical_coverages, times = data
+        losses, logdets, emperical_coverages, times, nnz = data
     elif PLOT_RHO:
         data = load_data("rho", y_names, names)
-        losses, logdets, emperical_coverages, times = data
+        losses, logdets, emperical_coverages, times, nnz = data
 
     ## plot rho to each y-axis parameter
 
@@ -345,7 +384,7 @@ if __name__ == "__main__":
     ### changing s
 
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    losses, logdets, emperical_coverages, times = data
+    losses, logdets, emperical_coverages, times, nnz = data
 
     RHO = 2
     ss = np.arange(1, 9)
@@ -358,14 +397,14 @@ if __name__ == "__main__":
                 for d, result in enumerate(test(f)):
                     data[d][i].append(result)
 
-                    if d == len(y) - 1:
+                    if d == len(y) - 2:
                         print(f"{RHO_S} {names[i]:12} {data[d][i][-1]:.3f}")
 
         save_data(data, rhos, "s", y_names, names)
         data = np.array(data)
     elif PLOT_S:
         data = load_data("s", y_names, names)
-        losses, logdets, emperical_coverages, times = data
+        losses, logdets, emperical_coverages, times, nnz = data
 
     ## plot rho to each y-axis parameter
 
