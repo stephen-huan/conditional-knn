@@ -23,16 +23,6 @@ if __name__ == "__main__":
     theta_inv = cholesky.inv(theta)
     theta_det = cholesky.logdet(theta)
 
-    ### sensor placement methods
-
-    indexes = cholesky.naive_entropy(X, kernel, S)
-    answer = cholesky.entropy(X, kernel, S)
-    assert indexes == answer, "entropy indexes mismatch"
-
-    indexes = cholesky.naive_mi(X, kernel, S)
-    answer = cholesky.mi(X, kernel, S)
-    assert indexes == answer, "mutual information indexes mismatch"
-
     ### Cholesky methods
 
     ## single column with no aggregation

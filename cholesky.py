@@ -8,6 +8,16 @@ from gp_kernels import matrix_kernel
 
 ### helper methods
 
+class Empty():
+
+    """ Empty "list" simply holding the length of the data. """
+
+    def __init__(self, n):
+        self.n = n
+
+    def __len__(self) -> int:
+        return self.n
+
 def kl_div(X: np.ndarray, Y: np.ndarray) -> float:
     """
     Computes the KL divergence between the multivariate Gaussians
@@ -298,7 +308,7 @@ def __cholesky_subsample(x: np.ndarray, kernel: Kernel,
         positions = {i: k for k, i in enumerate(s)}
         for i in group[1:]:
             # fill in blanks for rest to maintain proper number
-            sparsity[i] = np.empty(len(s) - positions[i])
+            sparsity[i] = Empty(len(s) - positions[i])
         # update counters
         expected_total += m*min(cutoff, len(candidates))
         actual_total += sum(len(sparsity[i]) for i in group) - m*(m + 1)//2
