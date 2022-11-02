@@ -21,7 +21,8 @@ cdef (Kernel *) get_kernel(kernel_object: kernels.Kernel):
 
     # specialize to optimized C if possible
     if isinstance(kernel_object, kernels.Matern) and \
-            isinstance(kernel_object.length_scale, float):
+            not isinstance(kernel_object.length_scale, list) and \
+            not isinstance(kernel_object.length_scale, np.ndarray):
         kernel.params = __matern_params(kernel_object)
         kernel.kernel_function = &__matern_covariance
         kernel.diag = &__matern_variance
