@@ -181,7 +181,8 @@ def test_regr(X_train: np.ndarray, y_train: np.ndarray,
     loss = np.mean(rmse(y_test, mu_pred))
     emperical_coverage = np.mean(coverage(y_test, mu_pred, var_pred))
 
-    return loss, det, emperical_coverage, time_regr, L.nnz
+    nnz = L.nnz if hasattr(L, "nnz") else np.product(L.shape)
+    return loss, det, emperical_coverage, time_regr, nnz
 
 if __name__ == "__main__":
     ### GP regression

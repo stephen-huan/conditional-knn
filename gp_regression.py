@@ -35,7 +35,7 @@ def inv_chol(x: np.ndarray, kernel: Kernel) -> tuple:
     n = x.shape[0]
     U = np.flip(chol(kernel(x[::-1])))
     Linv = scipy.linalg.solve_triangular(U, np.identity(n), lower=False).T
-    return sparse.csc_matrix(Linv), np.arange(n)
+    return Linv, np.arange(n)
 
 def joint_inv_chol(x_train: np.ndarray, x_test: np.ndarray,
                    kernel: Kernel) -> tuple:
@@ -49,8 +49,12 @@ def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
 def solve_triangular(L: sparse.csc_matrix, b: np.ndarray,
                      lower: bool=True) -> np.ndarray:
     """ Solve the system Lx = b for sparse lower triangular L. """
-    return sparse.linalg.spsolve_triangular(sparse.csr_matrix(L), b,
-                                            lower=lower)
+    return (
+        scipy.linalg.solve_triangular(L, b, lower=lower)
+        if isinstance(L, np.ndarray) else
+        sparse.linalg.spsolve_triangular(sparse.csr_matrix(L), b,
+                                         lower=lower)
+    )
 
 ### point generation methods
 
