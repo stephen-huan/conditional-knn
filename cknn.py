@@ -422,7 +422,7 @@ def select(x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel,
     if s == 0:
         return []
     selected = select_method(x_train, x_test, kernel, s)
-    assert len(set(selected)) == s, "selected indices not distinct"
+    assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
 
 def nonadj_select(x: np.ndarray,
@@ -434,7 +434,7 @@ def nonadj_select(x: np.ndarray,
     if s == 0:
         return []
     selected = select_method(x, train, test, kernel, s)
-    assert len(set(selected)) == s, "selected indices not distinct"
+    assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
 
 def chol_select(x: np.ndarray,

@@ -50,7 +50,7 @@ cdef void __chol_update(int n, int i, int k,
 
     # clear out selected index
     if k < cond_var.shape[0]:
-        cond_var[k] = INFINITY
+        cond_var[k] = -1
 
 cdef void __select_update(double[:, ::1] x_train, double[:, ::1] x_test,
                           Kernel *kernel, int i, int k, double[::1, :] factors,
@@ -96,12 +96,15 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
     i = 0
     while i < indexes.shape[0]:
         # pick best entry
-        k, best = 0, -INFINITY
+        k, best = -1, 0
         for j in range(n):
-            if cond_var[j] != INFINITY and \
+            if cond_var[j] > 0 and \
                     cond_cov[j]*cond_cov[j]/cond_var[j] > best:
                 k = j
                 best = cond_cov[j]*cond_cov[j]/cond_var[j]
+        # didn't select anything, abort early
+        if k == -1:
+            return indexes[:i]
         indexes[i] = k
         # update data structures
         __select_update(x_train, x_test, kernel, i, k,
@@ -140,11 +143,15 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
     i = 0
     while i < indexes.shape[0]:
         # pick best entry
-        k, best = 0, INFINITY
+        k, best = -1, INFINITY
         for j in range(n):
-            if cond_var[j] != INFINITY and cond_var_pr[j]/cond_var[j] < best:
+            if cond_var_pr[j] > 0 and cond_var[j] > 0 and \
+                    cond_var_pr[j]/cond_var[j] < best:
                 k = j
                 best = cond_var_pr[j]/cond_var[j]
+        # didn't select anything, abort early
+        if k == -1:
+            return indexes[:i]
         indexes[i] = k
         # update Cholesky factors
         covariance_vector(kernel, x_train, x_train[k], &factors[0, i])
@@ -272,7 +279,7 @@ cdef void __select_point(long[::1] order, long[::1] locations,
     __chol_insert(order, i, index, k, factors)
     # mark as selected
     if k < var.shape[0]:
-        var[k] = INFINITY
+        var[k] = -1
 
 cdef int __scores_update(long[::1] order, long[::1] locations, int i,
                          double[::1, :] factors, double[::1] var,
@@ -283,7 +290,7 @@ cdef int __scores_update(long[::1] order, long[::1] locations, int i,
         double prev_logdet, best, key, cond_cov_k, cond_var_k, cond_var_j
 
     n, m = var.shape[0], locations.shape[0] - var.shape[0]
-    best, best_k = -INFINITY, 0
+    best, best_k = 0, -1
     # compute baseline log determinant before conditioning
     count = 0
     for col in range(i):
@@ -296,7 +303,7 @@ cdef int __scores_update(long[::1] order, long[::1] locations, int i,
     # pick best entry
     for j in range(n):
         # selected already, don't consider as candidate
-        if var[j] == INFINITY:
+        if var[j] <= 0:
             continue
 
         cond_var_j = var[j]
@@ -355,6 +362,9 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
         # pick best entry
         k = __scores_update(order, locations, i + m,
                             factors, var, scores, keys)
+        # didn't select anything, abort early
+        if k == -1:
+            return indexes[:i]
         indexes[i] = k
         # update Cholesky factor
         __select_point(order, locations, points, i + m, k,
@@ -405,11 +415,11 @@ cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
     i = 0
     while i < indexes.shape[0] and budget > 0:
         # pick best entry
-        best, k = -INFINITY, 0
+        best, k = 0, -1
         __scores_update(order, locations, i + m, factors, var, scores, keys)
         for j in range(n):
             # selected already, don't consider as candidate
-            if var[j] == INFINITY:
+            if var[j] <= 0:
                 continue
 
             key = scores[j]/num_cond[j]
@@ -419,6 +429,9 @@ cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
         budget -= num_cond[k]
         if budget < 0:
             break
+        # didn't select anything, abort early
+        if k == -1:
+            return indexes[:i]
         indexes[i] = k
         # update Cholesky factor
         __select_point(order, locations, points, i + m, k,
