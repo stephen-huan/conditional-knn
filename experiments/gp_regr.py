@@ -5,6 +5,7 @@ import cknn
 import cholesky
 import gp_regression as gp_regr
 from gp_regression import estimate, grid, rmse, coverage
+from ordering import euclidean
 from . import *
 
 DATASET = "sarcos"
@@ -56,13 +57,21 @@ def chol_get_selected(L: sparse.csc_matrix, order: np.ndarray,
     rows, cols = L[:, loc].nonzero()
     return order[rows]
 
+def remove_duplicates(points: np.ndarray, eps: float=1e-9) -> np.ndarray:
+    """ Remove (near) duplicate points from the list of points. """
+    new_points = [points[0]]
+    for i in range(1, points.shape[0]):
+        if np.min(euclidean(points[:i], points[i: i + 1])) > eps:
+            new_points.append(points[i])
+    return np.array(new_points)
+
 ### experimental setup
 
 def get_dataset(dataset: str) -> tuple:
     """ Return a dataset (X_train, y_train, X_test, y_test) from the name. """
     # certain datasets come with both training data and validation set
     m = 0
-    # certian datasetes come with labels
+    # certain datasets come with labels
     y = None
 
     if dataset == "grid":
@@ -101,10 +110,10 @@ def get_dataset(dataset: str) -> tuple:
         m = X_test.shape[0]
         # it turns out most of the testing are an exact duplicate of training
         # go through normal train-test-split with just training data
-        # points = X_train
-        # y = None
-        # # y = y_train[:, np.newaxis]
-        # m = 0
+        points = X_train
+        y = None
+        # y = y_train[:, np.newaxis]
+        m = 0
     elif dataset == "shuttle":
         root = "datasets/uci/shuttle"
         X_train = np.loadtxt(f"{root}/shuttle.trn")
@@ -191,11 +200,15 @@ if __name__ == "__main__":
 
     if GENERATE:
         points, y, m = get_dataset(DATASET)
-        # length_scales = np.array([np.var(points[m:, d]) for d in range(21)])
+        points = points[:, :D]
+        print(f"original number of points: {len(points)}")
+        points = remove_duplicates(points)
+        print(f" cleaned number of points: {len(points)}")
+        # length_scales = np.array([np.var(points[m:, d]) for d in range(D)])
         length_scales = np.array(
-            [np.max(points[m:, d]) - np.min(points[m:, d]) for d in range(21)]
+            [np.max(points[m:, d]) - np.min(points[m:, d]) for d in range(D)]
         )
-        kernel = kernels.Matern(length_scale=128, nu=3/2)
+        kernel = kernels.Matern(length_scale=1, nu=3/2)
         # kernel = kernels.Matern(length_scale=1e0*length_scales, nu=3/2)
         # generate all points together
         X_train, X_test, y_train, y_test = get_sample(points, y, m, kernel)
