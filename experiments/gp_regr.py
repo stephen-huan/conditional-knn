@@ -114,6 +114,18 @@ def get_dataset(dataset: str) -> tuple:
         y = None
         # y = y_train[:, np.newaxis]
         m = 0
+    elif dataset == "sarcos_original":
+        root = "datasets/gpml"
+        X_train = io.loadmat(f"{root}/sarcos_inv.mat")["sarcos_inv"]
+        X_test = io.loadmat(f"{root}/sarcos_inv_test.mat")["sarcos_inv_test"]
+        points = np.vstack((X_test, X_train))
+        target = 21
+        M = X_test.shape[0]
+        X_train, y_train = X_train[:N, :target], X_train[:N, target]
+        X_test, y_test = X_test[:M, :target], X_test[:M, target]
+        points = np.vstack((X_test, X_train))
+        y = np.concatenate((y_test[:, np.newaxis], y_train[:, np.newaxis]))
+        m = X_test.shape[0]
     elif dataset == "shuttle":
         root = "datasets/uci/shuttle"
         X_train = np.loadtxt(f"{root}/shuttle.trn")
