@@ -2,6 +2,7 @@ import cknn
 import gp_regression as gp_regr
 from . import *
 from matplotlib.animation import FuncAnimation
+from experiments.gp_regr import get_dataset
 
 ROOT = "figures/kernel"
 # make folders
@@ -38,13 +39,16 @@ def update(frame: int) -> tuple:
     return all_plot, sel_plot, tgt_plot,
 
 if __name__ == "__main__":
-    geometry = "maximin"
+    geometry = "sarcos"
     if geometry == "grid":
         x = gp_regr.perturbed_grid(rng, N*N, delta=1e-3)
     elif geometry == "sphere":
         x = gp_regr.sphere(rng, N*N, delta=1e-2)
     elif geometry == "maximin":
         x = gp_regr.maximin(rng, N*N, 4*N*N, delta=1e-5)
+    elif geometry == "sarcos":
+        points, _, m = get_dataset("sarcos_original")
+        x = points[m: m + N*N, :2].copy(order="C")
     else:
         raise ValueError(f"Invalid geometry {geometry}.")
 
@@ -60,6 +64,14 @@ if __name__ == "__main__":
         elif geometry == "maximin":
             point = x.shape[0]
             target = np.ones((1, x.shape[1]))/2
+        elif geometry == "sarcos":
+            # rng1 = np.random.default_rng(4)
+            # rng1 = np.random.default_rng(7)
+            rng1 = np.random.default_rng(8)
+            point = rng1.integers(N*N)
+            target = x[point: point + 1]
+            # point = x.shape[0]
+            # target = np.array([[-0.3, -0.2]])
         else:
             point = x.shape[0]
             target = np.zeros((1, x.shape[1]))
