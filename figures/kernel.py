@@ -38,11 +38,13 @@ def update(frame: int) -> tuple:
     return all_plot, sel_plot, tgt_plot,
 
 if __name__ == "__main__":
-    geometry = "sphere"
+    geometry = "maximin"
     if geometry == "grid":
-        x = gp_regr.perturbed_grid(rng, N*N, delta=1e-5)
+        x = gp_regr.perturbed_grid(rng, N*N, delta=1e-3)
     elif geometry == "sphere":
         x = gp_regr.sphere(rng, N*N, delta=1e-2)
+    elif geometry == "maximin":
+        x = gp_regr.maximin(rng, N*N, 4*N*N, delta=1e-5)
     else:
         raise ValueError(f"Invalid geometry {geometry}.")
 
@@ -55,6 +57,9 @@ if __name__ == "__main__":
         if geometry == "grid":
             point = (N + 1)*(N - 1)//2
             target = x[point: point + 1]
+        elif geometry == "maximin":
+            point = x.shape[0]
+            target = np.ones((1, x.shape[1]))/2
         else:
             point = x.shape[0]
             target = np.zeros((1, x.shape[1]))

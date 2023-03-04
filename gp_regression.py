@@ -7,6 +7,7 @@ import scipy.stats as stats
 from sklearn.gaussian_process.kernels import Kernel
 import cholesky
 from cholesky import inv_order, chol, logdet, prec_logdet
+from ordering import reverse_maximin
 
 # number of samples to take for empirical covariane
 TRIALS = 1000
@@ -109,6 +110,13 @@ def sphere(rng: np.random.Generator, n: int, r: float=1,
     return np.array([
         point for point in points if np.linalg.norm(point) <= r
     ])
+
+def maximin(rng: np.random.Generator, k: int, n: int, a: float=0, b: float=1,
+            d: int=2, delta: float=None) -> np.ndarray:
+    """ Take the first n points from a maximin ordering of the unit grid. """
+    points = perturbed_grid(rng, n, a, b, d, delta)
+    order, _ = reverse_maximin(points)
+    return points[order[:k]]
 
 ### sampling methods
 
