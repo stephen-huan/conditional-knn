@@ -102,6 +102,14 @@ def torus(kernel: Kernel, n: int,
     return size, np.vstack([__torus(kernel, n, a, b, d, row)[1]
                             for row in range(size**d)])
 
+def sphere(rng: np.random.Generator, n: int, r: float=1,
+           d: int=2, delta: float=None) -> np.ndarray:
+    """ Generate n points evenly spaced in a radius r hypersphere. """
+    points = perturbed_grid(rng, n, a=-r, b=r, d=d, delta=delta)
+    return np.array([
+        point for point in points if np.linalg.norm(point) <= r
+    ])
+
 ### sampling methods
 
 def sample(rng: np.random.Generator, sigma: np.ndarray,

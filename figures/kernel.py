@@ -16,7 +16,7 @@ SMALL_POINT =  40 # small point
 POINT_SIZE =   80 # point sizes
 BIG_POINT  =  160 # large point
 
-ANIMATE = True   # draw animation
+ANIMATE = False   # draw animation
 # number of points selected to animate to
 UP_TO = N*N - 1
 
@@ -38,8 +38,13 @@ def update(frame: int) -> tuple:
     return all_plot, sel_plot, tgt_plot,
 
 if __name__ == "__main__":
-    # x = gp_regr.perturbed_grid(rng, N*N, delta=0)
-    x = gp_regr.perturbed_grid(rng, N*N, delta=1e-5)
+    geometry = "sphere"
+    if geometry == "grid":
+        x = gp_regr.perturbed_grid(rng, N*N, delta=1e-5)
+    elif geometry == "sphere":
+        x = gp_regr.sphere(rng, N*N, delta=1e-2)
+    else:
+        raise ValueError(f"Invalid geometry {geometry}.")
 
     s = UP_TO if ANIMATE else S
 
@@ -47,8 +52,13 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(figsize=(1920/dpi, 1080/dpi), dpi=dpi)
 
     for i in range(4):
-        point = (N + 1)*(N - 1)//2
-        target = x[point: point + 1]
+        if geometry == "grid":
+            point = (N + 1)*(N - 1)//2
+            target = x[point: point + 1]
+        else:
+            point = x.shape[0]
+            target = np.zeros((1, x.shape[1]))
+
         train = np.vstack((x[:point], x[point + 1:]))
         # nearest neighbors
         if i == 0:
@@ -63,6 +73,7 @@ if __name__ == "__main__":
                 kernels.Matern(length_scale=1, nu=1/2),
                 kernels.Matern(length_scale=1, nu=3/2),
                 kernels.Matern(length_scale=1, nu=5/2),
+                # kernels.Matern(length_scale=1, nu=np.inf),
                 # additive kernel
                 # kernels.Matern(length_scale=[1, 0.7], nu=5/2) + \
                 # kernels.Matern(length_scale=[0.7, 1], nu=5/2),
