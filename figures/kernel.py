@@ -39,7 +39,7 @@ def update(frame: int) -> tuple:
     return all_plot, sel_plot, tgt_plot,
 
 if __name__ == "__main__":
-    geometry = "sarcos"
+    geometry = "maximin"
     if geometry == "grid":
         x = gp_regr.perturbed_grid(rng, N*N, delta=1e-3)
     elif geometry == "sphere":

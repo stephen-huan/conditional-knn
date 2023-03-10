@@ -116,7 +116,7 @@ def maximin(rng: np.random.Generator, k: int, n: int, a: float=0, b: float=1,
     """ Take the first n points from a maximin ordering of the unit grid. """
     points = perturbed_grid(rng, n, a, b, d, delta)
     order, _ = reverse_maximin(points)
-    return points[order[:k]]
+    return points[order[::-1][:k]]
 
 ### sampling methods
 
