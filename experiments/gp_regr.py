@@ -8,7 +8,7 @@ from gp_regression import estimate, grid, rmse, coverage
 from ordering import euclidean
 from . import *
 
-DATASET = "orco2"
+DATASET = "oco2"
 ROOT = f"experiments/gp/{DATASET}"
 
 fnamey = f"{ROOT}/y.npy"
@@ -150,7 +150,7 @@ def get_dataset(dataset: str) -> tuple:
         points[:, 1] /= 1000
         points[:, 2] /= 1000
         points = points[:, 2:]
-    elif dataset == "orco2":
+    elif dataset == "oco2":
         root = "datasets/oco2"
         points = np.loadtxt(
             f"{root}/fluorescence_data.csv",
