@@ -1,10 +1,9 @@
 import sklearn.datasets as datasets
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error
 import cknn
 import cholesky
 import gp_regression as gp_regr
-from gp_regression import estimate, grid, rmse, coverage
+from gp_regression import grid, rmse, coverage
 from ordering import euclidean
 from . import *
 
