@@ -18,9 +18,16 @@ def save_points(fname: str, points: np.ndarray) -> None:
     save_1d(fname, (points[:, 0], points[:, 1]))
 
 if __name__ == "__main__":
-    points, y, m = get_dataset("sarcos_original")
-    X_test = points[:m, :2]
-    X_train = points[m: m + N, :2]
+    dataset = "oco2"
+    if dataset == "sarcos":
+        points, y, m = get_dataset("sarcos_original")
+        X_test = points[:m, :2]
+        X_train = points[m: m + N, :2]
+    elif dataset == "oco2":
+        points, _, _ = get_dataset("oco2")
+        X_train = points[0:len(points):len(points)//N + 1, :2]
+    else:
+        raise ValueError(f"Invalid datast {dataset}.")
 
     # selected = rng.choice(X_train, N, replace=False)
     # plt.scatter(selected[:, 0], selected[:, 1], label="points",
@@ -28,7 +35,7 @@ if __name__ == "__main__":
     plt.scatter(X_train[:, 0], X_train[:, 1], label="train",
                 s=POINT_SIZE, zorder=2.5, color=silver)
     # plt.scatter(X_test[:, 0], X_test[:, 1], label="test",
-    #              =BIG_POINT, zorder=3.5, color=orange)
+    #             s=BIG_POINT, zorder=3.5, color=orange)
     # plt.axis("off")
     plt.axis("square")
     plt.tight_layout()
