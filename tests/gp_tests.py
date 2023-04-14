@@ -1,9 +1,11 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
+
 import cknn
 import gp_regression
 from gp_regression import estimate, grid
 
+# fmt: off
 D = 3  # dimension of points
 N = 14 # number of training points
 M = 5  # number of prediction points
@@ -13,6 +15,7 @@ S = 2  # number of entries to pick
 TRIALS = 10**5
 # allowed relative error
 RTOL = 1e-1
+# fmt: on
 
 # display settings
 np.set_printoptions(precision=3, suppress=True)
@@ -25,21 +28,23 @@ if __name__ == "__main__":
 
     # random points
 
-    kernel = kernels.Matern(length_scale=1, nu=5/2)
+    kernel = kernels.Matern(length_scale=1, nu=5 / 2)
     points = rng.random((N, D))
     true_cov = kernel(points)
 
     sample = gp_regression.sample(rng, true_cov)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "numpy sample wrong on random"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "numpy sample wrong on random"
 
     sample = gp_regression.sample_chol(rng, true_cov)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "Cholesky sample wrong on random"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "Cholesky sample wrong on random"
 
     # points on torus
 
@@ -48,20 +53,23 @@ if __name__ == "__main__":
     sample = gp_regression.sample(rng, true_cov)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "numpy sample wrong on torus"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "numpy sample wrong on torus"
 
     sample = gp_regression.sample_chol(rng, true_cov)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "Cholesky sample wrong on torus"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "Cholesky sample wrong on torus"
 
     sample = gp_regression.sample_circulant(rng, true_cov, n, D)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "circulant sample wrong on torus"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "circulant sample wrong on torus"
 
     # points on unit grid
 
@@ -71,18 +79,20 @@ if __name__ == "__main__":
     sample = gp_regression.sample(rng, true_cov)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "numpy sample wrong on grid"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "numpy sample wrong on grid"
 
     sample = gp_regression.sample_chol(rng, true_cov)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "Cholesky sample wrong on grid"
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "Cholesky sample wrong on grid"
 
     sample = gp_regression.sample_grid(rng, kernel, N, d=D)
     empirical_cov = gp_regression.empirical_covariance(sample, TRIALS)
 
-    assert np.allclose(true_cov, empirical_cov, rtol=RTOL), \
-        "grid sample wrong on grid"
-
+    assert np.allclose(
+        true_cov, empirical_cov, rtol=RTOL
+    ), "grid sample wrong on grid"

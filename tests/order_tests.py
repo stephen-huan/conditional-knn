@@ -1,11 +1,14 @@
 import numpy as np
+
 import ordering
 
+# fmt: off
 D = 3    # dimension of points
 N = 100  # number of points
 M = 10   # number of intial points
 R = 2    # tuning parameter, number of nonzero entries
 L = 2    # tuning parameter, size of groups
+# fmt: on
 
 # display settings
 # np.set_printoptions(precision=3, suppress=True)
@@ -41,4 +44,3 @@ if __name__ == "__main__":
     assert np.allclose(ans_lengths, lengths), "ball-tree lengths mismatch"
 
     assert ans_sparsity == sparsity, "sparsity mismatch"
-

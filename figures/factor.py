@@ -1,7 +1,9 @@
 import scipy.sparse as sparse
 from matplotlib.patches import Circle
+
 import cholesky
 import ordering
+
 from . import *
 
 ROOT = "figures/factor"
@@ -10,35 +12,40 @@ os.makedirs(f"{ROOT}/data", exist_ok=True)
 save = lambda *args, **kwargs: save__(*args, **kwargs, root=ROOT)
 save_1d = lambda *args, **kwargs: save_1d__(*args, **kwargs, root=ROOT)
 
-D = 2        # dimension of points
-N = 16       # number of points
-M = 16       # number of columns in a group
-S = 16       # number of entries to pick
-COLS = N     # number of columns from the right
-RHO = 2      # tuning parameter, number of nonzero entries
-LAMBDA = 1.5 # tuning parameter, size of groups
+D = 2  # dimension of points
+N = 16  # number of points
+M = 16  # number of columns in a group
+S = 16  # number of entries to pick
+COLS = N  # number of columns from the right
+RHO = 2  # tuning parameter, number of nonzero entries
+LAMBDA = 1.5  # tuning parameter, size of groups
 
-SMALL_POINT = 10 # small point
-POINT_SIZE  = 20 # point sizes
-BIG_POINT   = 40 # large point
+SMALL_POINT = 10  # small point
+POINT_SIZE = 20  # point sizes
+BIG_POINT = 40  # large point
 
 # set random seed
 rng = np.random.default_rng(3)
 
+
 def save_points(fname: str, points: np.ndarray) -> None:
-    """ Write the points to the file. """
+    """Write the points to the file."""
     save_1d(fname, (points[:, 0], points[:, 1]))
 
-def get_factor(x: np.ndarray, kernel: Kernel, s: int,
-               alg: str="select") -> sparse.csc_matrix:
-    """ Factorize the set of points with the given algorithm. """
+
+def get_factor(
+    x: np.ndarray, kernel: Kernel, s: int, alg: str = "select"
+) -> sparse.csc_matrix:
+    """Factorize the set of points with the given algorithm."""
     theta = kernel(x)
 
     if alg == "select":
         factor = cholesky.cholesky_select(x, kernel, s)
     elif alg == "select-agg":
         indexes = list(range(N))
-        groups = [indexes[M*i: M*(i + 1)] for i in range(int(np.ceil(N/M)))]
+        groups = [
+            indexes[M * i : M * (i + 1)] for i in range(int(np.ceil(N / M)))
+        ]
         factor = cholesky.cholesky_select(x, kernel, M + s, groups)
     elif alg == "kl":
         factor, order = cholesky.cholesky_kl(x, kernel, RHO)
@@ -55,9 +62,10 @@ def get_factor(x: np.ndarray, kernel: Kernel, s: int,
 
     return factor
 
+
 def tikz_factor(fname: str, out: np.ndarray, col: int) -> None:
-    """ Render the Cholesky factor in TikZ. """
-    indent = " "*2
+    """Render the Cholesky factor in TikZ."""
+    indent = " " * 2
     N = out.shape[0]
 
     with open(fname, "w") as f:
@@ -82,19 +90,24 @@ def tikz_factor(fname: str, out: np.ndarray, col: int) -> None:
                 else:
                     draw = "nnzborder" if out[i, j] else "zeroborder"
                     fill = "nnzcolor" if out[i, j] else "zerocolor"
-                f.write(f"{indent}\\filldraw[draw={draw}, fill={fill}] "
-                        f"{coord1} rectangle {coord2};\n");
+                f.write(
+                    f"{indent}\\filldraw[draw={draw}, fill={fill}] "
+                    f"{coord1} rectangle {coord2};\n"
+                )
 
         f.write("\end{tikzpicture}\n")
 
-def tikz_points_knn(fname: str, path: str, i: int,
-                    x: np.ndarray, radius: float) -> None:
-    """ Render the points in TikZ. """
-    indent = " "*2
+
+def tikz_points_knn(
+    fname: str, path: str, i: int, x: np.ndarray, radius: float
+) -> None:
+    """Render the points in TikZ."""
+    indent = " " * 2
 
     p = str(tuple(x))
     with open(fname, "w") as f:
-        f.write(f"""\
+        f.write(
+            f"""\
 \\begin{{tikzpicture}}[baseline]
   \\begin{{axis}}[
     % calculated from Cholesky factor, exactly 16 cm x 16 cm
@@ -123,14 +136,17 @@ def tikz_points_knn(fname: str, path: str, i: int,
     {{{path}/target_{i}.csv}};
   \end{{axis}}
 \end{{tikzpicture}}
-""")
+"""
+        )
+
 
 def tikz_points_cknn(fname: str, path: str, s: int) -> None:
-    """ Render the points in TikZ. """
-    indent = " "*2
+    """Render the points in TikZ."""
+    indent = " " * 2
 
     with open(fname, "w") as f:
-        f.write(f"""\
+        f.write(
+            f"""\
 \\begin{{tikzpicture}}[baseline]
   \\begin{{axis}}[
     % calculated from Cholesky factor, exactly 16 cm x 16 cm
@@ -155,10 +171,12 @@ def tikz_points_cknn(fname: str, path: str, s: int) -> None:
     {{{path}/target.csv}};
   \end{{axis}}
 \end{{tikzpicture}}
-""")
+"""
+        )
+
 
 if __name__ == "__main__":
-    kernel = kernels.Matern(length_scale=1, nu=5/2)
+    kernel = kernels.Matern(length_scale=1, nu=5 / 2)
     x = rng.random((N, D))
 
     ### knn
@@ -170,7 +188,7 @@ if __name__ == "__main__":
 
     factor = get_factor(x, kernel, S, alg="kl")
     L = factor.toarray()
-    out = 255*(np.abs(L) > 0)
+    out = 255 * (np.abs(L) > 0)
 
     order, lengths = ordering.reverse_maximin(x)
     x_old = x.copy()
@@ -191,22 +209,56 @@ if __name__ == "__main__":
 
         selected = x[out[:, i] != 0]
 
-        plt.scatter(x[:, 0], x[:, 1], label="all points",
-                    s=SMALL_POINT, zorder=2.5, color=silver)
-        plt.scatter(x[i:, 0], x[i:, 1], label="candidates",
-                    s=POINT_SIZE, zorder=2.75, color=lightblue)
-        plt.scatter(selected[:, 0], selected[:, 1], label="selected",
-                    s=BIG_POINT, zorder=3, color=seagreen)
-        plt.scatter(x[i: i + 1, 0], x[i: i + 1, 1], label="target",
-                    s=BIG_POINT, zorder=3.5, color=orange)
+        plt.scatter(
+            x[:, 0],
+            x[:, 1],
+            label="all points",
+            s=SMALL_POINT,
+            zorder=2.5,
+            color=silver,
+        )
+        plt.scatter(
+            x[i:, 0],
+            x[i:, 1],
+            label="candidates",
+            s=POINT_SIZE,
+            zorder=2.75,
+            color=lightblue,
+        )
+        plt.scatter(
+            selected[:, 0],
+            selected[:, 1],
+            label="selected",
+            s=BIG_POINT,
+            zorder=3,
+            color=seagreen,
+        )
+        plt.scatter(
+            x[i : i + 1, 0],
+            x[i : i + 1, 1],
+            label="target",
+            s=BIG_POINT,
+            zorder=3.5,
+            color=orange,
+        )
 
         patches = [
-            Circle(x[i], radius=lengths[i],
-                   edgecolor=orange + "ff", facecolor=orange + "40",
-                   linestyle="-", linewidth=2),
-            Circle(x[i], radius=lengths[i]*RHO,
-                   edgecolor=seagreen + "ff", facecolor=seagreen + "20",
-                   linestyle="-", linewidth=2),
+            Circle(
+                x[i],
+                radius=lengths[i],
+                edgecolor=orange + "ff",
+                facecolor=orange + "40",
+                linestyle="-",
+                linewidth=2,
+            ),
+            Circle(
+                x[i],
+                radius=lengths[i] * RHO,
+                edgecolor=seagreen + "ff",
+                facecolor=seagreen + "20",
+                linestyle="-",
+                linewidth=2,
+            ),
         ]
         for patch in patches:
             plt.gca().add_patch(patch)
@@ -221,10 +273,15 @@ if __name__ == "__main__":
         save_points(f"{path}/all_points.csv", x)
         save_points(f"{path}/candidates_{i_str}.csv", x[i:])
         save_points(f"{path}/selected_{i_str}.csv", selected)
-        save_points(f"{path}/target_{i_str}.csv", x[i: i + 1])
+        save_points(f"{path}/target_{i_str}.csv", x[i : i + 1])
 
-        tikz_points_knn(f"{root}/selected_points_{i_str}.tex",
-                        path, i_str, x[i], lengths[i])
+        tikz_points_knn(
+            f"{root}/selected_points_{i_str}.tex",
+            path,
+            i_str,
+            x[i],
+            lengths[i],
+        )
 
     ### conditional knn
 
@@ -241,7 +298,7 @@ if __name__ == "__main__":
     for s in range(1, N - col + 1):
         factor = get_factor(x, kernel, s, alg="select")
         L = factor.toarray()
-        out = 255*(np.abs(L) > 0)
+        out = 255 * (np.abs(L) > 0)
 
         s_str = f"{s:02}"
 
@@ -253,14 +310,38 @@ if __name__ == "__main__":
 
         selected = x[out[:, col] != 0]
 
-        plt.scatter(x[:, 0], x[:, 1], label="all points",
-                    s=SMALL_POINT, zorder=2.5, color=silver)
-        plt.scatter(x[col:, 0], x[col:, 1], label="candidates",
-                    s=POINT_SIZE, zorder=2.75, color=lightblue)
-        plt.scatter(selected[:, 0], selected[:, 1], label="selected",
-                    s=BIG_POINT, zorder=3, color=seagreen)
-        plt.scatter(x[col: col + 1, 0], x[col: col + 1, 1], label="target",
-                    s=BIG_POINT, zorder=3.5, color=orange)
+        plt.scatter(
+            x[:, 0],
+            x[:, 1],
+            label="all points",
+            s=SMALL_POINT,
+            zorder=2.5,
+            color=silver,
+        )
+        plt.scatter(
+            x[col:, 0],
+            x[col:, 1],
+            label="candidates",
+            s=POINT_SIZE,
+            zorder=2.75,
+            color=lightblue,
+        )
+        plt.scatter(
+            selected[:, 0],
+            selected[:, 1],
+            label="selected",
+            s=BIG_POINT,
+            zorder=3,
+            color=seagreen,
+        )
+        plt.scatter(
+            x[col : col + 1, 0],
+            x[col : col + 1, 1],
+            label="target",
+            s=BIG_POINT,
+            zorder=3.5,
+            color=orange,
+        )
 
         plt.axis("off")
         plt.axis("square")
@@ -272,7 +353,6 @@ if __name__ == "__main__":
         save_points(f"{path}/all_points.csv", x)
         save_points(f"{path}/candidates.csv", x[col:])
         save_points(f"{path}/selected_{s_str}.csv", selected)
-        save_points(f"{path}/target.csv", x[col: col + 1])
+        save_points(f"{path}/target.csv", x[col : col + 1])
 
         tikz_points_cknn(f"{root}/selected_points_{s_str}.tex", path, s_str)
-

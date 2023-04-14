@@ -1,6 +1,8 @@
 # cython: profile=False
 cimport numpy as np
+
 import numpy as np
+
 
 cdef HEAP_DATA MASK = 0xffffffff00000000
 cdef int REMOVED = -1
@@ -168,4 +170,3 @@ cdef class Heap:
             # restore heap property
             __siftdown(self.l, self.ids, k)
         return True
-

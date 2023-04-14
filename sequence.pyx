@@ -1,5 +1,6 @@
 # cython: profile=False
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from cpython.mem cimport PyMem_Free, PyMem_Malloc
+
 
 cdef int DOUBLE_SIZE = sizeof(double)
 
@@ -59,4 +60,3 @@ cdef void cleanup(Sequence *sequence, long *size_list=NULL):
     PyMem_Free(sequence.data)
     PyMem_Free(sequence)
     PyMem_Free(size_list)
-

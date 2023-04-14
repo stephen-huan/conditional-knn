@@ -11,4 +11,3 @@ cdef class Heap:
 
     cdef HEAP_DATA __pop(self)
     cdef int __update_key(self, int i, double dist)
-

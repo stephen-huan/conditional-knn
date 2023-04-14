@@ -14,4 +14,3 @@ cdef void variance_vector(Kernel *kernel, double[:, ::1] points,
                           double *vector)
 
 cdef void kernel_cleanup(Kernel *kernel)
-

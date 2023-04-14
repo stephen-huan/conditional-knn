@@ -1,6 +1,8 @@
 import copy
-import cknn
+
 import cholesky
+import cknn
+
 from . import *
 
 # make folders
@@ -10,6 +12,7 @@ load_data = lambda *args, **kwargs: load_data__(*args, **kwargs, root=ROOT)
 save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
 plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
+# fmt: off
 D = 3         # dimension of points
 N = 2**10     # number of points
 RHO = 4       # tuning parameter, number of nonzero entries
@@ -33,6 +36,7 @@ PLOT_NNZ     = True # plot data for nonzeros
 
 GENERATE_RHO = True # generate data for rho
 PLOT_RHO     = True # plot data for rho
+# fmt: on
 
 iters = []
 
@@ -40,8 +44,9 @@ LinearOperator = sparse.linalg.LinearOperator
 
 ### conjugate gradient helper methods
 
+
 def avg_iters(iters: list) -> np.ndarray:
-    """ Return the average value along each slice of the list. """
+    """Return the average value along each slice of the list."""
     n = max(map(len, iters))
     out = np.zeros(n)
     for i in range(n):
@@ -49,41 +54,55 @@ def avg_iters(iters: list) -> np.ndarray:
         out[i] = np.average(data)
     return out
 
+
 def cholesky_linearoperator(L: sparse.csc_matrix) -> LinearOperator:
-    """ Return a LinearOperator object from a Cholesky factor. """
+    """Return a LinearOperator object from a Cholesky factor."""
 
     def matvec(v: np.ndarray) -> np.ndarray:
-        """ Compute L (L^T v) """
+        """Compute L (L^T v)"""
         return L.dot(L.T.dot(v))
 
     return LinearOperator(L.shape, matvec=matvec, rmatvec=matvec)
 
+
 ### experiment
 
+
 def setup() -> tuple:
-    """ Generate a matrix and a vector to solve. """
-    kernel = kernels.Matern(length_scale=1, nu=1/2)
+    """Generate a matrix and a vector to solve."""
+    kernel = kernels.Matern(length_scale=1, nu=1 / 2)
     points = rng.random((N, D))
     theta = kernel(points)
 
     # multiply i.i.d. normal by covariance matrix to smoothen
     # this gives better results than generating the right hand side directly
     x = rng.standard_normal(N)
-    y = theta@x
+    y = theta @ x
 
     return points, kernel, theta, x, y
 
-def solve(theta: np.ndarray, y: np.ndarray, linearop: LinearOperator,
-          callback) -> tuple:
-    """ Solve theta x = y by conjugate gradient with preconditioner. """
+
+def solve(
+    theta: np.ndarray, y: np.ndarray, linearop: LinearOperator, callback
+) -> tuple:
+    """Solve theta x = y by conjugate gradient with preconditioner."""
     iters.append([])
     x0 = np.zeros(N)
-    xp, info = sparse.linalg.cg(theta, y, tol=RTOL, atol=0, maxiter=MAX_ITERS,
-                                x0=x0, M=linearop, callback=callback)
+    xp, info = sparse.linalg.cg(
+        theta,
+        y,
+        tol=RTOL,
+        atol=0,
+        maxiter=MAX_ITERS,
+        x0=x0,
+        M=linearop,
+        callback=callback,
+    )
     return xp, iters[-1]
 
+
 def test_chol(chol, *args) -> tuple:
-    """ Runs a cg test with the Cholesky factorization method. """
+    """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
     points, kernel, theta, x, y = setup()
 
@@ -95,7 +114,7 @@ def test_chol(chol, *args) -> tuple:
     linearop = cholesky_linearoperator(L)
 
     def cg_callback(xk: np.ndarray) -> None:
-        """ Callback called by conjugate gradient after each iteration. """
+        """Callback called by conjugate gradient after each iteration."""
         iters[-1].append(np.linalg.norm(x[order] - xk))
 
     # solve system with conjugate gradient
@@ -106,11 +125,19 @@ def test_chol(chol, *args) -> tuple:
     kl_div = cholesky.sparse_kl_div(L, theta)
     residual = np.linalg.norm(x[order] - xp)
 
-    return (kl_div, residual, len(run), L.nnz,
-            time_chol, time_cg, time_chol + time_cg)
+    return (
+        kl_div,
+        residual,
+        len(run),
+        L.nnz,
+        time_chol,
+        time_cg,
+        time_chol + time_cg,
+    )
 
-def binary_search(method, max_iters: int, eps: float=EPS) -> tuple:
-    """ Find rho such that conjugate gradient converges in < max_iters. """
+
+def binary_search(method, max_iters: int, eps: float = EPS) -> tuple:
+    """Find rho such that conjugate gradient converges in < max_iters."""
     global MAX_ITERS, RHO, rng
 
     # cut off conjugate gradient if not converged
@@ -126,7 +153,7 @@ def binary_search(method, max_iters: int, eps: float=EPS) -> tuple:
     # binary search on range
     left, right = 2, RHO
     while abs(left - right) > eps:
-        RHO = (left + right)/2
+        RHO = (left + right) / 2
         rng = copy.deepcopy(rng_original)
         iters = method()[2]
         # rho too small, increase
@@ -141,24 +168,38 @@ def binary_search(method, max_iters: int, eps: float=EPS) -> tuple:
     rng = copy.deepcopy(rng_original)
     return method()
 
+
 if __name__ == "__main__":
     methods = [
-        ("KL", lightblue,
-         lambda: test_chol(cholesky.cholesky_kl, RHO)),
-        ("select", orange,
-         lambda: test_chol(cholesky.cholesky_subsample, S, RHO)),
+        ("KL", lightblue, lambda: test_chol(cholesky.cholesky_kl, RHO)),
+        (
+            "select",
+            orange,
+            lambda: test_chol(cholesky.cholesky_subsample, S, RHO),
+        ),
         # ("select-global", darkorange,
         #  lambda: test_chol(cholesky.cholesky_global, S, RHO)),
-        ("select-KNN", silver,
-         lambda: test_chol(
-             lambda *args: \
-                 cholesky.cholesky_subsample(*args, select=cknn.knn_select),
-             S, RHO
-         )),
-        ("KL (agg)", seagreen,
-         lambda: test_chol(cholesky.cholesky_kl, RHO, LAMBDA)),
-        ("select (agg)", rust,
-         lambda: test_chol(cholesky.cholesky_subsample, S, RHO, LAMBDA)),
+        (
+            "select-KNN",
+            silver,
+            lambda: test_chol(
+                lambda *args: cholesky.cholesky_subsample(
+                    *args, select=cknn.knn_select
+                ),
+                S,
+                RHO,
+            ),
+        ),
+        (
+            "KL (agg)",
+            seagreen,
+            lambda: test_chol(cholesky.cholesky_kl, RHO, LAMBDA),
+        ),
+        (
+            "select (agg)",
+            rust,
+            lambda: test_chol(cholesky.cholesky_subsample, S, RHO, LAMBDA),
+        ),
         # ("select-global (agg)", darkrust,
         #  lambda: test_chol(cholesky.cholesky_global, S, RHO, LAMBDA)),
     ]
@@ -183,7 +224,7 @@ if __name__ == "__main__":
     RHO = 4
     S = 2
     LAMBDA = 1.5
-    sizes = 2**np.arange(17)
+    sizes = 2 ** np.arange(17)
 
     if GENERATE_N:
         for N in sizes:
@@ -223,8 +264,10 @@ if __name__ == "__main__":
         for y_data, y_name, y_label in zip(data, y_names, y_labels):
 
             def plot_callback():
-                plt.title(f"{y_label.split()[0]} with increasing $N$ \
-($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})")
+                plt.title(
+                    f"{y_label.split()[0]} with increasing $N$ \
+($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+                )
                 plt.xlabel("$N$")
                 plt.ylabel(y_label)
 
@@ -238,10 +281,12 @@ if __name__ == "__main__":
     # number of nonzero entries per column
     if PLOT_N:
         for y_value, name, color in zip(data[3], names, colors):
-            plt.plot(sizes, y_value/sizes, label=name, color=color)
+            plt.plot(sizes, y_value / sizes, label=name, color=color)
 
-        plt.title(f"Nonzero entries per column with increasing $N$ \
-($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})")
+        plt.title(
+            f"Nonzero entries per column with increasing $N$ \
+($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+        )
         plt.xlabel("$N$")
         plt.ylabel("Number of Nonzeros")
         plt.legend()
@@ -256,8 +301,10 @@ if __name__ == "__main__":
 
         plt.yscale("log")
 
-        plt.title(f"Residual with Iterations \
-($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})")
+        plt.title(
+            f"Residual with Iterations \
+($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+        )
         plt.xlabel("Iterations")
         plt.ylabel("Residual ($\ell_2$-norm)")
         plt.legend()
@@ -294,10 +341,12 @@ if __name__ == "__main__":
 
     if PLOT_NNZ:
         for y_value, name, color in zip(data[3], names, colors):
-            plt.plot(sizes, y_value/sizes, label=name, color=color)
+            plt.plot(sizes, y_value / sizes, label=name, color=color)
 
-        plt.title(f"Nonzero entries per column with increasing $N$ \
-(iters = {max_iters}, $s$ = {S}, $\\lambda$ = {LAMBDA})")
+        plt.title(
+            f"Nonzero entries per column with increasing $N$ \
+(iters = {max_iters}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+        )
         plt.xlabel("$N$")
         plt.ylabel("Number of Nonzeros")
         plt.legend()
@@ -344,8 +393,10 @@ if __name__ == "__main__":
         for y_data, y_name, y_label in zip(data, y_names, y_labels):
 
             def plot_callback():
-                plt.title(f"{y_label.split()[0]} with increasing $\\rho$ \
-($N$ = {N}, $s$ = {S}, $\\lambda$ = {LAMBDA})")
+                plt.title(
+                    f"{y_label.split()[0]} with increasing $\\rho$ \
+($N$ = {N}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+                )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
 
@@ -359,4 +410,3 @@ if __name__ == "__main__":
                 pass
 
             plot(x_data, y_data, names, colors, "rho", y_name, plot_callback)
-

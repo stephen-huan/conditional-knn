@@ -1,14 +1,22 @@
 # cython: profile=False
-from libc.math cimport INFINITY, sqrt, log2
 cimport numpy as np
+from libc.math cimport INFINITY, log2, sqrt
+
 import numpy as np
-cimport scipy.linalg.cython_blas as blas
+
 cimport mkl
-from c_kernels cimport Kernel, get_kernel, kernel_cleanup
-from c_kernels cimport covariance_vector, variance_vector
+cimport scipy.linalg.cython_blas as blas
+
 cimport maxheap
-from maxheap cimport Heap
 cimport sequence
+from c_kernels cimport (
+    Kernel,
+    covariance_vector,
+    get_kernel,
+    kernel_cleanup,
+    variance_vector,
+)
+from maxheap cimport Heap
 from sequence cimport Sequence
 
 ### selection methods
@@ -801,4 +809,3 @@ def global_select(double[:, ::1] x, kernel_object, dict ref_sparsity,
 
     kernel_cleanup(kernel)
     return sparsity
-

@@ -1,13 +1,16 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
-import gp_kernels
-from gp_regression import sample, estimate
-import cknn
 
+import cknn
+import gp_kernels
+from gp_regression import estimate, sample
+
+# fmt: off
 D = 3    # dimension of points
 N = 100  # number of training points
 M = 5    # number of prediction points
 S = 20   # number of entries to pick
+# fmt: on
 
 # display settings
 # np.set_printoptions(precision=3, suppress=True)
@@ -22,13 +25,14 @@ if __name__ == "__main__":
 
     # generate arbitrary p.d. matrix
     L = rng.random((N + M, N + M))
-    index_points, matrix_kernel = gp_kernels.matrix_kernel(L@L.T)
+    index_points, matrix_kernel = gp_kernels.matrix_kernel(L @ L.T)
 
-    funcs = [(X_train, X_test, kernels.Matern(length_scale=0.5, nu=1/2)),
-             (X_train, X_test, kernels.Matern(length_scale=0.9, nu=3/2)),
-             (X_train, X_test, kernels.Matern(length_scale=0.1, nu=5/2)),
-             (index_points[:N], index_points[N:], matrix_kernel),
-            ]
+    funcs = [
+        (X_train, X_test, kernels.Matern(length_scale=0.5, nu=1 / 2)),
+        (X_train, X_test, kernels.Matern(length_scale=0.9, nu=3 / 2)),
+        (X_train, X_test, kernels.Matern(length_scale=0.1, nu=5 / 2)),
+        (index_points[:N], index_points[N:], matrix_kernel),
+    ]
 
     for X_train, X_test, kernel in funcs:
         # generate sample
@@ -39,8 +43,10 @@ if __name__ == "__main__":
 
         if isinstance(kernel, kernels.Matern):
             params = kernel.get_params()
-            print(f"Matern(nu={params['nu']}, \
-length_scale={params['length_scale']})")
+            print(
+                f"Matern(nu={params['nu']}, \
+length_scale={params['length_scale']})"
+            )
         else:
             print("Matrix kernel")
         # single point case
@@ -72,14 +78,16 @@ length_scale={params['length_scale']})")
         print(det)
 
         # approximate
-        mu_pred, var_pred, det = estimate(X_train, y_train, X_test,
-                                          kernel, indexes)
+        mu_pred, var_pred, det = estimate(
+            X_train, y_train, X_test, kernel, indexes
+        )
         print(y_test, mu_pred)
         print(det)
 
         indexes = cknn.knn_select(X_train, X_test, kernel, S)
-        mu_pred, var_pred, det = estimate(X_train, y_train, X_test,
-                                          kernel, indexes)
+        mu_pred, var_pred, det = estimate(
+            X_train, y_train, X_test, kernel, indexes
+        )
         print(y_test, mu_pred)
         print(det)
 
@@ -87,4 +95,3 @@ length_scale={params['length_scale']})")
         print(indexes)
 
         print()
-

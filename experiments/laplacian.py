@@ -1,6 +1,7 @@
-import cknn
 import cholesky
+import cknn
 import gp_kernels
+
 from . import *
 
 # make folders
@@ -13,37 +14,42 @@ plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 DATASET = "iris_dataset_30NN"
 # DATASET = "mice_10NN"
 
+# fmt: off
 RHO = 64     # tuning parameter, number of nonzero entries
 S = 2        # tuning parameter, factor larger to make rho in subsampling
 LAMBDA = 1.5 # tuning parameter, size of groups
 
 GENERATE_RHO = True  # generate data for rho
 PLOT_RHO     = True  # plot data for rho
+# fmt: on
 
-TRIALS = 1   # number of trials
+TRIALS = 1  # number of trials
 avg_results = lambda f, trials=TRIALS: avg_results__(f, trials)
 
 ### Laplacian experiment
 
+
 def setup_laplacian() -> tuple:
-    """ Generate a Laplacian and its Cholesky factor. """
+    """Generate a Laplacian and its Cholesky factor."""
     laplacian = get_laplacian(DATASET)
     # add multiple of identity to force p.d.
-    laplacian += 1*sparse.identity(laplacian.shape[0])
+    laplacian += 1 * sparse.identity(laplacian.shape[0])
     L = np.linalg.cholesky(laplacian.toarray())
 
     return laplacian, L
 
+
 def recover_lapacian(laplacian: sparse.coo_matrix, chol, *args) -> tuple:
-    """ Reconstruct a Laplacian given its inverse. """
+    """Reconstruct a Laplacian given its inverse."""
     laplacian_inv = cholesky.inv(laplacian.toarray())
     points, kernel = gp_kernels.matrix_kernel(laplacian_inv)
     factor, order = chol(points, kernel, *args)
 
     return factor, order
 
+
 def test_laplacian(chol, *args) -> tuple:
-    """ Test a selction method's ability to reconstruct a Laplacian. """
+    """Test a selction method's ability to reconstruct a Laplacian."""
     laplacian, L = setup_laplacian()
     start = time.time()
     factor, order = recover_lapacian(laplacian, chol, *args)
@@ -53,13 +59,13 @@ def test_laplacian(chol, *args) -> tuple:
     laplacian = laplacian[np.ix_(order, order)]
 
     # check condition of resulting preconditioner
-    precond = sparse.linalg.spsolve_triangular(factor.tocsr(),
-                                               np.identity(factor.shape[0]),
-                                               lower=True)
+    precond = sparse.linalg.spsolve_triangular(
+        factor.tocsr(), np.identity(factor.shape[0]), lower=True
+    )
     precond = sparse.csc_matrix(precond)
     # cond = np.linalg.cond(laplacian.toarray())
     # M ~= L L^T, L^{-1} M L^{-T} ~= I
-    laplacian_precond = precond@laplacian@precond.T
+    laplacian_precond = precond @ laplacian @ precond.T
     precond_cond = np.linalg.cond(laplacian_precond.toarray())
 
     kl_div = cholesky.sparse_kl_div(factor, cholesky.inv(laplacian.toarray()))
@@ -70,24 +76,41 @@ def test_laplacian(chol, *args) -> tuple:
     indices = set(zip(col_ind, row_ind))
     sel_indices = set(zip(sel_col_ind, sel_row_ind))
     # |intersection|/|union|
-    score = len(indices & sel_indices)/len(indices | sel_indices)
+    score = len(indices & sel_indices) / len(indices | sel_indices)
 
     return kl_div, precond_cond, score, factor.nnz, recover_time
 
+
 if __name__ == "__main__":
     methods = [
-        ("KL", lightblue,
-         lambda: test_laplacian(cholesky.cholesky_kl, RHO)),
-        ("select", orange,
-         lambda: test_laplacian(cholesky.cholesky_subsample, S, RHO)),
-        ("select-global", darkorange,
-         lambda: test_laplacian(cholesky.cholesky_global, S, RHO)),
-        ("KL (agg)", seagreen,
-         lambda: test_laplacian(cholesky.cholesky_kl, RHO, LAMBDA)),
-        ("select (agg)", rust,
-         lambda: test_laplacian(cholesky.cholesky_subsample, S, RHO, LAMBDA)),
-        ("select-global (agg)", darkrust,
-         lambda: test_laplacian(cholesky.cholesky_global, S, RHO, LAMBDA)),
+        ("KL", lightblue, lambda: test_laplacian(cholesky.cholesky_kl, RHO)),
+        (
+            "select",
+            orange,
+            lambda: test_laplacian(cholesky.cholesky_subsample, S, RHO),
+        ),
+        (
+            "select-global",
+            darkorange,
+            lambda: test_laplacian(cholesky.cholesky_global, S, RHO),
+        ),
+        (
+            "KL (agg)",
+            seagreen,
+            lambda: test_laplacian(cholesky.cholesky_kl, RHO, LAMBDA),
+        ),
+        (
+            "select (agg)",
+            rust,
+            lambda: test_laplacian(
+                cholesky.cholesky_subsample, S, RHO, LAMBDA
+            ),
+        ),
+        (
+            "select-global (agg)",
+            darkrust,
+            lambda: test_laplacian(cholesky.cholesky_global, S, RHO, LAMBDA),
+        ),
     ]
     names, colors, funcs = zip(*methods)
 
@@ -96,7 +119,7 @@ if __name__ == "__main__":
         ("cond", "Condition Number"),
         ("score", "Accuracy (IOU)"),
         ("nnz", "nonzeros"),
-        ("time", "Time (seconds)")
+        ("time", "Time (seconds)"),
     ]
     y_names, y_labels = zip(*y)
 
@@ -139,13 +162,14 @@ if __name__ == "__main__":
         for y_data, y_name, y_label in zip(data, y_names, y_labels):
 
             def plot_callback():
-                plt.title(f"{y_label.split()[0]} with increasing $\\rho$ \
-(dataset = {DATASET}, $s$ = {S}, $\\lambda$ = {LAMBDA})")
+                plt.title(
+                    f"{y_label.split()[0]} with increasing $\\rho$ \
+(dataset = {DATASET}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+                )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
 
-                if y_name == "kl_div": # or y_name == "cond":
+                if y_name == "kl_div":  # or y_name == "cond":
                     plt.yscale("log")
 
             plot(rhos, y_data, names, colors, x_name, y_name, plot_callback)
-

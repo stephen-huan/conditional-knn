@@ -1,9 +1,11 @@
 import scipy.stats
 from sklearn.datasets import fetch_openml
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
+
 import cknn
+
 from . import *
 
 # make folders
@@ -14,6 +16,7 @@ save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
 plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
 fnameX, fnamey = f"{ROOT}/X.npy", f"{ROOT}/y.npy"
+# fmt: off
 # POINTS = 1000      # number of data points to use
 # SPLIT = 1/7        # train-test-split ratio
 TRAIN_SIZE = 1000    # number of training points
@@ -28,47 +31,67 @@ PLOT_K     = True    # plot data for k
 
 GENERATE_LS = True   # generate data for length scale
 PLOT_LS     = True   # plot data for length scale
+# fmt: on
 
 ### helper methods
 
-def avg_results(f, trials: int=TRIALS) -> tuple:
-    """ Time a function trials times. """
+
+def avg_results(f, trials: int = TRIALS) -> tuple:
+    """Time a function trials times."""
     start = time.time()
     ys = []
     for i in range(trials):
         # re-sample every time for more robust accuracy estimate
-        X_train, X_test, y_train, y_test = \
-            train_test_split(X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE,
-                             random_state=i)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE, random_state=i
+        )
         ys.append(accuracy_score(f(X_train, y_train, X_test), y_test))
-    return (time.time() - start)/trials, np.average(ys)
+    return (time.time() - start) / trials, np.average(ys)
+
 
 ### experimental setup
 
-def knn(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray,
-        k: int) -> np.ndarray:
-    """ Classifies a list of points with k-th nearest neighbors (knn). """
-    kernel = cknn.euclidean # equivalent to using Matern kernel
-    return np.array([scipy.stats.mode(
-        y_train[cknn.knn_select(X_train, X_test[i: i + 1], kernel, k)])[0]
-                     for i in range(len(X_test))])
 
-def c_knn(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray,
-          k: int) -> np.ndarray:
-    """ Classifies a list of points with conditional knn. """
+def knn(
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, k: int
+) -> np.ndarray:
+    """Classifies a list of points with k-th nearest neighbors (knn)."""
+    kernel = cknn.euclidean  # equivalent to using Matern kernel
+    return np.array(
+        [
+            scipy.stats.mode(
+                y_train[cknn.knn_select(X_train, X_test[i : i + 1], kernel, k)]
+            )[0]
+            for i in range(len(X_test))
+        ]
+    )
+
+
+def c_knn(
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, k: int
+) -> np.ndarray:
+    """Classifies a list of points with conditional knn."""
     kernel = kernels.Matern(length_scale=LENGTH_SCALE, nu=NU)
-    return np.array([scipy.stats.mode(
-        y_train[cknn.select(X_train, X_test[i: i + 1], kernel, k)])[0]
-                     for i in range(len(X_test))])
+    return np.array(
+        [
+            scipy.stats.mode(
+                y_train[cknn.select(X_train, X_test[i : i + 1], kernel, k)]
+            )[0]
+            for i in range(len(X_test))
+        ]
+    )
 
-def scikit_knn(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray,
-               k: int) -> np.ndarray:
-    """ Classifies a list of points with scikit-learn's knn implementation. """
+
+def scikit_knn(
+    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, k: int
+) -> np.ndarray:
+    """Classifies a list of points with scikit-learn's knn implementation."""
     # in high dimensions, brute force is much faster than ball/kd trees
     clf = KNeighborsClassifier(n_neighbors=k, algorithm="brute")
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
     return y_pred
+
 
 if __name__ == "__main__":
     # load mnist dataset
@@ -86,17 +109,27 @@ if __name__ == "__main__":
 
     # X, y = X[:POINTS], y[:POINTS]
     # split 70,000 row dataset into train and test set, set seed
-    X_train, X_test, y_train, y_test = \
-        train_test_split(X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE,
-                         random_state=1)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE, random_state=1
+    )
 
     ### plotting
 
     methods = [
-        ("scikit-knn", lightblue, lambda X_train, y_train, X_test:
-         scikit_knn(X_train, y_train, X_test, K)),
-        ("conditional-knn", orange, lambda X_train, y_train, X_test:
-         c_knn(X_train, y_train, X_test, K)),
+        (
+            "scikit-knn",
+            lightblue,
+            lambda X_train, y_train, X_test: scikit_knn(
+                X_train, y_train, X_test, K
+            ),
+        ),
+        (
+            "conditional-knn",
+            orange,
+            lambda X_train, y_train, X_test: c_knn(
+                X_train, y_train, X_test, K
+            ),
+        ),
     ]
     names, colors, funcs = zip(*methods)
 
@@ -133,14 +166,23 @@ if __name__ == "__main__":
         for y_data, y_name, y_label in zip(data, y_names, y_labels):
 
             def plot_callback():
-                plt.title(f"{y_label.split()[0]} with increasing $k$ \
-($n = {len(X_train)}, m = {len(X_test)}, l = {LENGTH_SCALE}, \\nu = {NU}$)")
+                plt.title(
+                    f"{y_label.split()[0]} with increasing $k$ \
+($n = {len(X_train)}, m = {len(X_test)}, l = {LENGTH_SCALE}, \\nu = {NU}$)"
+                )
                 plt.xlabel("$k$")
                 plt.ylabel(y_label)
 
             k = 50
-            plot(ks[:k], y_data[:, :k],
-                 names, colors, "k", y_name, plot_callback)
+            plot(
+                ks[:k],
+                y_data[:, :k],
+                names,
+                colors,
+                "k",
+                y_name,
+                plot_callback,
+            )
 
     ### changing length scale
 
@@ -148,7 +190,7 @@ if __name__ == "__main__":
     times, accs = data
 
     K = 5
-    length_scales = 2**np.arange(0, 20)
+    length_scales = 2 ** np.arange(0, 20)
 
     if GENERATE_LS:
         for l in length_scales:
@@ -171,8 +213,10 @@ if __name__ == "__main__":
                 continue
             plt.plot(length_scales, y, label=name, color=color)
 
-        plt.title(f"Accuracy with increasing $l$ \
-($n = {len(X_train)}, m = {len(X_test)}, k = {K}, \\nu = {NU}$)")
+        plt.title(
+            f"Accuracy with increasing $l$ \
+($n = {len(X_train)}, m = {len(X_test)}, k = {K}, \\nu = {NU}$)"
+        )
         plt.xlabel("$l$")
         plt.xscale("log")
         plt.ylabel("Accuracy (%)")
@@ -201,4 +245,3 @@ if __name__ == "__main__":
     y_pred = c_knn(X_train, y_train, X_test, K)
     print(f"accuracy: {accuracy_score(y_pred, y_test):.4f}")
     print(f"time: {time.time() - start:.3f}")
-

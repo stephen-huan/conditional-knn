@@ -9,4 +9,3 @@ cdef extern from "mkl.h":
     # vector math library (VML) routines
     void vdSqrt(const MKL_INT n, const double a[], double r[])
     void vdExp(const MKL_INT n, const double a[], double r[])
-

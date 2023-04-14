@@ -1,6 +1,8 @@
-import time
 import heapq
+import time
+
 import numpy as np
+
 import maxheap
 
 N = 10
@@ -12,7 +14,7 @@ np.set_printoptions(precision=3, suppress=True)
 rng = np.random.default_rng(1)
 
 if __name__ == "__main__":
-    dists, ids =  rng.random(N), np.arange(N)
+    dists, ids = rng.random(N), np.arange(N)
     heap = maxheap.Heap(dists, ids)
     print(heap)
     print(heap.pop())
@@ -59,4 +61,3 @@ if __name__ == "__main__":
     for i in range(N):
         heapq.heappush(heap, l[i])
     print(f" pyheap  push: {time.time() - start:.3f}")
-

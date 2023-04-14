@@ -1,12 +1,16 @@
 # cython: profile=False
-from libc.math cimport sqrt, exp
+from cpython.mem cimport PyMem_Free, PyMem_Malloc
 from cpython.ref cimport PyObject
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.math cimport exp, sqrt
+
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
-import gp_kernels
-cimport scipy.linalg.cython_blas as blas
+
 cimport mkl
+cimport scipy.linalg.cython_blas as blas
+
+import gp_kernels
+
 
 cdef (Kernel *) get_kernel(kernel_object: kernels.Kernel):
     """ Turn a Python scikit-learn kernel object into a C kernel struct. """
@@ -214,4 +218,3 @@ cdef void __matrix_variance(void *params, double[:, ::1] points,
     for i in range(points.shape[0]):
         j = <int> points[i, 0]
         vector[i] = __matrix_index(matrix_params, j, j)
-

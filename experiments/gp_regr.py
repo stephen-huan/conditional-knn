@@ -1,10 +1,12 @@
 import sklearn.datasets as datasets
 from sklearn.model_selection import train_test_split
-import cknn
+
 import cholesky
+import cknn
 import gp_regression as gp_regr
-from gp_regression import grid, rmse, coverage
+from gp_regression import coverage, grid, rmse
 from ordering import euclidean
+
 from . import *
 
 DATASET = "oco2"
@@ -19,6 +21,7 @@ load_data = lambda *args, **kwargs: load_data__(*args, **kwargs, root=ROOT)
 save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
 plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
+# fmt: off
 D = 3         # dimension of points
 # D = 6         # dimension of points
 N = 2**16     # number of total points
@@ -42,32 +45,39 @@ PLOT_RHO     = True  # plot data for rho
 
 GENERATE_S   = True  # generate data for s
 PLOT_S       = True  # plot data for s
+# fmt: on
 
 ### graphing helper methods
 
+
 def scatter_points(points: np.ndarray, ax1: int, ax2: int, **kwargs) -> None:
-    """ Scatter plot the feature marginalized points. """
+    """Scatter plot the feature marginalized points."""
     plt.scatter(points[:, ax1], points[:, ax2], **kwargs)
 
-def chol_get_selected(L: sparse.csc_matrix, order: np.ndarray,
-                      index: int) -> np.ndarray:
-    """ Return the selected points for a index. """
+
+def chol_get_selected(
+    L: sparse.csc_matrix, order: np.ndarray, index: int
+) -> np.ndarray:
+    """Return the selected points for a index."""
     loc = np.arange(order.shape[0])[order == index][0]
     rows, cols = L[:, loc].nonzero()
     return order[rows]
 
-def remove_duplicates(points: np.ndarray, eps: float=1e-9) -> np.ndarray:
-    """ Remove (near) duplicate points from the list of points. """
+
+def remove_duplicates(points: np.ndarray, eps: float = 1e-9) -> np.ndarray:
+    """Remove (near) duplicate points from the list of points."""
     new_points = [points[0]]
     for i in range(1, points.shape[0]):
-        if np.min(euclidean(points[:i], points[i: i + 1])) > eps:
+        if np.min(euclidean(points[:i], points[i : i + 1])) > eps:
             new_points.append(points[i])
     return np.array(new_points)
 
+
 ### experimental setup
 
+
 def get_dataset(dataset: str) -> tuple:
-    """ Return a dataset (X_train, y_train, X_test, y_test) from the name. """
+    """Return a dataset (X_train, y_train, X_test, y_test) from the name."""
     # certain datasets come with both training data and validation set
     m = 0
     # certain datasets come with labels
@@ -90,7 +100,7 @@ def get_dataset(dataset: str) -> tuple:
         points, y = datasets.make_moons(1000, random_state=1)
     elif dataset == "digits":
         data = datasets.load_digits()
-        points = data.data/16
+        points = data.data / 16
         points = points[:N]
     elif dataset == "sarcos":
         root = "datasets/gpml"
@@ -130,22 +140,23 @@ def get_dataset(dataset: str) -> tuple:
         X_train = np.loadtxt(f"{root}/shuttle.trn")
         X_test = np.loadtxt(f"{root}/shuttle.tst")
         X_train = X_train[:N]
-        X_test = X_test[:2**7]
+        X_test = X_test[: 2**7]
         points = np.vstack((X_test, X_train))
         m = X_test.shape[0]
     elif dataset == "susy":
         root = "datasets/uci/susy"
-        points = np.loadtxt(f"{root}/SUSY.csv.gz",
-                            delimiter=",",
-                            unpack=True,
-                            max_rows=N).T
+        points = np.loadtxt(
+            f"{root}/SUSY.csv.gz", delimiter=",", unpack=True, max_rows=N
+        ).T
     elif dataset == "cod-rna":
         root = "datasets/libsvm/cod-rna"
         col = lambda s: float(s.decode().split(":")[-1])
-        points = np.loadtxt(f"{root}/cod-rna",
-                            converters={i: col for i in range(1, 9)},
-                            unpack=True,
-                            max_rows=N).T
+        points = np.loadtxt(
+            f"{root}/cod-rna",
+            converters={i: col for i in range(1, 9)},
+            unpack=True,
+            max_rows=N,
+        ).T
         points[:, 1] /= 1000
         points[:, 2] /= 1000
         points = points[:, 2:]
@@ -162,9 +173,11 @@ def get_dataset(dataset: str) -> tuple:
 
     return points, y, m
 
-def get_sample(points: np.ndarray, y: np.ndarray, m: int,
-               kernel: cknn.Kernel) -> tuple:
-    """ Generate y labels from the features. """
+
+def get_sample(
+    points: np.ndarray, y: np.ndarray, m: int, kernel: cknn.Kernel
+) -> tuple:
+    """Generate y labels from the features."""
     if y is not None:
         pass
     elif os.path.exists(fnamey) and not GEN_Y:
@@ -193,18 +206,25 @@ def get_sample(points: np.ndarray, y: np.ndarray, m: int,
         y_test, y_train = y[:m], y[m:]
     else:
         # randomly split into training and testing
-        X_train, X_test, y_train, y_test = \
-            train_test_split(points, y, test_size=TTS, random_state=1)
+        X_train, X_test, y_train, y_test = train_test_split(
+            points, y, test_size=TTS, random_state=1
+        )
 
     return X_train, X_test, y_train, y_test
 
-def test_regr(X_train: np.ndarray, y_train: np.ndarray,
-              X_test: np.ndarray, y_test: np.ndarray, inv_chol) -> tuple:
-    """ Evaluate inverse Cholesky for Gaussian process regression. """
+
+def test_regr(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    inv_chol,
+) -> tuple:
+    """Evaluate inverse Cholesky for Gaussian process regression."""
     start = time.time()
-    mu_pred, var_pred, det, L = \
-        gp_regr.estimate_chol_joint(X_train, y_train, X_test,
-                                    kernel, chol=inv_chol)
+    mu_pred, var_pred, det, L = gp_regr.estimate_chol_joint(
+        X_train, y_train, X_test, kernel, chol=inv_chol
+    )
     time_regr = time.time() - start
     loss = np.mean(rmse(y_test, mu_pred))
     emperical_coverage = np.mean(coverage(y_test, mu_pred, var_pred))
@@ -212,10 +232,11 @@ def test_regr(X_train: np.ndarray, y_train: np.ndarray,
     nnz = L.nnz if hasattr(L, "nnz") else np.product(L.shape)
     return loss, det, emperical_coverage, time_regr, nnz
 
+
 if __name__ == "__main__":
     ### GP regression
 
-    kernel = kernels.Matern(length_scale=1, nu=5/2)
+    kernel = kernels.Matern(length_scale=1, nu=5 / 2)
 
     if GENERATE:
         points, y, m = get_dataset(DATASET)
@@ -227,7 +248,7 @@ if __name__ == "__main__":
         length_scales = np.array(
             [np.max(points[m:, d]) - np.min(points[m:, d]) for d in range(D)]
         )
-        kernel = kernels.Matern(length_scale=1, nu=3/2)
+        kernel = kernels.Matern(length_scale=1, nu=3 / 2)
         # kernel = kernels.Matern(length_scale=1e0*length_scales, nu=3/2)
         # generate all points together
         X_train, X_test, y_train, y_test = get_sample(points, y, m, kernel)
@@ -247,29 +268,29 @@ if __name__ == "__main__":
 
     if GRAPH:
         ax1, ax2 = 0, 1
-        scatter = lambda points, **kwargs: scatter_points(points,
-                                                          ax1, ax2, **kwargs)
+        scatter = lambda points, **kwargs: scatter_points(
+            points, ax1, ax2, **kwargs
+        )
 
         scatter(X_train, color=lightblue)
         scatter(X_test, color=orange)
 
         test_ind = 0
-        test_point = np.ascontiguousarray(X_test[test_ind: test_ind + 1])
+        test_point = np.ascontiguousarray(X_test[test_ind : test_ind + 1])
         s = 10
 
         sel1 = cknn.knn_select(points, test_point, kernel, s)
 
-        temp = np.vstack((points[:test_ind], points[test_ind + 1:]))
+        temp = np.vstack((points[:test_ind], points[test_ind + 1 :]))
         temp = np.ascontiguousarray(temp)
         sel2 = cknn.select(temp, test_point, kernel, s - 1)
         sel2[sel2 >= test_ind] += 1
 
         # factor with sparse Cholesky to get interactions
-        L1, order1 = \
-            cholesky.cholesky_joint(X_train, X_test, kernel, RHO)
-        L2, order2 = \
-            cholesky.cholesky_joint_subsample(X_train, X_test, kernel,
-                                              RHO_S, RHO)
+        L1, order1 = cholesky.cholesky_joint(X_train, X_test, kernel, RHO)
+        L2, order2 = cholesky.cholesky_joint_subsample(
+            X_train, X_test, kernel, RHO_S, RHO
+        )
 
         # sel1 = chol_get_selected(L1, order1, test_ind)
         # sel2 = chol_get_selected(L2, order2, test_ind)
@@ -295,26 +316,48 @@ if __name__ == "__main__":
 
     # joint
 
-    test = lambda inv_chol: test_regr(X_train, y_train, X_test, y_test,
-                                      inv_chol)
+    test = lambda inv_chol: test_regr(
+        X_train, y_train, X_test, y_test, inv_chol
+    )
 
     methods = [
-        ("KL", lightblue, lambda x_train, x_test, kernel: \
-         cholesky.cholesky_joint(x_train, x_test, kernel, RHO)),
-        ("select", orange, lambda x_train, x_test, kernel: \
-         cholesky.cholesky_joint_subsample(x_train, x_test, kernel,
-                                           RHO_S, RHO)),
-        ("select-KNN", silver, lambda x_train, x_test, kernel: \
-         cholesky.cholesky_joint_subsample(x_train, x_test, kernel,
-                                           RHO_S, RHO,
-                                           select=cknn.knn_select)),
+        (
+            "KL",
+            lightblue,
+            lambda x_train, x_test, kernel: cholesky.cholesky_joint(
+                x_train, x_test, kernel, RHO
+            ),
+        ),
+        (
+            "select",
+            orange,
+            lambda x_train, x_test, kernel: cholesky.cholesky_joint_subsample(
+                x_train, x_test, kernel, RHO_S, RHO
+            ),
+        ),
+        (
+            "select-KNN",
+            silver,
+            lambda x_train, x_test, kernel: cholesky.cholesky_joint_subsample(
+                x_train, x_test, kernel, RHO_S, RHO, select=cknn.knn_select
+            ),
+        ),
         # ("select-global", darkorange, lambda x_train, x_test, kernel: \
         #  cholesky.cholesky_joint_global(x_train, x_test, kernel, RHO_S, RHO)),
-        ("KL (agg)", seagreen, lambda x_train, x_test, kernel: \
-         cholesky.cholesky_joint(x_train, x_test, kernel, RHO, LAMBDA)),
-        ("select (agg)", rust, lambda x_train, x_test, kernel: \
-         cholesky.cholesky_joint_subsample(x_train, x_test, kernel,
-                                           RHO_S, RHO, LAMBDA)),
+        (
+            "KL (agg)",
+            seagreen,
+            lambda x_train, x_test, kernel: cholesky.cholesky_joint(
+                x_train, x_test, kernel, RHO, LAMBDA
+            ),
+        ),
+        (
+            "select (agg)",
+            rust,
+            lambda x_train, x_test, kernel: cholesky.cholesky_joint_subsample(
+                x_train, x_test, kernel, RHO_S, RHO, LAMBDA
+            ),
+        ),
         # ("select-global (agg)", rust, lambda x_train, x_test, kernel: \
         #  cholesky.cholesky_joint_global(x_train, x_test, kernel,
         #                                 RHO_S, RHO, LAMBDA)),
@@ -331,7 +374,6 @@ if __name__ == "__main__":
         ("nnz", "Nonzeros"),
     ]
     y_names, y_labels = zip(*y)
-
 
     ### changing rho
 
@@ -364,8 +406,10 @@ if __name__ == "__main__":
         for y_data, y_name, y_label in zip(data, y_names, y_labels):
 
             def plot_callback():
-                plt.title(f"{y_label.split()[0]} with increasing $\\rho$ \
-($N$ = {N}, $\\rho_s$ = {RHO_S}, $\\lambda$ = {LAMBDA})")
+                plt.title(
+                    f"{y_label.split()[0]} with increasing $\\rho$ \
+($N$ = {N}, $\\rho_s$ = {RHO_S}, $\\lambda$ = {LAMBDA})"
+                )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
 
@@ -387,8 +431,10 @@ if __name__ == "__main__":
                 continue
             plt.plot(y_time, y_det - logdets[-1], label=name, color=color)
 
-        plt.title(f"Log determinant with increasing $\\rho$ against time \
-($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)")
+        plt.title(
+            f"Log determinant with increasing $\\rho$ against time \
+($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)"
+        )
         plt.xlabel("Time (seconds)")
         plt.ylabel("Log determinant")
         plt.xscale("log")
@@ -403,8 +449,10 @@ if __name__ == "__main__":
                 continue
             plt.plot(y_time, y_loss - losses[-1], label=name, color=color)
 
-        plt.title(f"Loss with increasing $\\rho$ against time \
-($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)")
+        plt.title(
+            f"Loss with increasing $\\rho$ against time \
+($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)"
+        )
         plt.xlabel("Time (seconds)")
         plt.ylabel("Loss")
         plt.xscale("log")
@@ -445,8 +493,10 @@ if __name__ == "__main__":
         for y_data, y_name, y_label in zip(data, y_names, y_labels):
 
             def plot_callback():
-                plt.title(f"{y_label.split()[0]} with increasing $s$ \
-($N$ = {N}, $\\rho$ = {RHO}, $\\lambda$ = {LAMBDA})")
+                plt.title(
+                    f"{y_label.split()[0]} with increasing $s$ \
+($N$ = {N}, $\\rho$ = {RHO}, $\\lambda$ = {LAMBDA})"
+                )
                 plt.xlabel("$s$")
                 plt.ylabel(y_label)
 
@@ -458,4 +508,3 @@ if __name__ == "__main__":
                 y_data = y_data[:-1] - y_data[-1]
 
             plot(rhos, y_data, names, colors, "s", y_name, plot_callback)
-
