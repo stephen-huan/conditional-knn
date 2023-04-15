@@ -21,9 +21,15 @@ from sequence cimport Sequence
 
 ### selection methods
 
-cdef void __chol_update(int n, int i, int k,
-                        double[::1, :] factors, double[::1] cond_var):
-    """ Updates the ith column of the Cholesky factor with column k. """
+
+cdef void __chol_update(
+    int n,
+    int i,
+    int k,
+    double[::1, :] factors,
+    double[::1] cond_var,
+):
+    """Updates the ith column of the Cholesky factor with column k."""
     cdef:
         char *trans
         int M, N, lda, incx, incy, j
@@ -60,10 +66,18 @@ cdef void __chol_update(int n, int i, int k,
     if k < cond_var.shape[0]:
         cond_var[k] = -1
 
-cdef void __select_update(double[:, ::1] x_train, double[:, ::1] x_test,
-                          Kernel *kernel, int i, int k, double[::1, :] factors,
-                          double[::1] cond_var, double[::1] cond_cov):
-    """ Update the selection data structures after selecting a point. """
+
+cdef void __select_update(
+    double[:, ::1] x_train,
+    double[:, ::1] x_test,
+    Kernel *kernel,
+    int i,
+    int k,
+    double[::1, :] factors,
+    double[::1] cond_var,
+    double[::1] cond_cov,
+):
+    """Update the selection data structures after selecting a point."""
     cdef:
         int n, incx
         double alpha
@@ -79,9 +93,14 @@ cdef void __select_update(double[:, ::1] x_train, double[:, ::1] x_test,
     incx = 1
     blas.daxpy(&n, &alpha, &factors[0, i], &incx, &cond_cov[0], &incx)
 
-cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
-                             Kernel *kernel, int s):
-    """ Select the s most informative entries, storing a Cholesky factor. """
+
+cdef long[::1] __chol_select(
+    double[:, ::1] x_train,
+    double[:, ::1] x_test,
+    Kernel *kernel,
+    int s,
+):
+    """Select the s most informative entries, storing a Cholesky factor."""
     # O(s*(n*s)) = O(n s^2)
     cdef:
         int n, i, j, k
@@ -106,8 +125,10 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
         # pick best entry
         k, best = -1, 0
         for j in range(n):
-            if cond_var[j] > 0 and \
-                    cond_cov[j]*cond_cov[j]/cond_var[j] > best:
+            if (
+                cond_var[j] > 0
+                and cond_cov[j]*cond_cov[j]/cond_var[j] > best
+            ):
                 k = j
                 best = cond_cov[j]*cond_cov[j]/cond_var[j]
         # didn't select anything, abort early
@@ -115,16 +136,28 @@ cdef long[::1] __chol_select(double[:, ::1] x_train, double[:, ::1] x_test,
             return indexes[:i]
         indexes[i] = k
         # update data structures
-        __select_update(x_train, x_test, kernel, i, k,
-                        factors, cond_var, cond_cov)
+        __select_update(
+            x_train,
+            x_test,
+            kernel,
+            i,
+            k,
+            factors,
+            cond_var,
+            cond_cov,
+        )
         i += 1
 
     return indexes
 
-cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
-                                  double[:, ::1] x_test,
-                                  Kernel *kernel, int s):
-    """ Greedily select the s entries minimizing conditional covariance. """
+
+cdef long[::1] __chol_mult_select(
+    double[:, ::1] x_train,
+    double[:, ::1] x_test,
+    Kernel *kernel,
+    int s,
+):
+    """Greedily select the s entries minimizing conditional covariance."""
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
         int n, m, i, j, k
@@ -153,8 +186,11 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
         # pick best entry
         k, best = -1, INFINITY
         for j in range(n):
-            if cond_var_pr[j] > 0 and cond_var[j] > 0 and \
-                    cond_var_pr[j]/cond_var[j] < best:
+            if (
+                cond_var_pr[j] > 0
+                and cond_var[j] > 0
+                and cond_var_pr[j]/cond_var[j] < best
+            ):
                 k = j
                 best = cond_var_pr[j]/cond_var[j]
         # didn't select anything, abort early
@@ -170,25 +206,29 @@ cdef long[::1] __chol_mult_select(double[:, ::1] x_train,
 
     return indexes
 
+
 ### non-adjacent multiple point selection
 
 cdef unsigned long long MANTISSA_MASK = (1 << 52) - 1
 cdef unsigned long long MANTISSA_BASE = ((1 << 10) - 1) << 52
 cdef unsigned long long EXPONENT_MASK = ((1 << 11) - 1) << 52
 
+
 cdef double __get_mantissa(double x):
-    """ Get the mantissa component of a double. """
+    """Get the mantissa component of a double."""
     cdef unsigned long long value = (<unsigned long long *> &x)[0]
     new_value = MANTISSA_BASE + (value & MANTISSA_MASK)
     return (<double*> &new_value)[0]
 
+
 cdef int __get_exponent(double x):
-    """ Get the exponent component of a double. """
+    """Get the exponent component of a double."""
     cdef unsigned long long value = (<unsigned long long *> &x)[0]
     return ((value & EXPONENT_MASK) >> 52) - 1023
 
+
 cdef double __log_product(int n, double *x, int incx):
-    """ Return the log of the product of the entries of a vector. """
+    """Return the log of the product of the entries of a vector."""
     cdef:
         unsigned long long *y
         unsigned long long value
@@ -210,9 +250,15 @@ cdef double __log_product(int n, double *x, int incx):
 
     return log2(mantissa) + exponent
 
-cdef void __chol_insert(long[::1] order, int i, int index,
-                        int k, double[::1, :] factors):
-    """ Updates the ith column of the Cholesky factor with column k. """
+
+cdef void __chol_insert(
+    long[::1] order,
+    int i,
+    int index,
+    int k,
+    double[::1, :] factors,
+):
+    """Updates the ith column of the Cholesky factor with column k."""
     cdef:
         char *trans
         int m, n, lda, incx, incy, last, col
@@ -260,8 +306,9 @@ cdef void __chol_insert(long[::1] order, int i, int index,
         # cov_k = beta/alpha*factors[:, col] + 1/alpha*cov_k
         mkl.cblas_daxpby(m, beta/alpha, x, incy, 1/alpha, y, incy)
 
+
 cdef int __insert_index(long[::1] order, long[::1] locations, int i, int k):
-    """ Finds the index to insert index k into the order. """
+    """Finds the index to insert index k into the order."""
     cdef int index = -1
     for index in range(i):
         # bigger than current value, insertion spot
@@ -269,10 +316,17 @@ cdef int __insert_index(long[::1] order, long[::1] locations, int i, int k):
             return index
     return index + 1
 
-cdef void __select_point(long[::1] order, long[::1] locations,
-                         double[:, ::1] points, int i, int k, Kernel *kernel,
-                         double[::1, :] factors, double[::1] var):
-    """ Add the kth point to the Cholesky factor. """
+cdef void __select_point(
+    long[::1] order,
+    long[::1] locations,
+    double[:, ::1] points,
+    int i,
+    int k,
+    Kernel *kernel,
+    double[::1, :] factors,
+    double[::1] var,
+):
+    """Add the kth point to the Cholesky factor."""
     cdef int col, index, last
 
     index = __insert_index(order, locations, i, k)
@@ -289,10 +343,17 @@ cdef void __select_point(long[::1] order, long[::1] locations,
     if k < var.shape[0]:
         var[k] = -1
 
-cdef int __scores_update(long[::1] order, long[::1] locations, int i,
-                         double[::1, :] factors, double[::1] var,
-                         double[::1] scores, double[::1] keys):
-    """ Update the scores for each candidate. """
+
+cdef int __scores_update(
+    long[::1] order,
+    long[::1] locations,
+    int i,
+    double[::1, :] factors,
+    double[::1] var,
+    double[::1] scores,
+    double[::1] keys,
+):
+    """Update the scores for each candidate."""
     cdef:
         int n, m, j, k, best_k, col, index, count
         double prev_logdet, best, key, cond_cov_k, cond_var_k, cond_var_j
@@ -326,8 +387,9 @@ cdef int __scores_update(long[::1] order, long[::1] locations, int i,
             cond_cov_k *= cond_cov_k
             # add log conditional variance of prediction point
             if k >= n:
-                keys[count] = cond_var_k - (cond_cov_k/cond_var_j
-                                            if col >= index else 0)
+                keys[count] = (
+                    cond_var_k - (cond_cov_k/cond_var_j if col >= index else 0)
+                )
                 count += 1
             cond_var_j -= cond_cov_k/cond_var_k
 
@@ -338,9 +400,15 @@ cdef int __scores_update(long[::1] order, long[::1] locations, int i,
 
     return best_k
 
-cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
-                                    long[::1] test, Kernel *kernel, int s):
-    """ Greedily select the s entries minimizing conditional covariance. """
+
+cdef long[::1] __chol_nonadj_select(
+    double[:, ::1] x,
+    long[::1] train,
+    long[::1] test,
+    Kernel *kernel,
+    int s,
+):
+    """Greedily select the s entries minimizing conditional covariance."""
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
         int n, m, i, k
@@ -363,26 +431,55 @@ cdef long[::1] __chol_nonadj_select(double[:, ::1] x, long[::1] train,
     keys = np.zeros(m)
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, points, i, n + i,
-                       kernel, factors, var)
+        __select_point(
+            order,
+            locations,
+            points,
+            i,
+            n + i,
+            kernel,
+            factors,
+            var,
+        )
 
     for i in range(indexes.shape[0]):
         # pick best entry
-        k = __scores_update(order, locations, i + m,
-                            factors, var, scores, keys)
+        k = __scores_update(
+            order,
+            locations,
+            i + m,
+            factors,
+            var,
+            scores,
+            keys,
+        )
         # didn't select anything, abort early
         if k == -1:
             return indexes[:i]
         indexes[i] = k
         # update Cholesky factor
-        __select_point(order, locations, points, i + m, k,
-                       kernel, factors, var)
+        __select_point(
+            order,
+            locations,
+            points,
+            i + m,
+            k,
+            kernel,
+            factors,
+            var,
+        )
 
     return indexes
 
-cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
-                               long[::1] test, Kernel *kernel, int s):
-    """ Greedily select the s entries minimizing conditional covariance. """
+
+cdef long[::1] __budget_select(
+    double[:, ::1] x,
+    long[::1] train,
+    long[::1] test,
+    Kernel *kernel,
+    int s,
+):
+    """Greedily select the s entries minimizing conditional covariance."""
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     cdef:
         int n, m, budget, max_sel, i, j, k, index
@@ -417,8 +514,16 @@ cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
         num_cond[i] = count
     # pre-condition on the m prediction points
     for i in range(m):
-        __select_point(order, locations, points, i, n + i,
-                       kernel, factors, var)
+        __select_point(
+            order,
+            locations,
+            points,
+            i,
+            n + i,
+            kernel,
+            factors,
+            var,
+        )
 
     i = 0
     while i < indexes.shape[0] and budget > 0:
@@ -442,23 +547,43 @@ cdef long[::1] __budget_select(double[:, ::1] x, long[::1] train,
             return indexes[:i]
         indexes[i] = k
         # update Cholesky factor
-        __select_point(order, locations, points, i + m, k,
-                       kernel, factors, var)
+        __select_point(
+            order,
+            locations,
+            points,
+            i + m,
+            k,
+            kernel,
+            factors,
+            var,
+        )
         i += 1
 
     return indexes[:i]
 
+
 ### wrapper functions
 
-def chol_update(double[::1] cov_k, int i, int k,
-                double[::1, :] factors, double[::1] cond_var) -> None:
-    """ Updates the ith column of the Cholesky factor with column k. """
+
+def chol_update(
+    double[::1] cov_k,
+    int i,
+    int k,
+    double[::1, :] factors,
+    double[::1] cond_var
+) -> None:
+    """Updates the ith column of the Cholesky factor with column k."""
     factors[:, i] = cov_k
     __chol_update(cov_k.shape[0], i, k, factors, cond_var)
 
-def select(double[:, ::1] x_train, double[:, ::1] x_test,
-           kernel_object, int s) -> np.ndarray:
-    """ Wrapper over various cknn selection methods. """
+
+def select(
+    double[:, ::1] x_train,
+    double[:, ::1] x_test,
+    kernel_object,
+    int s,
+) -> np.ndarray:
+    """Wrapper over various cknn selection methods."""
     cdef Kernel *kernel = get_kernel(kernel_object)
     # single prediction point, use specialized function
     if x_test.shape[0] == 1:
@@ -468,9 +593,15 @@ def select(double[:, ::1] x_train, double[:, ::1] x_test,
     kernel_cleanup(kernel)
     return np.asarray(selected)
 
-def nonadj_select(double[:, ::1] x, long[::1] train, long[::1] test,
-                  kernel_object, int s) -> np.ndarray:
-    """ Wrapper over various cknn selection methods. """
+
+def nonadj_select(
+    double[:, ::1] x,
+    long[::1] train,
+    long[::1] test,
+    kernel_object,
+    int s,
+) -> np.ndarray:
+    """Wrapper over various cknn selection methods."""
     cdef Kernel *kernel = get_kernel(kernel_object)
     # single prediction point, use specialized function
     if test.shape[0] == 1:
@@ -481,9 +612,15 @@ def nonadj_select(double[:, ::1] x, long[::1] train, long[::1] test,
     kernel_cleanup(kernel)
     return np.asarray(selected)
 
-def chol_select(double[:, ::1] x, long[::1] train, long[::1] test,
-                kernel_object, int s) -> np.ndarray:
-    """ Wrapper over selection specialized to Cholesky factorization. """
+
+def chol_select(
+    double[:, ::1] x,
+    long[::1] train,
+    long[::1] test,
+    kernel_object,
+    int s,
+) -> np.ndarray:
+    """Wrapper over selection specialized to Cholesky factorization."""
     cdef Kernel *kernel = get_kernel(kernel_object)
     # single prediction point, use specialized function
     if test.shape[0] == 1:
@@ -494,12 +631,18 @@ def chol_select(double[:, ::1] x, long[::1] train, long[::1] test,
     kernel_cleanup(kernel)
     return np.asarray(selected)
 
+
 ### global selection
 
-cdef long[:, ::1] __global_select(double[:, ::1] points,
-                                  Kernel *kernel, int nonzeros,
-                                  list group_candidates, list ref_groups):
-    """ Construct a sparsity pattern from a candidate set over all columns. """
+
+cdef long[:, ::1] __global_select(
+    double[:, ::1] points,
+    Kernel *kernel,
+    int nonzeros,
+    list group_candidates,
+    list ref_groups,
+):
+    """Construct a sparsity pattern from a candidate set over all columns."""
     cdef:
         int N, n, m, i, j, k, total_candidates, entries_left, max_sel, entry, s
         long[::1] group_sizes, candidate_sizes, group, candidates, ids
@@ -549,14 +692,21 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
 
         sequence.add_item(factors, i, (n + m)*max_sel)
         sequence.add_item(cond_covs, i, n)
-        covariance_vector(kernel, x[candidates], x[group[0]],
-                          <double *> cond_covs.data[i])
+        covariance_vector(
+            kernel,
+            x[candidates],
+            x[group[0]],
+            <double *> cond_covs.data[i],
+        )
         sequence.add_item(cond_vars, i, n)
         variance_vector(kernel, x[candidates], <double *> cond_vars.data[i])
 
     group_var = np.zeros(group_list.size)
-    variance_vector(kernel, x[[group[0] for group in ref_groups]],
-                    &group_var[0])
+    variance_vector(
+        kernel,
+        x[[group[0] for group in ref_groups]],
+        &group_var[0]
+    )
 
     # add candidates to max heap
     values = np.zeros(total_candidates)
@@ -595,8 +745,16 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
         indexes[i, s] = candidates[k]
         # update data structures
         group_var[i] -= cond_cov[k]*cond_cov[k]/cond_var[k]
-        __select_update(x[candidates], x[group], kernel, s, k,
-                        factor, cond_var, cond_cov)
+        __select_update(
+            x[candidates],
+            x[group],
+            kernel,
+            s,
+            k,
+            factor,
+            cond_var,
+            cond_cov,
+        )
         # update affected candidates
         for j in range(n):
             # if hasn't been selected already
@@ -615,15 +773,20 @@ cdef long[:, ::1] __global_select(double[:, ::1] points,
 
     return indexes
 
-cdef long[:, ::1] __global_mult_select(double[:, ::1] x,
-                                       Kernel *kernel, int nonzeros,
-                                       list group_candidates, list ref_groups):
-    """ Construct a sparsity pattern from a candidate set over all columns. """
+
+cdef long[:, ::1] __global_mult_select(
+    double[:, ::1] x,
+    Kernel *kernel,
+    int nonzeros,
+    list group_candidates,
+    list ref_groups,
+):
+    """Construct a sparsity pattern from a candidate set over all columns."""
     cdef:
         int N, n, m, i, j, k, total_candidates, entries_left, max_sel, entry, s
         long count, index
-        long[::1] group_sizes, candidate_sizes, group, candidates, \
-            locations, order, num_cond, ids
+        long[::1] group_sizes, candidate_sizes, group, candidates
+        long[::1] locations, order, num_cond, ids
         long[:, ::1] indexes
         double[::1] values, var, score, key
         double[:, ::1] points
@@ -677,8 +840,11 @@ cdef long[:, ::1] __global_mult_select(double[:, ::1] x,
         sequence.add_item(factors, i, (n + m)*(max_sel + m))
         sequence.add_item(orders, i, min(n, max_sel) + m, sizeof(long))
         sequence.add_item(init_vars, i, n)
-        variance_vector(kernel, x_numpy[candidates],
-                        <double *> init_vars.data[i])
+        variance_vector(
+            kernel,
+            x_numpy[candidates],
+            <double *> init_vars.data[i]
+        )
         sequence.add_item(scores, i, n)
         sequence.add_item(num_conds, i, n, sizeof(long))
         sequence.add_item(keys, i, m)
@@ -701,8 +867,16 @@ cdef long[:, ::1] __global_mult_select(double[:, ::1] x,
         locations = np.append(candidates, group)
         points = x_numpy[locations]
         for j in range(m):
-            __select_point(order, locations, points, j, n + j,
-                           kernel, factor, var)
+            __select_point(
+                order,
+                locations,
+                points,
+                j,
+                n + j,
+                kernel,
+                factor,
+                var,
+            )
         __scores_update(order, locations, m, factor, var, score, key)
 
     # add candidates to max heap
@@ -747,8 +921,16 @@ cdef long[:, ::1] __global_mult_select(double[:, ::1] x,
         # add entry to sparsity pattern
         indexes[i, s] = candidates[k]
         # update data structures
-        __select_point(order, locations, points, s + m, k, kernel,
-                       factor, var)
+        __select_point(
+            order,
+            locations,
+            points,
+            s + m,
+            k,
+            kernel,
+            factor,
+            var,
+        )
         __scores_update(order, locations, s + m + 1, factor, var, score, key)
         # update affected candidates
         for j in range(n):
@@ -770,9 +952,15 @@ cdef long[:, ::1] __global_mult_select(double[:, ::1] x,
 
     return indexes
 
-def global_select(double[:, ::1] x, kernel_object, dict ref_sparsity,
-                  dict candidate_sparsity, list ref_groups) -> dict:
-    """ Construct a sparsity pattern from a candidate set over all columns. """
+
+def global_select(
+    double[:, ::1] x,
+    kernel_object,
+    dict ref_sparsity,
+    dict candidate_sparsity,
+    list ref_groups,
+) -> dict:
+    """Construct a sparsity pattern from a candidate set over all columns."""
     cdef:
         int i, nonzeros, max_sel
         Kernel *kernel
@@ -780,22 +968,36 @@ def global_select(double[:, ::1] x, kernel_object, dict ref_sparsity,
 
     nonzeros = sum(map(len, ref_sparsity.values()))
     groups = [np.array(group, dtype=np.int64) for group in ref_groups]
-    group_candidates = [np.array(list(
-        {j for i in group for j in candidate_sparsity[i]} - set(group)
-    ), dtype=np.int64) for group in ref_groups]
+    group_candidates = [
+        np.array(list(
+            {j for i in group for j in candidate_sparsity[i]} - set(group)
+        ), dtype=np.int64)
+        for group in ref_groups
+    ]
 
     kernel = get_kernel(kernel_object)
     # not aggregated, use specialized function
     if all(len(group) == 1 for group in ref_groups):
-        indexes = __global_select(x, kernel, nonzeros,
-                                  group_candidates, groups)
+        indexes = __global_select(
+            x,
+            kernel,
+            nonzeros,
+            group_candidates,
+            groups,
+        )
         max_sel = indexes.shape[1] - 1
-        sparsity = {group[0]: sorted(group + \
-                                    list(indexes[i, :indexes[i, max_sel]]))
-                    for i, group in enumerate(ref_groups)}
+        sparsity = {
+            group[0]: sorted(group + list(indexes[i, :indexes[i, max_sel]]))
+            for i, group in enumerate(ref_groups)
+        }
     else:
-        indexes = __global_mult_select(x, kernel, nonzeros,
-                                       group_candidates, groups)
+        indexes = __global_mult_select(
+            x,
+            kernel,
+            nonzeros,
+            group_candidates,
+            groups,
+        )
         max_sel = indexes.shape[1] - 1
         sparsity = {}
         # construct groups
