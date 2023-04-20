@@ -26,6 +26,7 @@ venv = "venv"
 
 [tool.ruff]
 line-length = 79
+ignore = ["E731"]
 
 [tool.black]
 line-length = 79

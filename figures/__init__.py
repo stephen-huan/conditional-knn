@@ -1,10 +1,5 @@
-import os
-import time
-
 import matplotlib.pyplot as plt
 import numpy as np
-import sklearn.gaussian_process.kernels as kernels
-from sklearn.gaussian_process.kernels import Kernel
 
 # display settings
 np.set_printoptions(precision=3, suppress=True)

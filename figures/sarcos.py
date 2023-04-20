@@ -1,8 +1,11 @@
-import numpy as np
+import os
+
+import matplotlib.pyplot as plt
 
 from experiments.gp_regr import get_dataset
+from KoLesky.typehints import Points
 
-from . import *
+from . import save_1d__, save__, silver
 
 ROOT = "figures/sarcos"
 # make folders
@@ -18,7 +21,7 @@ BIG_POINT  = 40 # large point
 # fmt: on
 
 
-def save_points(fname: str, points: np.ndarray) -> None:
+def save_points(fname: str, points: Points) -> None:
     """Write the points to the file."""
     save_1d(fname, (points[:, 0], points[:, 1]))
 
@@ -66,4 +69,4 @@ if __name__ == "__main__":
     plt.savefig(f"{ROOT}/points.png", bbox_inches="tight", pad_inches=0)
     plt.clf()
 
-    save_points(f"points.csv", X_train)
+    save_points("points.csv", X_train)

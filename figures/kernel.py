@@ -1,10 +1,17 @@
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import sklearn.gaussian_process.kernels as kernels
 from matplotlib.animation import FuncAnimation
+from matplotlib.lines import Line2D
 
 from experiments.gp_regr import get_dataset
 from KoLesky import cknn
 from KoLesky import gp_regression as gp_regr
+from KoLesky.typehints import Points
 
-from . import *
+from . import orange, rng, save_1d__, save__, seagreen, silver
 
 ROOT = "figures/kernel"
 # make folders
@@ -26,12 +33,12 @@ UP_TO = N*N - 1
 # fmt: on
 
 
-def save_points(fname: str, points: np.ndarray) -> None:
+def save_points(fname: str, points: Points) -> None:
     """Write the points to the file."""
     save_1d(fname, (points[:, 0], points[:, 1]))
 
 
-def init() -> tuple:
+def init() -> tuple[Line2D, Line2D, Line2D]:
     """Initialize the animator."""
     plt.axis("off")
     plt.axis("square")
@@ -43,7 +50,7 @@ def init() -> tuple:
     )
 
 
-def update(frame: int) -> tuple:
+def update(frame: int) -> tuple[Line2D, Line2D, Line2D]:
     """Callback on each new fraame of the animator."""
     sel = selected[:frame]
     sel_plot.set_data(x[sel, 0], x[sel, 1])
@@ -95,9 +102,18 @@ if __name__ == "__main__":
         train = np.vstack((x[:point], x[point + 1 :]))
         # nearest neighbors
         if i == 0:
-            selected = cknn.knn_select(train, target, cknn.euclidean, s)
-            # kernel = kernels.Matern(length_scale=[1, 0.17], nu=1/2)*\
-            #          kernels.Matern(length_scale=[0.17, 1], nu=1/2)
+            selected = cknn.knn_select(
+                train,
+                target,
+                cknn.euclidean,  # type: ignore
+                s,
+            )
+            # fmt: off
+            kernel = (
+                kernels.Matern(length_scale=[1, 0.17], nu=1/2) # type: ignore
+                * kernels.Matern(length_scale=[0.17, 1], nu=1/2) # type: ignore
+            )
+            # fmt: on
             # selected = cknn.corr_select(train, target, kernel, s)
         # different kernel functions
         else:
@@ -159,9 +175,9 @@ if __name__ == "__main__":
         )
         plt.clf()
 
-        save_points(f"points.csv", x)
+        save_points("points.csv", x)
         save_points(f"selected_{i + 1}.csv", x[selected[:S]])
-        save_points(f"target.csv", target)
+        save_points("target.csv", target)
 
         # animate the order of points being selected
         (all_plot,) = plt.plot(

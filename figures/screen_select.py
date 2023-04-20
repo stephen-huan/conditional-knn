@@ -1,7 +1,14 @@
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import sklearn.gaussian_process.kernels as kernels
+
 from KoLesky import cknn
 from KoLesky import gp_regression as gp_regr
+from KoLesky.typehints import Indices, Kernel, Matrix, Points, Vector
 
-from . import *
+from . import lightblue, orange, rng, rust, save_1d__, save__, seagreen, silver
 
 ROOT = "figures/screen_select"
 # make folders
@@ -21,12 +28,12 @@ BIG_POINT  = 40 # large point
 
 
 def estimate(
-    x_train: np.ndarray,
-    y_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    y_train: Points,
+    x_test: Points,
     kernel: Kernel,
-    indexes: list = slice(None),
-) -> tuple:
+    indexes: Indices | list[int] | slice = slice(None),
+) -> tuple[Vector, Matrix]:
     """Estimate y_test with direct Gaussian process regression."""
     # O(n^3 + n m^2)
     x_train, y_train = x_train[indexes], y_train[indexes]
@@ -57,7 +64,7 @@ if __name__ == "__main__":
     s = 0.25
     points = np.array([[s, s], [s, -s], [-s, s], [-s, -s]])
 
-    corr = lambda x, v: kernel(x, v).flatten() / np.sqrt(
+    corr = lambda x, v: kernel(x, v).flatten() / np.sqrt(  # type: ignore
         np.diagonal(kernel(x)) * kernel(v).flatten()
     )
 
@@ -101,8 +108,9 @@ if __name__ == "__main__":
 
     ax = fig.add_subplot(122, projection="3d")
 
-    cond = lambda i, j, k: kernel(i, j) - kernel(i, k) @ gp_regr.solve(
-        kernel(k), kernel(k, j)
+    cond = lambda i, j, k: (
+        kernel(i, j)
+        - kernel(i, k) @ gp_regr.solve(kernel(k), kernel(k, j))  # type: ignore
     )
 
     cond_corr = lambda i, j, k: cond(i, j, k).flatten() / np.sqrt(
@@ -196,6 +204,7 @@ if __name__ == "__main__":
 
     x = np.linspace(-R, R, 100).reshape(-1, 1)
     mu, sigma = estimate(x_train, y_train, x, kernel)
+    print(mu, sigma)
     std = np.sqrt(np.diagonal(sigma))
 
     train = plt.scatter(
@@ -220,7 +229,7 @@ if __name__ == "__main__":
     sigma = plt.fill_between(
         x.flatten(),
         mu - 2 * std,
-        mu + 2 * std,
+        mu + 2 * std,  # type: ignore
         label=r"$2 \sigma$",
         color=colors[-1],
         alpha=0.15,
@@ -280,7 +289,7 @@ if __name__ == "__main__":
         sigma = plt.fill_between(
             x.flatten(),
             mu - 2 * std,
-            mu + 2 * std,
+            mu + 2 * std,  # type: ignore
             label=r"$2 \sigma$",
             color=colors[-1],
             alpha=0.15,
@@ -344,7 +353,7 @@ if __name__ == "__main__":
         sigma = plt.fill_between(
             x.flatten(),
             mu - 2 * std,
-            mu + 2 * std,
+            mu + 2 * std,  # type: ignore
             label=r"$2 \sigma$",
             color=colors[-1],
             alpha=0.15,

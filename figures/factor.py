@@ -1,9 +1,14 @@
-import scipy.sparse as sparse
+import os
+
+import matplotlib.pyplot as plt
+import numpy as np
+import sklearn.gaussian_process.kernels as kernels
 from matplotlib.patches import Circle
 
 from KoLesky import cholesky, ordering
+from KoLesky.typehints import Kernel, Points, Sparse
 
-from . import *
+from . import lightblue, orange, save_1d__, save__, seagreen, silver
 
 ROOT = "figures/factor"
 # make folders
@@ -11,30 +16,32 @@ os.makedirs(f"{ROOT}/data", exist_ok=True)
 save = lambda *args, **kwargs: save__(*args, **kwargs, root=ROOT)
 save_1d = lambda *args, **kwargs: save_1d__(*args, **kwargs, root=ROOT)
 
-D = 2  # dimension of points
-N = 16  # number of points
-M = 16  # number of columns in a group
-S = 16  # number of entries to pick
-COLS = N  # number of columns from the right
-RHO = 2  # tuning parameter, number of nonzero entries
+# fmt: off
+D = 2         # dimension of points
+N = 16        # number of points
+M = 16        # number of columns in a group
+S = 16        # number of entries to pick
+COLS = N      # number of columns from the right
+RHO = 2       # tuning parameter, number of nonzero entries
 LAMBDA = 1.5  # tuning parameter, size of groups
 
-SMALL_POINT = 10  # small point
+SMALL_POINT = 10 # small point
 POINT_SIZE = 20  # point sizes
-BIG_POINT = 40  # large point
+BIG_POINT = 40   # large point
+# fmt: on
 
 # set random seed
 rng = np.random.default_rng(3)
 
 
-def save_points(fname: str, points: np.ndarray) -> None:
+def save_points(fname: str, points: Points) -> None:
     """Write the points to the file."""
     save_1d(fname, (points[:, 0], points[:, 1]))
 
 
 def get_factor(
-    x: np.ndarray, kernel: Kernel, s: int, alg: str = "select"
-) -> sparse.csc_matrix:
+    x: Points, kernel: Kernel, s: int, alg: str = "select"
+) -> Sparse:
     """Factorize the set of points with the given algorithm."""
     theta = kernel(x)
 
@@ -94,15 +101,13 @@ def tikz_factor(fname: str, out: np.ndarray, col: int) -> None:
                     f"{coord1} rectangle {coord2};\n"
                 )
 
-        f.write("\end{tikzpicture}\n")
+        f.write("\\end{tikzpicture}\n")
 
 
 def tikz_points_knn(
-    fname: str, path: str, i: int, x: np.ndarray, radius: float
+    fname: str, path: str, i: str, x: Points, radius: float
 ) -> None:
     """Render the points in TikZ."""
-    indent = " " * 2
-
     p = str(tuple(x))
     with open(fname, "w") as f:
         f.write(
@@ -117,14 +122,14 @@ def tikz_points_knn(
     scale only axis=true,
   ]
   % consistent size bounding box
-  \draw [white, line width=0] (-0.1, -0.1) -- (-0.1,  1.1);
-  \draw [white, line width=0] ( 1.1, -0.1) -- ( 1.1,  1.1);
-  \draw [white, line width=0] (-0.1, -0.1) -- (-1.1, -0.1);
-  \draw [white, line width=0] (-0.1,  1.1) -- (-1.1,  1.1);
-  \draw [seagreen!15, fill, radius={RHO*radius}] {p} circle;
-  \draw [seagreen, radius={RHO*radius}] {p} circle;
-  \draw [orange!25, fill, radius={radius}] {p} circle;
-  \draw [orange, radius={radius}] {p} circle;
+  \\draw [white, line width=0] (-0.1, -0.1) -- (-0.1,  1.1);
+  \\draw [white, line width=0] ( 1.1, -0.1) -- ( 1.1,  1.1);
+  \\draw [white, line width=0] (-0.1, -0.1) -- (-1.1, -0.1);
+  \\draw [white, line width=0] (-0.1,  1.1) -- (-1.1,  1.1);
+  \\draw [seagreen!15, fill, radius={RHO*radius}] {p} circle;
+  \\draw [seagreen, radius={RHO*radius}] {p} circle;
+  \\draw [orange!25, fill, radius={radius}] {p} circle;
+  \\draw [orange, radius={radius}] {p} circle;
   \\addplot [only marks, mark size=1, silver]    table
     {{{path}/all_points.csv}};
   \\addplot [only marks, mark size=2, lightblue] table
@@ -133,16 +138,14 @@ def tikz_points_knn(
     {{{path}/selected_{i}.csv}};
   \\addplot [only marks, mark size=4, orange]    table
     {{{path}/target_{i}.csv}};
-  \end{{axis}}
-\end{{tikzpicture}}
+  \\end{{axis}}
+\\end{{tikzpicture}}
 """
         )
 
 
-def tikz_points_cknn(fname: str, path: str, s: int) -> None:
+def tikz_points_cknn(fname: str, path: str, s: str) -> None:
     """Render the points in TikZ."""
-    indent = " " * 2
-
     with open(fname, "w") as f:
         f.write(
             f"""\
@@ -156,10 +159,10 @@ def tikz_points_cknn(fname: str, path: str, s: int) -> None:
     scale only axis=true,
   ]
   % consistent size bounding box
-  \draw [white, line width=0] (-0.1, -0.1) -- (-0.1,  1.1);
-  \draw [white, line width=0] ( 1.1, -0.1) -- ( 1.1,  1.1);
-  \draw [white, line width=0] (-0.1, -0.1) -- (-1.1, -0.1);
-  \draw [white, line width=0] (-0.1,  1.1) -- (-1.1,  1.1);
+  \\draw [white, line width=0] (-0.1, -0.1) -- (-0.1,  1.1);
+  \\draw [white, line width=0] ( 1.1, -0.1) -- ( 1.1,  1.1);
+  \\draw [white, line width=0] (-0.1, -0.1) -- (-1.1, -0.1);
+  \\draw [white, line width=0] (-0.1,  1.1) -- (-1.1,  1.1);
   \\addplot [only marks, mark size=1, silver]    table
     {{{path}/all_points.csv}};
   \\addplot [only marks, mark size=2, lightblue] table
@@ -168,8 +171,8 @@ def tikz_points_cknn(fname: str, path: str, s: int) -> None:
     {{{path}/selected_{s}.csv}};
   \\addplot [only marks, mark size=4, orange]    table
     {{{path}/target.csv}};
-  \end{{axis}}
-\end{{tikzpicture}}
+  \\end{{axis}}
+\\end{{tikzpicture}}
 """
         )
 
