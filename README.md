@@ -5,7 +5,8 @@ conditional _k_-nearest neighbor estimator.
 
 ## Installing
 
-Install dependencies from `environment.yml` with [conda](https://conda.io/):
+Install dependencies from `environment.yml` with [conda](https://conda.io/)
+or [mamba](https://mamba.readthedocs.io/en/latest/index.html):
 ```shell
 conda env create --prefix ./venv --file environment.yml
 ```
@@ -30,7 +31,42 @@ Build [Cython](https://cython.org/) extensions:
 python setup.py build_ext --inplace
 ```
 
-### Downloading datasets
+### Intel oneMKL with conda
+
+We rely on the Intel
+[oneMKL](https://www.intel.com/content/www/us/en/developer/tools/oneapi/onemkl.html)
+library to provide fast numerical routines.
+
+Make sure that `numpy` and `scipy` also use the
+MKL for BLAS and LAPACK by checking the output of
+```shell
+python -c "import numpy; numpy.__config__.show()"
+```
+which should show something like
+```
+blas_mkl_info:
+    libraries = ['mkl_rt', 'pthread']
+    library_dirs = ['.../venv/lib']
+    define_macros = [('SCIPY_MKL_H', None), ('HAVE_CBLAS', None)]
+    include_dirs = ['.../venv/include']
+...
+lapack_mkl_info:
+    libraries = ['mkl_rt', 'pthread']
+    library_dirs = ['.../venv/lib']
+    define_macros = [('SCIPY_MKL_H', None), ('HAVE_CBLAS', None)]
+    include_dirs = ['.../venv/include']
+...
+```
+and similarly for
+```shell
+python -c "import scipy; scipy.__config__.show()"
+```
+
+`conda install numpy` from the `defaults` or `anaconda` channel (not
+`conda-forge`) should work, but it sometimes doesn't play well with
+installing `mkl-devel`. It's easiest just to use the `intel` channel.
+
+## Downloading datasets
 
 We use datasets from the [SuiteSparse Matrix
 Collection](https://sparse.tamu.edu/), the [UCI Machine Learning
@@ -44,9 +80,9 @@ chmod +x get_datasets
 ./get_datasets
 ```
 
-#### OCO-2 data
+### OCO-2 data
 
-##### Downloading the dataset
+#### Downloading the dataset
 
 Navigate to the
 [OCO-2](https://disc.gsfc.nasa.gov/datasets/OCO2_L2_Lite_SIF_11r/summary) solar
@@ -61,7 +97,7 @@ then on the 2017 folder. Each file is a different day.
 Note that in order to [download files](https://disc.gsfc.nasa.gov/data-access),
 an [Earthdata](https://urs.earthdata.nasa.gov/home) account must be created.
 
-##### Post-processing
+#### Post-processing
 
 First install [R](https://www.r-project.org/) and
 [NetCDF](https://www.unidata.ucar.edu/software/netcdf/)
@@ -105,6 +141,8 @@ The `compile_fluorescence_data.R` script is due to
 
 Files can be run as modules:
 ```shell
+python -m experiments.cholesky
+python -m figures.factor
 python -m tests.cknn_tests
 ```
 
