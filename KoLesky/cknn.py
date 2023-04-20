@@ -2,9 +2,9 @@ import numpy as np
 import scipy.linalg
 import scipy.spatial.distance
 
-import ccknn
-from maxheap import Heap
-from typehints import (
+from . import ccknn  # pyright: ignore
+from .maxheap import Heap
+from .typehints import (
     Empty,
     Grouping,
     Indices,

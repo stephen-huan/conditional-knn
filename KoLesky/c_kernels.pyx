@@ -6,10 +6,11 @@ from libc.math cimport exp, sqrt
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 
-cimport mkl
 cimport scipy.linalg.cython_blas as blas
 
-import gp_kernels
+from . cimport mkl
+
+from . import gp_kernels
 
 
 cdef (Kernel *) get_kernel(kernel_object: kernels.Kernel):

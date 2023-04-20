@@ -2,11 +2,10 @@ import numpy as np
 import scipy.linalg
 import scipy.sparse as sparse
 
-import cknn
-import ordering
-from cknn import inv, logdet, solve
-from gp_kernels import matrix_kernel
-from typehints import (
+from . import cknn, ordering
+from .cknn import inv, logdet, solve
+from .gp_kernels import matrix_kernel
+from .typehints import (
     CholeskyFactor,
     CholeskySelect,
     Empty,

@@ -1,8 +1,8 @@
 from matplotlib.animation import FuncAnimation
 
-import cknn
-import gp_regression as gp_regr
 from experiments.gp_regr import get_dataset
+from KoLesky import cknn
+from KoLesky import gp_regression as gp_regr
 
 from . import *
 

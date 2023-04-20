@@ -4,10 +4,10 @@ import scipy.sparse as sparse
 import scipy.stats as stats
 from numpy.fft import fftn, ifftn
 
-from cholesky import chol, inv_order, logdet, prec_logdet
-from cknn import solve
-from ordering import reverse_maximin
-from typehints import (
+from .cholesky import chol, inv_order, logdet, prec_logdet
+from .cknn import solve
+from .ordering import reverse_maximin
+from .typehints import (
     CholeskyFactor,
     InvChol,
     JointInvChol,

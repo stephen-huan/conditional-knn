@@ -1,9 +1,8 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 
-import cknn
-import gp_kernels
-from gp_regression import estimate, sample
+from KoLesky import cknn, gp_kernels
+from KoLesky.gp_regression import estimate, sample
 
 # fmt: off
 D = 3    # dimension of points

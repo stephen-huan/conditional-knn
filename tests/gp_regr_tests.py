@@ -5,10 +5,9 @@ import sklearn.gaussian_process.kernels as kernels
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-import cholesky
-import cknn
-import gp_regression as gp_regr
-from gp_regression import coverage, estimate, grid, rmse
+import KoLesky.gp_regression as gp_regr
+from KoLesky import cholesky, cknn
+from KoLesky.gp_regression import coverage, estimate, grid, rmse
 
 # fmt: off
 D = 3     # dimension of points

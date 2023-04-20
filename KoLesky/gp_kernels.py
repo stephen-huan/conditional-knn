@@ -1,7 +1,7 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 
-from typehints import Indices, Matrix, Sparse
+from .typehints import Indices, Matrix, Sparse
 
 
 class MatrixKernel(kernels.Kernel):

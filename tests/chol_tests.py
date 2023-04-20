@@ -1,7 +1,7 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 
-import cholesky
+from KoLesky import cholesky
 
 # fmt: off
 D = 3    # dimension of points

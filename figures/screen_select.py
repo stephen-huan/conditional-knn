@@ -1,5 +1,5 @@
-import cknn
-import gp_regression as gp_regr
+from KoLesky import cknn
+from KoLesky import gp_regression as gp_regr
 
 from . import *
 

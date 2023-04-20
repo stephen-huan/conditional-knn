@@ -1,11 +1,10 @@
 import sklearn.datasets as datasets
 from sklearn.model_selection import train_test_split
 
-import cholesky
-import cknn
-import gp_regression as gp_regr
-from gp_regression import coverage, grid, rmse
-from ordering import euclidean
+from KoLesky import cholesky, cknn
+from KoLesky import gp_regression as gp_regr
+from KoLesky.gp_regression import coverage, grid, rmse
+from KoLesky.ordering import euclidean
 
 from . import *
 

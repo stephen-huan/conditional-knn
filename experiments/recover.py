@@ -1,6 +1,4 @@
-import cholesky
-import cknn
-import gp_kernels
+from KoLesky import cholesky, cknn, gp_kernels
 
 from . import *
 

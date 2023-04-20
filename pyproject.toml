@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Sparse Cholesky by greedy conditional selection"
 authors = ["Stephen Huan <shuan@gatech.edu>"]
 readme = "README.md"
-packages = [{include = "conditional_knn"}]
+packages = [{include = "KoLesky"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -20,6 +20,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pyright]
 exclude = ["venv", ".venv"]
+root = "KoLesky"
 venvPath = "."
 venv = "venv"
 

@@ -2,8 +2,8 @@ import numpy as np
 import scipy.spatial.distance
 from scipy.spatial import KDTree
 
-from maxheap import Heap
-from typehints import (
+from .maxheap import Heap
+from .typehints import (
     Empty,
     Grouping,
     LengthScales,

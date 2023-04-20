@@ -1,6 +1,6 @@
 import numpy as np
 
-import ordering
+from KoLesky import ordering
 
 # fmt: off
 D = 3    # dimension of points

@@ -4,20 +4,18 @@ from libc.math cimport INFINITY, log2, sqrt
 
 import numpy as np
 
-cimport mkl
 cimport scipy.linalg.cython_blas as blas
 
-cimport maxheap
-cimport sequence
-from c_kernels cimport (
+from . cimport maxheap, mkl, sequence
+from .c_kernels cimport (
     Kernel,
     covariance_vector,
     get_kernel,
     kernel_cleanup,
     variance_vector,
 )
-from maxheap cimport Heap
-from sequence cimport Sequence
+from .maxheap cimport Heap
+from .sequence cimport Sequence
 
 ### selection methods
 

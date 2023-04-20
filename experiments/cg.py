@@ -1,7 +1,6 @@
 import copy
 
-import cholesky
-import cknn
+from KoLesky import cholesky, cknn
 
 from . import *
 

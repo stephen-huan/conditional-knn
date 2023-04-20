@@ -3,7 +3,7 @@ import time
 
 import numpy as np
 
-import maxheap
+from KoLesky import maxheap  # pyright: ignore
 
 N = 10
 

@@ -1,8 +1,7 @@
 import scipy.sparse as sparse
 from matplotlib.patches import Circle
 
-import cholesky
-import ordering
+from KoLesky import cholesky, ordering
 
 from . import *
 
