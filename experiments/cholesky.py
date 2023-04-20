@@ -13,6 +13,7 @@ save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
 plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
 # fmt: off
+N = 2**16    # number of points
 D = 2        # dimension of points
 RHO = 2      # tuning parameter, number of nonzero entries
 S = 2        # tuning parameter, factor larger to make rho in subsampling
@@ -123,18 +124,18 @@ if __name__ == "__main__":
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
     kl_div, nonzeros, times = data
 
-    sizes = 2 ** np.arange(17)
+    sizes = 2 ** np.arange(round(np.log2(N)) + 1)
 
     if GENERATE_N:
-        for N in sizes:
-            x = get_points(N, D)
+        for n in sizes:
+            x = get_points(n, D)
             logdet_theta = cholesky.logdet(kernel(x)) if KL else 0
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
                     data[d][i].append(result)
 
                     if d == len(y) - 1:
-                        print(f"{N:5} {names[i]:12} {data[d][i][-1]:.3f}")
+                        print(f"{n:5} {names[i]:12} {data[d][i][-1]:.3f}")
 
         save_data(data, sizes, "n", y_names, names)
         data = np.array(data)
@@ -180,7 +181,6 @@ if __name__ == "__main__":
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
     kl_div, nonzeros, times = data
 
-    N = 2**16
     S = 2
     rhos = np.linspace(1, 8, 8)
 
@@ -244,7 +244,6 @@ if __name__ == "__main__":
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
     kl_div, nonzeros, times = data
 
-    N = 2**16
     RHO = 4
     ss = np.linspace(1, 8, 8)
 
