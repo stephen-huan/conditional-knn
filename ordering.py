@@ -1,27 +1,36 @@
-import heapq
-
 import numpy as np
 import scipy.spatial.distance
 from scipy.spatial import KDTree
 
 from maxheap import Heap
+from typehints import (
+    Empty,
+    Grouping,
+    LengthScales,
+    Matrix,
+    Ordering,
+    Points,
+    Sparsity,
+)
 
 # reverse maximum-minimum distance (reverse-maximin) ordering
 
 
-def dist(x: np.ndarray, y: np.ndarray) -> float:
+def dist(x: Points, y: Points) -> float:
     """Return the Euclidean distance between x and y."""
     # scipy.spatial.distance.euclidean is slow
     d = x - y
     return np.sqrt(d.dot(d))
 
 
-def euclidean(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+def euclidean(x: Points, y: Points) -> Matrix:
     """Return the distance between points in x and y."""
     return scipy.spatial.distance.cdist(x, y, "euclidean")
 
 
-def naive_reverse_maximin(x: np.ndarray, initial: np.ndarray = None) -> tuple:
+def naive_reverse_maximin(
+    x: Points, initial: Points | None = None
+) -> tuple[Ordering, LengthScales]:
     """Return the reverse maximin ordering and length scales."""
     # O(n^2)
     n = len(x)
@@ -52,7 +61,9 @@ def naive_reverse_maximin(x: np.ndarray, initial: np.ndarray = None) -> tuple:
     return indexes, lengths
 
 
-def reverse_maximin(x: np.ndarray, initial: np.ndarray = None) -> tuple:
+def reverse_maximin(
+    x: Points, initial: Points | None = None
+) -> tuple[Ordering, LengthScales]:
     """Return the reverse maximin ordering and length scales."""
     n = len(x)
     indexes = np.zeros(n, dtype=np.int64)
@@ -90,7 +101,9 @@ def reverse_maximin(x: np.ndarray, initial: np.ndarray = None) -> tuple:
     return indexes, lengths
 
 
-def ball_reverse_maximin(x: np.ndarray, initial: np.ndarray = None) -> tuple:
+def ball_reverse_maximin(
+    x: Points, initial: Points | None = None
+) -> tuple[Ordering, LengthScales]:
     """Return the reverse maximin ordering and length scales."""
     # O(n log^2 n rho^d)
     n = len(x)
@@ -151,11 +164,11 @@ def ball_reverse_maximin(x: np.ndarray, initial: np.ndarray = None) -> tuple:
         children[k].sort(key=lambda j: dist(x[j], x[k]))
 
     lengths[start_k] = dist_start_k
-    l = np.array([lengths[i] for i in indexes])
-    return indexes, l
+    length_scales = np.array([lengths[i] for i in indexes])
+    return indexes, length_scales
 
 
-def naive_sparsity(x: np.ndarray, lengths: np.ndarray, rho: float) -> dict:
+def naive_sparsity(x: Points, lengths: LengthScales, rho: float) -> Sparsity:
     """Compute the sparity pattern given the ordered x."""
     # O(n^2)
     tree = KDTree(x)
@@ -163,15 +176,15 @@ def naive_sparsity(x: np.ndarray, lengths: np.ndarray, rho: float) -> dict:
     return {i: [j for j in near[i] if j >= i] for i in range(len(x))}
 
 
-def sparsity_pattern(x: np.ndarray, lengths: np.ndarray, rho: float) -> dict:
+def sparsity_pattern(x: Points, lengths: LengthScales, rho: float) -> Sparsity:
     """Compute the sparity pattern given the ordered x."""
     # O(n log^2 n + n s)
-    tree, offset, l = KDTree(x), 0, lengths[0]
+    tree, offset, length_scale = KDTree(x), 0, lengths[0]
     sparsity = {}
     for i in range(len(x)):
         # length scale doubled, re-build tree to remove old points
-        if lengths[i] > 2 * l:
-            tree, offset, l = KDTree(x[i:]), i, lengths[i]
+        if lengths[i] > 2 * length_scale:
+            tree, offset, length_scale = KDTree(x[i:]), i, lengths[i]
         sparsity[i] = [
             offset + j
             for j in tree.query_ball_point(x[i], rho * lengths[i])
@@ -181,7 +194,9 @@ def sparsity_pattern(x: np.ndarray, lengths: np.ndarray, rho: float) -> dict:
     return sparsity
 
 
-def supernodes(sparsity: dict, lengths: np.ndarray, lambd: float) -> tuple:
+def supernodes(
+    sparsity: Sparsity, lengths: LengthScales, lambd: float
+) -> tuple[Grouping, Sparsity]:
     """Aggregate indices into supernodes."""
     # O(n s)
     groups = []
@@ -194,26 +209,26 @@ def supernodes(sparsity: dict, lengths: np.ndarray, lambd: float) -> tuple:
             i += 1
         group = sorted(
             j
-            for j in sparsity[i]
+            for j in sparsity[i]  # type: ignore
             if lengths[j] <= lambd * lengths[i] and j in candidates
         )
         groups.append(group)
         candidates -= set(group)
         # only store sparsity pattern for highest entry
-        s = sorted({k for j in group for k in sparsity[j]})
+        s = sorted({k for j in group for k in sparsity[j]})  # type: ignore
         agg_sparsity[group[0]] = s
         positions = {i: k for k, i in enumerate(s)}
         for j in group[1:]:
             # fill in blanks for rest to maintain proper number
             # np.empty is lazy (costs O(1) wrt to input size)
-            agg_sparsity[j] = np.empty(len(s) - positions[j])
+            agg_sparsity[j] = Empty(len(s) - positions[j])
 
     return groups, agg_sparsity
 
 
 def supernodes_contiguous(
-    sparsity: dict, lengths: np.ndarray, lambd: float
-) -> tuple:
+    sparsity: Sparsity, lengths: LengthScales, lambd: float
+) -> tuple[Grouping, Sparsity]:
     """Aggregate indices into contiguous supernodes."""
     # O(n s)
     ref_groups, _ = supernodes(sparsity, lengths, lambd)
@@ -226,11 +241,11 @@ def supernodes_contiguous(
         group = list(range(i, i + size))
         groups.append(group)
         # only store sparsity pattern for highest entry
-        s = sorted({k for j in group for k in sparsity[j]})
+        s = sorted({k for j in group for k in sparsity[j]})  # type: ignore
         agg_sparsity[i] = s
         for k, j in enumerate(group[1:]):
             # fill in blanks for rest to maintain proper number
-            agg_sparsity[j] = np.empty(len(s) - 1 - k)
+            agg_sparsity[j] = Empty(len(s) - 1 - k)
         i += size
 
     return groups, agg_sparsity

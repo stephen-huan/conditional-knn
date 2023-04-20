@@ -1,33 +1,33 @@
 import numpy as np
-import scipy.sparse as sparse
 import sklearn.gaussian_process.kernels as kernels
 
-Kernel = kernels.Kernel
+from typehints import Indices, Matrix, Sparse
 
 
-class MatrixKernel(Kernel):
-    """
-    A wrapper over sklearn.gaussian_process.kernels.Kernel for matrices.
-    """
+class MatrixKernel(kernels.Kernel):
+    """A wrapper over Kernel for matrices."""
 
-    def __init__(self, m: np.ndarray) -> None:
+    def __init__(self, m: Matrix) -> None:
         # we can't use the variable name "theta" for scikit-learn API reasons
         # force Fortran order memory contiguity for ease in Cython wrapping
         self.m = np.asfortranarray(m)
 
-    def __flatten(self, m: np.ndarray) -> np.ndarray:
+    def __flatten(self, m: Matrix) -> Indices:
         """Flatten m for use in indexing."""
         return np.asarray(m).flatten().astype(np.int64)
 
     def __call__(
-        self, X: np.ndarray, Y: np.ndarray = None, eval_gradient: bool = False
-    ) -> np.ndarray:
+        self,
+        X: np.ndarray,
+        Y: np.ndarray | None = None,
+        eval_gradient: bool = False,  # pyright: ignore
+    ) -> Matrix:
         """Return the kernel k(X, Y) and possibly its gradient."""
         if Y is None:
             Y = X
         return self.m[np.ix_(self.__flatten(X), self.__flatten(Y))]
 
-    def diag(self, X: np.ndarray) -> np.ndarray:
+    def diag(self, X: np.ndarray) -> Matrix:
         """Returns the diagonal of the kernel k(X, X)."""
         return self.m[self.__flatten(X), self.__flatten(X)]
 
@@ -39,23 +39,21 @@ class MatrixKernel(Kernel):
         return f"{self.__class__.__name__}(m={repr(self.m)})"
 
 
-class DotKernel(Kernel):
-    """
-    A wrapper over sklearn.gaussian_process.kernels.Kernel for sparse matrices.
-    """
+class DotKernel(kernels.Kernel):
+    """A wrapper over Kernel for sparse matrices."""
 
     def __call__(
         self,
-        X: sparse.csc_matrix,
-        Y: sparse.csc_matrix = None,
-        eval_gradient: bool = False,
-    ) -> np.ndarray:
+        X: Sparse,
+        Y: Sparse | None = None,
+        eval_gradient: bool = False,  # pyright: ignore
+    ) -> Matrix:
         """Return the kernel k(X, Y) and possibly its gradient."""
         if Y is None:
             Y = X
         return X.dot(Y.T)
 
-    def diag(self, X: np.ndarray) -> np.ndarray:
+    def diag(self, X: Sparse) -> Matrix:
         """Returns the diagonal of the kernel k(X, X)."""
         return np.array([row.dot(row.T)[0, 0] for row in X])
 
@@ -64,7 +62,7 @@ class DotKernel(Kernel):
         return False
 
 
-def matrix_kernel(theta: np.ndarray) -> tuple:
+def matrix_kernel(theta: Matrix) -> tuple[Matrix, MatrixKernel]:
     """Turns a matrix into "points" and a kernel function."""
     points = np.arange(theta.shape[0], dtype=np.float64).reshape(-1, 1)
     return points, MatrixKernel(theta)

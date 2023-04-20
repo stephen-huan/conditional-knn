@@ -1,35 +1,42 @@
-from typing import Callable
-
 import numpy as np
 import scipy.linalg
 import scipy.sparse as sparse
 import scipy.stats as stats
 from numpy.fft import fftn, ifftn
-from sklearn.gaussian_process.kernels import Kernel
 
-import cholesky
 from cholesky import chol, inv_order, logdet, prec_logdet
+from cknn import solve
 from ordering import reverse_maximin
+from typehints import (
+    CholeskyFactor,
+    InvChol,
+    JointInvChol,
+    Kernel,
+    Matrix,
+    Points,
+    Sample,
+    Sparse,
+    Vector,
+)
 
 # number of samples to take for empirical covariane
 TRIALS = 1000
 # size of the symmetric confidence interval
 CONFIDENCE = 0.9
 
-Sample = Callable[[int], np.ndarray]
 
 ### helper methods
 
 
-def rmse(u: np.ndarray, v: np.ndarray) -> float:
+def rmse(u: Matrix, v: Matrix) -> float:
     """Root mean squared error between u and v."""
     return np.sqrt(np.mean((u - v) ** 2, axis=0))
 
 
 def coverage(
-    y_test: np.ndarray,
-    mu_pred: np.ndarray,
-    var_pred: np.ndarray,
+    y_test: Matrix,
+    mu_pred: Matrix,
+    var_pred: Matrix,
     alpha: float = CONFIDENCE,
 ) -> float:
     """Emperical coverage of ground truth by predicted mean and variance."""
@@ -40,7 +47,7 @@ def coverage(
     return np.average(count, axis=1)
 
 
-def inv_chol(x: np.ndarray, kernel: Kernel) -> tuple:
+def inv_chol(x: Points, kernel: Kernel) -> CholeskyFactor:
     """Cholesky factor for the precision, theta^{-1}."""
     n = x.shape[0]
     U = np.flip(chol(kernel(x[::-1])))
@@ -49,25 +56,18 @@ def inv_chol(x: np.ndarray, kernel: Kernel) -> tuple:
 
 
 def joint_inv_chol(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel
-) -> tuple:
+    x_train: Points, x_test: Points, kernel: Kernel
+) -> CholeskyFactor:
     """Cholesky factor for the joint precision."""
     return inv_chol(np.vstack((x_test, x_train)), kernel)
 
 
-def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """Solve the system Ax = b for symmetric positive definite A."""
-    return scipy.linalg.solve(A, b, assume_a="pos")
-
-
-def solve_triangular(
-    L: sparse.csc_matrix, b: np.ndarray, lower: bool = True
-) -> np.ndarray:
+def solve_triangular(L: Sparse, b: Vector, lower: bool = True) -> Vector:
     """Solve the system Lx = b for sparse lower triangular L."""
     return (
         scipy.linalg.solve_triangular(L, b, lower=lower)
         if isinstance(L, np.ndarray)
-        else sparse.linalg.spsolve_triangular(
+        else sparse.linalg.spsolve_triangular(  # pyright: ignore
             sparse.csr_matrix(L), b, lower=lower
         )
     )
@@ -76,7 +76,7 @@ def solve_triangular(
 ### point generation methods
 
 
-def grid(n: int, a: float = 0, b: float = 1, d: int = 2) -> np.ndarray:
+def grid(n: int, a: float = 0, b: float = 1, d: int = 2) -> Points:
     """Generate n points evenly spaced in a [a, b]^d hypercube."""
     spaced = np.linspace(a, b, round(n ** (1 / d)))
     cube = (spaced,) * d
@@ -89,8 +89,8 @@ def perturbed_grid(
     a: float = 0,
     b: float = 1,
     d: int = 2,
-    delta: float = None,
-) -> np.ndarray:
+    delta: float | None = None,
+) -> Points:
     """Generate n points roughly evenly spaced in a [a, b]^d hypercube."""
     points = grid(n, a, b, d)
     # compute level of perturbation as half width
@@ -108,7 +108,7 @@ def __torus(
     b: float = 1,
     d: int = 2,
     row: int = 0,
-) -> np.ndarray:
+) -> tuple[int, Points]:
     """Generate a row of the covariance matrix on a d-dimensional torus."""
     # make 3^d grid with original grid in the center
     points = grid(n, a, b, d)
@@ -130,7 +130,7 @@ def __torus(
 
 def torus(
     kernel: Kernel, n: int, a: float = 0, b: float = 1, d: int = 2
-) -> np.ndarray:
+) -> tuple[int, Points]:
     """Generate the covariance matrix on a d-dimensional torus."""
     size, _ = __torus(kernel, n, a, b, d)
     return size, np.vstack(
@@ -143,7 +143,7 @@ def sphere(
     n: int,
     r: float = 1,
     d: int = 2,
-    delta: float = None,
+    delta: float | None = None,
 ) -> np.ndarray:
     """Generate n points evenly spaced in a radius r hypersphere."""
     points = perturbed_grid(rng, n, a=-r, b=r, d=d, delta=delta)
@@ -157,8 +157,8 @@ def maximin(
     a: float = 0,
     b: float = 1,
     d: int = 2,
-    delta: float = None,
-) -> np.ndarray:
+    delta: float | None = None,
+) -> Points:
     """Take the first n points from a maximin ordering of the unit grid."""
     points = perturbed_grid(rng, n, a, b, d, delta)
     order, _ = reverse_maximin(points)
@@ -169,13 +169,13 @@ def maximin(
 
 
 def sample(
-    rng: np.random.Generator, sigma: np.ndarray, mu: np.ndarray = None
+    rng: np.random.Generator, sigma: Matrix, mu: Vector | None = None
 ) -> Sample:
     """Centered multivariate normal distribution with given covariance."""
     if mu is None:
         mu = np.zeros(sigma.shape[0])
 
-    def sample(samples: int = 1) -> np.ndarray:
+    def sample(samples: int = 1) -> Vector:
         """Return samples number of samples from the distribution."""
         y = rng.multivariate_normal(mu, sigma, samples)
         return y
@@ -184,7 +184,7 @@ def sample(
 
 
 def sample_chol(
-    rng: np.random.Generator, sigma: np.ndarray, mu: np.ndarray = None
+    rng: np.random.Generator, sigma: Matrix, mu: Vector | None = None
 ) -> Sample:
     """Sample by Cholesky factorization."""
     n = sigma.shape[0]
@@ -194,7 +194,7 @@ def sample_chol(
     # store Cholesky factor
     L = chol(sigma)
 
-    def sample(samples: int = 1) -> np.ndarray:
+    def sample(samples: int = 1) -> Vector:
         """Return samples number of samples from the distribution."""
         z = rng.standard_normal((n, samples))
         y = (L @ z).T + mu
@@ -205,10 +205,10 @@ def sample_chol(
 
 def sample_circulant(
     rng: np.random.Generator,
-    sigma: np.ndarray,
+    sigma: Matrix,
     n: int,
     d: int = 2,
-    mu: np.ndarray = None,
+    mu: Vector | None = None,
 ) -> Sample:
     """Sample by circulant embedding."""
     # base for block circulant matrix
@@ -221,7 +221,7 @@ def sample_circulant(
     # force positive definiteness
     eigs = np.sqrt(fftn(c)).real
 
-    def sample(samples: int = 1) -> np.ndarray:
+    def sample(samples: int = 1) -> Vector:
         """Return samples number of samples from the distribution."""
         z = rng.standard_normal((samples, *(n,) * d))
         y = fftn(eigs * ifftn(z)).reshape((samples, N)) + mu
@@ -237,7 +237,7 @@ def sample_grid(
     a: float = 0,
     b: float = 1,
     d: int = 2,
-    mu: np.ndarray = None,
+    mu: Vector | None = None,
 ) -> Sample:
     """Sample from the hypercube by marginalization of torus."""
     spaced, width = np.linspace(a, b, round(n ** (1 / d)), retstep=True)
@@ -251,21 +251,24 @@ def sample_grid(
 
     mask = []
     for i in range(N**d):
-        coords = ((i // (N ** np.arange(d - 1, -1, -1))) % N) // spaced.shape[
-            0
-        ]
+        # fmt: off
+        coords = (
+            ((i // (N ** np.arange(d - 1, -1, -1))) % N)
+            // spaced.shape[0]
+        )
+        # fmt: on
         if np.all(coords == 1):
             mask.append(i)
     mask = np.array(mask)
 
-    def sample(samples: int = 1) -> np.ndarray:
+    def sample(samples: int = 1) -> Matrix:
         """Return samples number of samples from the distribution."""
         return sample_torus(samples)[:, mask] + mu
 
     return sample
 
 
-def empirical_covariance(sample: Sample, trials: int = TRIALS) -> np.ndarray:
+def empirical_covariance(sample: Sample, trials: int = TRIALS) -> Matrix:
     """Compute the empirical covariance from a sampling method."""
     X = sample(trials)
     # rows of X are observations, so covariance is X^T X
@@ -276,11 +279,11 @@ def empirical_covariance(sample: Sample, trials: int = TRIALS) -> np.ndarray:
 
 
 def __estimate(
-    x_train: np.ndarray,
-    y_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    y_train: Points,
+    x_test: Points,
     kernel: Kernel,
-) -> tuple:
+) -> tuple[Vector, Matrix, float]:
     """Estimate y_test with direct Gaussian process regression."""
     # O(n^3 + n m^2)
     K_TT = kernel(x_train)
@@ -298,23 +301,23 @@ def __estimate(
 
 
 def estimate(
-    x_train: np.ndarray,
-    y_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    y_train: Points,
+    x_test: Points,
     kernel: Kernel,
-    indexes: list = slice(None),
-) -> tuple:
+    indexes: list | slice = slice(None),
+) -> tuple[Vector, Matrix, float]:
     """Estimate y_test according to the given sparsity pattern."""
     return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)
 
 
 def estimate_chol(
-    x_train: np.ndarray,
-    y_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    y_train: Points,
+    x_test: Points,
     kernel: Kernel,
-    chol=inv_chol,
-) -> tuple:
+    chol: InvChol = inv_chol,
+) -> tuple[Vector, Matrix, float, Sparse]:
     """Estimate y_test with Cholesky factorization of training covariance."""
     L, order = chol(x_train, kernel)
     K_PT = kernel(x_test, x_train[order])
@@ -330,14 +333,14 @@ def estimate_chol(
 
 
 def estimate_chol_joint(
-    x_train: np.ndarray,
-    y_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    y_train: Points,
+    x_test: Points,
     kernel: Kernel,
-    chol=inv_chol,
-) -> tuple:
+    chol: JointInvChol = joint_inv_chol,
+) -> tuple[Vector, Matrix, float, Sparse]:
     """Estimate y_test with Cholesky factorization of joint covariance."""
-    n, m = x_train.shape[0], x_test.shape[0]
+    m = x_test.shape[0]
     L, order = chol(x_train, x_test, kernel)
     inv_test_order, train_order = inv_order(order[:m]), order[m:] - m
 
@@ -345,16 +348,17 @@ def estimate_chol_joint(
     L21 = L[m:, :m]
 
     mu_pred = -solve_triangular(
-        L11.T, L21.T.dot(y_train[train_order]), lower=False
+        L11.T, L21.T.dot(y_train[train_order]), lower=False  # type: ignore
     )
     # cov_pred = np.linalg.inv(L11.toarray()).T@np.linalg.inv(L11.toarray())
-    e_i = solve_triangular(L11, np.identity(m), lower=True)
+    e_i = solve_triangular(L11, np.identity(m), lower=True)  # type: ignore
     var_pred = np.sum(e_i * e_i, axis=0)
-    # assert np.allclose(np.diag(cov_pred), var_pred), \
-    #     "variance not diagonal of covariance"
+    # assert np.allclose(
+    #     np.diag(cov_pred), var_pred
+    # ), "variance not diagonal of covariance"
     return (
         mu_pred[inv_test_order],
         var_pred[inv_test_order],
-        prec_logdet(L11),
+        prec_logdet(L11),  # type: ignore
         L,
     )

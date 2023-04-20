@@ -4,24 +4,28 @@ import scipy.sparse as sparse
 
 import cknn
 import ordering
-from cknn import Kernel, inv, logdet, solve
+from cknn import inv, logdet, solve
 from gp_kernels import matrix_kernel
+from typehints import (
+    CholeskyFactor,
+    CholeskySelect,
+    Empty,
+    GlobalSelect,
+    Grouping,
+    Kernel,
+    LengthScales,
+    Matrix,
+    Ordering,
+    Points,
+    Select,
+    Sparse,
+    Sparsity,
+)
 
 ### helper methods
 
 
-class Empty:
-
-    """Empty "list" simply holding the length of the data."""
-
-    def __init__(self, n):
-        self.n = n
-
-    def __len__(self) -> int:
-        return self.n
-
-
-def kl_div(X: np.ndarray, Y: np.ndarray) -> float:
+def kl_div(X: Matrix, Y: Matrix) -> float:
     """
     Computes the KL divergence between the multivariate Gaussians
     at 0 with covariance X and Y, i.e. D_KL(N(0, X) || N(0, Y)).
@@ -30,12 +34,12 @@ def kl_div(X: np.ndarray, Y: np.ndarray) -> float:
     return 1 / 2 * (np.trace(solve(Y, X)) + logdet(Y) - logdet(X) - len(X))
 
 
-def prec_logdet(L: sparse.csc_matrix) -> float:
+def prec_logdet(L: Sparse) -> float:
     """Compute the logdet given a Cholesky factor of the precision."""
     return -2 * np.sum(np.log(L.diagonal()))
 
 
-def sparse_kl_div(L: sparse.csc_matrix, theta: np.ndarray = None) -> float:
+def sparse_kl_div(L: Sparse, theta: Matrix | None = None) -> float:
     """
     Computes the KL divergence assuming L is optimal.
 
@@ -50,7 +54,7 @@ def sparse_kl_div(L: sparse.csc_matrix, theta: np.ndarray = None) -> float:
     return 1 / 2 * (prec_logdet(L) - logdet_theta)
 
 
-def inv_order(order: np.ndarray) -> np.ndarray:
+def inv_order(order: Ordering) -> Ordering:
     """Find the inverse permutation of the given order permutation."""
     n = order.shape[0]
     inv_order = np.arange(n)
@@ -58,7 +62,7 @@ def inv_order(order: np.ndarray) -> np.ndarray:
     return inv_order
 
 
-def chol(theta: np.ndarray, sigma: float = 1e-6) -> np.ndarray:
+def chol(theta: Matrix, sigma: float = 1e-6) -> Matrix:
     """Cholesky factor for the covariance."""
     try:
         return np.linalg.cholesky(theta)
@@ -69,16 +73,14 @@ def chol(theta: np.ndarray, sigma: float = 1e-6) -> np.ndarray:
 ### sparse Cholesky methods
 
 
-def __col(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
+def __col(x: Matrix, kernel: Kernel, s: list[int]) -> Matrix:
     """Computes a single column of the sparse Cholesky factor."""
     # O(s^3)
     m = inv(kernel(x[s]))
     return m[:, 0] / np.sqrt(m[0, 0])
 
 
-def __cholesky(
-    x: np.ndarray, kernel: Kernel, sparsity: dict
-) -> sparse.csc_matrix:
+def __cholesky(x: Points, kernel: Kernel, sparsity: Sparsity) -> Sparse:
     """Computes the best Cholesky factor following the sparsity pattern."""
     # O(n s^3)
     n = len(x)
@@ -86,14 +88,14 @@ def __cholesky(
     data, indexes = np.zeros(indptr[-1]), np.zeros(indptr[-1])
     for i in range(n):
         # make sure diagonal entry is first in the sparsity pattern
-        s = sorted(sparsity[i])
+        s = sorted(sparsity[i])  # type: ignore
         data[indptr[i] : indptr[i + 1]] = __col(x, kernel, s)
         indexes[indptr[i] : indptr[i + 1]] = s
 
     return sparse.csc_matrix((data, indexes, indptr), shape=(n, n))
 
 
-def __cols(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
+def __cols(x: Points, kernel: Kernel, s: list[int]) -> Matrix:
     """Computes multiple columns of the sparse Cholesky factor."""
     # O(s^3)
     # equivalent to inv(chol(inv(kernel(x[s]))))
@@ -102,8 +104,8 @@ def __cols(x: np.ndarray, kernel: Kernel, s: list) -> np.ndarray:
 
 
 def __mult_cholesky(
-    x: np.ndarray, kernel: Kernel, sparsity: dict, groups: list
-) -> sparse.csc_matrix:
+    x: Points, kernel: Kernel, sparsity: Sparsity, groups: Grouping
+) -> Sparse:
     """Computes the best Cholesky factor following the sparsity pattern."""
     # O((n/m)*(s^3 + m*s^2)) = O((n s^3)/m)
     n = len(x)
@@ -111,7 +113,7 @@ def __mult_cholesky(
     data, indexes = np.zeros(indptr[-1]), np.zeros(indptr[-1])
     for group in groups:
         # points only interact with points after them (lower triangularity)
-        s = sorted(sparsity[min(group)])
+        s = sorted(sparsity[min(group)])  # type: ignore
         positions = {i: k for k, i in enumerate(s)}
         L = __cols(x, kernel, s)
         for i in group:
@@ -125,7 +127,7 @@ def __mult_cholesky(
     return sparse.csc_matrix((data, indexes, indptr), shape=(n, n))
 
 
-def naive_cholesky(theta: np.ndarray, s: int) -> np.ndarray:
+def naive_cholesky(theta: Matrix, s: int) -> Sparse:
     """Computes Cholesky with at most s nonzero entries per column."""
     # O(n*s*n*s^3) = O(n^2 s^4)
     n = len(theta)
@@ -148,8 +150,8 @@ def naive_cholesky(theta: np.ndarray, s: int) -> np.ndarray:
 
 
 def naive_mult_cholesky(
-    theta: np.ndarray, s: int, groups: list = None
-) -> np.ndarray:
+    theta: Matrix, s: int, groups: Grouping | None = None
+) -> Sparse:
     """Computes Cholesky with at most s nonzero entries per column."""
     # O((n/m)*(s - m)*n*m*s^3 + n s^3) = O(n^2 s^3 (s - m) + n s^3)
     n = len(theta)
@@ -183,8 +185,8 @@ def naive_mult_cholesky(
 
 
 def cholesky_select(
-    x: np.ndarray, kernel: Kernel, s: int, groups: list = None
-) -> np.ndarray:
+    x: Points, kernel: Kernel, s: int, groups: Grouping | None = None
+) -> Sparse:
     """Computes Cholesky with at most s nonzero entries per column."""
     # without aggregation: O(n*(n s^2) + n s^3) = O(n^2 s^2)
     # with    aggregation: O((n/m)*(n (s - m)^2 + n m^2 + m^3) + (n s^3)/m)
@@ -208,8 +210,8 @@ def cholesky_select(
 
 
 def naive_nonadj_cholesky(
-    theta: np.ndarray, s: int, groups: list = None
-) -> np.ndarray:
+    theta: Matrix, s: int, groups: Grouping | None = None
+) -> Sparse:
     """Computes Cholesky with at most s nonzero entries per column."""
     # O((n/m)*(s - m)*n*m*s^3 + n s^3) = O(n^2 s^3 (s - m) + n s^3)
     n = len(theta)
@@ -250,8 +252,8 @@ def naive_nonadj_cholesky(
 
 
 def cholesky_nonadj_select(
-    x: np.ndarray, kernel: Kernel, s: int, groups: list = None
-) -> np.ndarray:
+    x: Points, kernel: Kernel, s: int, groups: Grouping | None = None
+) -> Sparse:
     """Computes Cholesky with at most s nonzero entries per column."""
     # without aggregation: O(n*(n s^2) + n s^3) = O(n^2 s^2)
     # with    aggregation: O((n/m)*(n (s - m)^2 + n m^2 + m^3) + (n s^3)/m)
@@ -280,8 +282,11 @@ def cholesky_nonadj_select(
 
 
 def cholesky(
-    theta: np.ndarray, s: int, groups: list = None, chol=cholesky_select
-) -> np.ndarray:
+    theta: Matrix,
+    s: int,
+    groups: Grouping | None = None,
+    chol: CholeskySelect = cholesky_select,
+) -> Sparse:
     """Wrapper over point methods to deal with arbitrary matrices."""
     return chol(*matrix_kernel(theta), s, groups)
 
@@ -290,9 +295,9 @@ def cholesky(
 
 
 def naive_cholesky_kl(
-    x: np.ndarray, kernel: Kernel, rho: float, lambd: float = None
-) -> tuple:
-    """Computes Cholesky by KL divergence with tuning parameters."""
+    x: Points, kernel: Kernel, rho: float, lambd: float | None = None
+) -> CholeskyFactor:
+    """Computes Cholesky by KL divergence with tuning parameters."""
     order, lengths = ordering.naive_reverse_maximin(x)
     x = x[order]
     sparsity = ordering.naive_sparsity(x, lengths, rho)
@@ -305,12 +310,12 @@ def naive_cholesky_kl(
 
 
 def __cholesky_kl(
-    x: np.ndarray,
-    kernel: Kernel,
-    lengths: np.ndarray,
+    x: Points,
+    _: Kernel,
+    lengths: LengthScales,
     rho: float,
-    lambd: float,
-) -> tuple:
+    lambd: float | None,
+) -> tuple[Sparsity, Grouping]:
     """Computes Cholesky given pre-ordered points and length scales."""
     sparsity = ordering.sparsity_pattern(x, lengths, rho)
     groups, sparsity = (
@@ -322,8 +327,8 @@ def __cholesky_kl(
 
 
 def cholesky_kl(
-    x: np.ndarray, kernel: Kernel, rho: float, lambd: float = None
-) -> tuple:
+    x: Points, kernel: Kernel, rho: float, lambd: float | None = None
+) -> CholeskyFactor:
     """Computes Cholesky by KL divergence with tuning parameters."""
     order, lengths = ordering.reverse_maximin(x)
     x = x[order]
@@ -331,36 +336,36 @@ def cholesky_kl(
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
 
-def find_cutoff(sizes: np.ndarray, nonzeros: int) -> int:
+def find_cutoff(sizes: list[int], nonzeros: int) -> int:
     """Find the maximum number of nonzeros per column."""
-    l, r = 0, np.max(sizes)
-    while l < r:
-        m = (l + r + 1) // 2
+    left, right = 0, np.max(sizes)
+    while left < right:
+        m = (left + right + 1) // 2
         if np.sum(np.minimum(sizes, m)) <= nonzeros:
-            l = m
+            left = m
         else:
-            r = m - 1
-    return l
+            right = m - 1
+    return left
 
 
 def __cholesky_subsample(
-    x: np.ndarray,
+    x: Points,
     kernel: Kernel,
-    ref_sparsity: dict,
-    candidate_sparsity: dict,
-    ref_groups: list,
-    select,
-) -> sparse.csc_matrix:
+    ref_sparsity: Sparsity,
+    candidate_sparsity: Sparsity,
+    ref_groups: Grouping,
+    select: Select,
+) -> Sparse:
     """Subsample Cholesky within a reference sparsity and groups."""
     sparsity = {}
     # pre-compute maximum number of nonzeroes per column
     group_candidates = [
-        np.array(
-            list(
-                {j for i in group for j in candidate_sparsity[i]} - set(group)
-            ),
-            dtype=np.int64,
-        )
+        # fmt: off
+        np.array(list(
+            {j for i in group for j in candidate_sparsity[i]}  # type: ignore
+            - set(group)
+        ), dtype=np.int64)
+        # fmt: on
         for group in ref_groups
     ]
     sizes = [
@@ -384,10 +389,11 @@ def __cholesky_subsample(
         m = len(group)
         # select within existing sparsity pattern
         num = max(cutoff + (expected_total - actual_total) // columns_left, 0)
-        if select == cknn.chol_select:
-            selected = select(x, candidates, np.array(group), kernel, num)
-        else:
-            selected = select(x[candidates], x[group], kernel, num)
+        selected = (
+            select(x, candidates, np.array(group), kernel, num)  # type: ignore
+            if select == cknn.chol_select or select == cknn.nonadj_select
+            else select(x[candidates], x[group], kernel, num)  # type: ignore
+        )
         s = sorted(group + list(candidates[selected]))
         sparsity[group[0]] = s
         positions = {i: k for k, i in enumerate(s)}
@@ -403,13 +409,13 @@ def __cholesky_subsample(
 
 
 def cholesky_subsample(
-    x: np.ndarray,
+    x: Points,
     kernel: Kernel,
     s: float,
     rho: float,
-    lambd: float = None,
-    select=cknn.chol_select,
-) -> tuple:
+    lambd: float | None = None,
+    select: Select = cknn.chol_select,
+) -> CholeskyFactor:
     """Computes Cholesky with a mix of geometric and selection ideas."""
     # standard geometric algorithm
     order, lengths = ordering.reverse_maximin(x)
@@ -426,8 +432,12 @@ def cholesky_subsample(
 
 
 def cholesky_global(
-    x: np.ndarray, kernel: Kernel, s: float, rho: float, lambd: float = None
-) -> tuple:
+    x: Points,
+    kernel: Kernel,
+    s: float,
+    rho: float,
+    lambd: float | None = None,
+) -> CholeskyFactor:
     """Computes Cholesky by global subsampling."""
     # standard geometric algorithm
     order, lengths = ordering.reverse_maximin(x)
@@ -444,7 +454,9 @@ def cholesky_global(
 ### Joint covariance methods for Gaussian process regression
 
 
-def __joint_order(x_train: np.ndarray, x_test: np.ndarray) -> tuple:
+def __joint_order(
+    x_train: Points, x_test: Points
+) -> tuple[Points, Ordering, LengthScales]:
     """Return the joint ordering and length scale."""
     train_order, train_lengths = ordering.reverse_maximin(x_train)
     # initialize test point ordering with training points
@@ -457,12 +469,12 @@ def __joint_order(x_train: np.ndarray, x_test: np.ndarray) -> tuple:
 
 
 def cholesky_joint(
-    x_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    x_test: Points,
     kernel: Kernel,
     rho: float,
-    lambd: float = None,
-) -> tuple:
+    lambd: float | None = None,
+) -> CholeskyFactor:
     """Computes Cholesky of the joint covariance."""
     x, order, lengths = __joint_order(x_train, x_test)
     sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
@@ -470,14 +482,14 @@ def cholesky_joint(
 
 
 def cholesky_joint_subsample(
-    x_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    x_test: Points,
     kernel: Kernel,
     s: float,
     rho: float,
-    lambd: float = None,
-    select=cknn.chol_select,
-) -> tuple:
+    lambd: float | None = None,
+    select: Select = cknn.chol_select,
+) -> CholeskyFactor:
     """Cholesky of the joint covariance with subsampling."""
     # standard geometric algorithm
     x, order, lengths = __joint_order(x_train, x_test)
@@ -493,14 +505,14 @@ def cholesky_joint_subsample(
 
 
 def cholesky_joint_global(
-    x_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    x_test: Points,
     kernel: Kernel,
     s: float,
     rho: float,
-    lambd: float = None,
-    select=cknn.global_select,
-) -> tuple:
+    lambd: float | None = None,
+    select: GlobalSelect = cknn.global_select,
+) -> CholeskyFactor:
     """Cholesky of the joint covariance with subsampling."""
     # standard geometric algorithm
     x, order, lengths = __joint_order(x_train, x_test)

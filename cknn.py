@@ -1,32 +1,42 @@
 import numpy as np
 import scipy.linalg
 import scipy.spatial.distance
-from sklearn.gaussian_process.kernels import Kernel, Matern
 
 import ccknn
 from maxheap import Heap
+from typehints import (
+    Empty,
+    Grouping,
+    Indices,
+    Kernel,
+    Matrix,
+    Ordering,
+    Points,
+    Sparsity,
+    Vector,
+)
 
 ### helper methods
 
 
-def logdet(m: np.ndarray) -> float:
+def logdet(m: Matrix) -> float:
     """Computes the logarithm of the determinant of m."""
     return np.linalg.slogdet(m)[1]
 
 
-def solve(A: np.ndarray, b: np.ndarray) -> np.ndarray:
+def solve(A: Matrix, b: Vector) -> Matrix:
     """Solve the system Ax = b for symmetric positive definite A."""
     return scipy.linalg.solve(A, b, assume_a="pos")
 
 
-def inv(m: np.ndarray) -> np.ndarray:
+def inv(m: Matrix) -> Matrix:
     """Inverts a symmetric positive definite matrix m."""
     return np.linalg.inv(m)
     # below only starts to get faster for large matrices (~10^4)
     # return solve(m, np.identity(m.shape[0]))
 
 
-def euclidean(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+def euclidean(x: Points, y: Points) -> Matrix:
     """Return the Euclidean distance between points in x and y."""
     # larger kernel value implies more similarity, flip
     return -scipy.spatial.distance.cdist(x, y, "euclidean")
@@ -35,16 +45,16 @@ def euclidean(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 ### selection methods
 
 
-def __naive_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> list:
+def __naive_select(  # pyright: ignore
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> Indices | list[int]:
     """Brute force selection method."""
     # O(s*n*s^3) = O(n s^4)
     n = x_train.shape[0]
     indexes, candidates = [], list(range(n))
 
     while len(candidates) > 0 and len(indexes) < s:
-        score, best = float("inf"), None
+        score, best = float("inf"), -1
         for i in candidates:
             new = indexes + [i]
             v = kernel(x_train[new], x_test)
@@ -57,9 +67,9 @@ def __naive_select(
     return indexes
 
 
-def __prec_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> list:
+def __prec_select(  # pyright: ignore
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> list[int]:
     """Greedily select the s entries maximizing mutual information."""
     # O(s*(n*s + s^2)) = O(n s^2)
     n = x_train.shape[0]
@@ -98,12 +108,12 @@ def __prec_select(
 
 
 def __chol_update(
-    cov_k: np.ndarray,
+    cov_k: Matrix,
     i: int,
     k: int,
-    factors: np.ndarray,
-    cond_var: np.ndarray,
-    cond_cov: np.ndarray = None,
+    factors: Matrix,
+    cond_var: Vector,
+    cond_cov: Matrix | None = None,
 ) -> None:
     """Updates the ith column of the Cholesky factor with column k."""
     n = cond_var.shape[0]
@@ -118,14 +128,14 @@ def __chol_update(
 
 
 def __select_update(
-    x_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    x_test: Points,
     kernel: Kernel,
     i: int,
     k: int,
-    factors: np.ndarray,
-    cond_var: np.ndarray,
-    cond_cov: np.ndarray,
+    factors: Matrix,
+    cond_var: Vector,
+    cond_cov: Vector,
 ) -> None:
     """Update the selection data structures after selecting a point."""
     n = x_train.shape[0]
@@ -137,13 +147,12 @@ def __select_update(
         cond_var[k] = np.inf
 
 
-def __chol_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> list:
+def __chol_select(  # pyright: ignore
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> list[int]:
     """Select the s most informative entries, storing a Cholesky factor."""
     # O(s*(n*s)) = O(n s^2)
     n = x_train.shape[0]
-    points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
     factors = np.zeros((n + 1, s))
@@ -173,16 +182,16 @@ def __chol_select(
 ### multiple point selection
 
 
-def __naive_mult_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> list:
+def __naive_mult_select(  # pyright: ignore
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> list[int]:
     """Brute force multiple point selection method."""
     # O(s*n*(s^3 + m^3)) = O(n s^4 + n s m^3)
     n = x_train.shape[0]
     indexes, candidates = [], list(range(n))
 
     while len(candidates) > 0 and len(indexes) < s:
-        score, best = float("inf"), None
+        score, best = float("inf"), -1
         for i in candidates:
             new = indexes + [i]
             v = kernel(x_train[new], x_test)
@@ -195,12 +204,12 @@ def __naive_mult_select(
     return indexes
 
 
-def __prec_mult_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> list:
+def __prec_mult_select(  # pyright: ignore
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> list[int]:
     """Greedily select the s entries minimizing conditional covariance."""
     # O(m^3 + n*m^2 + s*(s^2 + m^2 + n*s + n*m + n*m)) = O(n s^2 + n m^2 + m^3)
-    n, m = x_train.shape[0], x_test.shape[0]
+    n = x_train.shape[0]
     points = np.vstack((x_train, x_test))
     # initialization
     indexes, candidates = [], list(range(n))
@@ -243,9 +252,9 @@ def __prec_mult_select(
     return indexes
 
 
-def __chol_mult_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> np.ndarray:
+def __chol_mult_select(  # pyright: ignore
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> Indices:
     """Greedily select the s entries minimizing conditional covariance."""
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     n, m = x_train.shape[0], x_test.shape[0]
@@ -281,12 +290,12 @@ def __chol_mult_select(
 
 
 def __chol_insert(
-    cov_k: np.ndarray,
-    order: np.ndarray,
+    cov_k: Vector,
+    order: Ordering,
     i: int,
     index: int,
     k: int,
-    factors: np.ndarray,
+    factors: Matrix,
 ) -> None:
     """Updates the ith column of the Cholesky factor with column k."""
     # move columns over to make space at index
@@ -311,9 +320,7 @@ def __chol_insert(
         cov_k += -c2 / c1 * factors[:, col]
 
 
-def __insert_index(
-    order: np.ndarray, locations: np.ndarray, i: int, k: int
-) -> int:
+def __insert_index(order: Ordering, locations: Indices, i: int, k: int) -> int:
     """Finds the index to insert index k into the order."""
     index = -1
     for index in range(i):
@@ -324,14 +331,14 @@ def __insert_index(
 
 
 def __select_point(
-    order: np.ndarray,
-    locations: np.ndarray,
-    points: np.ndarray,
+    order: Ordering,
+    locations: Indices,
+    points: Points,
     i: int,
     k: int,
     kernel: Kernel,
-    factors: np.ndarray,
-    var: np.ndarray,
+    factors: Matrix,
+    var: Vector,
 ):
     """Add the kth point to the Cholesky factor."""
     index = __insert_index(order, locations, i, k)
@@ -348,15 +355,15 @@ def __select_point(
 
 
 def __scores_update(
-    order: np.ndarray,
-    locations: np.ndarray,
+    order: Ordering,
+    locations: Indices,
     i: int,
-    factors: np.ndarray,
-    var: np.ndarray,
-    scores: np.ndarray,
+    factors: Matrix,
+    var: Vector,
+    scores: Vector,
 ) -> int:
     """Update the scores for each candidate."""
-    n, m = var.shape[0], locations.shape[0] - var.shape[0]
+    n = var.shape[0]
     # compute baseline log determinant before conditioning
     prev_logdet = 0
     for col in range(i):
@@ -397,9 +404,9 @@ def __scores_update(
     return best_k
 
 
-def __chol_nonadj_select(
-    x: np.ndarray, train: np.ndarray, test: np.ndarray, kernel: Kernel, s: int
-) -> np.ndarray:
+def __chol_nonadj_select(  # pyright: ignore
+    x: Points, train: Indices, test: Indices, kernel: Kernel, s: int
+) -> Indices:
     """Greedily select the s entries minimizing conditional covariance."""
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     n, m = train.shape[0], test.shape[0]
@@ -428,9 +435,9 @@ def __chol_nonadj_select(
     return indexes
 
 
-def __budget_select(
-    x: np.ndarray, train: np.ndarray, test: np.ndarray, kernel: Kernel, s: int
-) -> np.ndarray:
+def __budget_select(  # pyright: ignore
+    x: Points, train: Indices, test: Indices, kernel: Kernel, s: int
+) -> Indices:
     """Greedily select the s entries minimizing conditional covariance."""
     # O(m*(n + m)*m + s*(n + m)*(s + m)) = O(n s^2 + n m^2 + m^3)
     n, m = train.shape[0], test.shape[0]
@@ -479,12 +486,12 @@ def __budget_select(
 
 
 def random_select(
-    x_train: np.ndarray,
-    x_test: np.ndarray,
-    kernel: Kernel,
+    x_train: Points,
+    x_test: Points,  # pyright: ignore
+    kernel: Kernel,  # pyright: ignore
     s: int,
-    rng: np.random.Generator = None,
-) -> np.ndarray:
+    rng: np.random.Generator | None = None,
+) -> Indices:
     """Randomly select s points out of x_train."""
     s = np.clip(s, 0, x_train.shape[0])
     if rng is None:
@@ -493,8 +500,8 @@ def random_select(
 
 
 def corr_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> np.ndarray:
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> Indices:
     """Select s points in x_train with highest correlation to x_test."""
     # O(n log n)
     s = np.clip(s, 0, x_train.shape[0])
@@ -504,8 +511,8 @@ def corr_select(
 
 
 def knn_select(
-    x_train: np.ndarray, x_test: np.ndarray, kernel: Kernel, s: int
-) -> np.ndarray:
+    x_train: Points, x_test: Points, kernel: Kernel, s: int
+) -> Indices:
     """Select s points in x_train "closest" to x_test by kernel function."""
     # O(n log n)
     s = np.clip(s, 0, x_train.shape[0])
@@ -516,18 +523,17 @@ def knn_select(
 
 
 def select(
-    x_train: np.ndarray,
-    x_test: np.ndarray,
+    x_train: Points,
+    x_test: Points,
     kernel: Kernel,
     s: int,
-    select_method=ccknn.select,
-) -> np.ndarray:
+) -> Indices:
     """Wrapper over various cknn selection methods."""
     # early exit
     s = np.clip(s, 0, x_train.shape[0])
     if s == 0:
-        return []
-    selected = select_method(x_train, x_test, kernel, s)
+        return np.array([], dtype=np.int64)
+    selected = ccknn.select(x_train, x_test, kernel, s)
     assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
 
@@ -538,32 +544,30 @@ def nonadj_select(
     test: np.ndarray,
     kernel: Kernel,
     s: int,
-    select_method=ccknn.nonadj_select,
-) -> np.ndarray:
+) -> Indices:
     """Wrapper over various cknn selection methods."""
     # early exit
     s = np.clip(s, 0, train.shape[0])
     if s == 0:
-        return []
-    selected = select_method(x, train, test, kernel, s)
+        return np.array([], dtype=np.int64)
+    selected = ccknn.nonadj_select(x, train, test, kernel, s)
     assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
 
 
 def chol_select(
-    x: np.ndarray,
-    train: np.ndarray,
-    test: np.ndarray,
+    x: Points,
+    train: Indices,
+    test: Indices,
     kernel: Kernel,
     s: int,
-    select_method=ccknn.chol_select,
-) -> np.ndarray:
+) -> Indices:
     """Wrapper over selection specialized to Cholesky factorization."""
     # early exit
     s = np.clip(s, 0, train.shape[0])
     if s == 0:
-        return []
-    selected = select_method(x, train, test, kernel, s)
+        return np.array([], dtype=np.int64)
+    selected = ccknn.chol_select(x, train, test, kernel, s)
     assert len(set(selected)) == len(selected), "selected indices not distinct"
     return selected
 
@@ -571,24 +575,24 @@ def chol_select(
 ### global selection
 
 
-def __global_select(
-    x: np.ndarray,
+def __global_select(  # pyright: ignore
+    x: Points,
     kernel: Kernel,
-    ref_sparsity: dict,
-    candidate_sparsity: dict,
-    ref_groups: list,
-) -> dict:
+    ref_sparsity: Sparsity,
+    candidate_sparsity: Sparsity,
+    ref_groups: Grouping,
+) -> Sparsity:
     """Construct a sparsity pattern from a candidate set over all columns."""
     sparsity = {group[0]: [] for group in ref_groups}
     N = len(x)
 
     group_candidates = [
-        np.array(
-            list(
-                {j for i in group for j in candidate_sparsity[i]} - set(group)
-            ),
-            dtype=np.int64,
-        )
+        # fmt: off
+        np.array(list(
+            {j for i in group for j in candidate_sparsity[i]}  # type: ignore
+            - set(group)
+        ), dtype=np.int64)
+        # fmt: on
         for group in ref_groups
     ]
     nonzeros = sum(map(len, ref_sparsity.values()))
@@ -658,24 +662,24 @@ def __global_select(
     }
 
 
-def __global_mult_select(
-    x: np.ndarray,
+def __global_mult_select(  # pyright: ignore
+    x: Points,
     kernel: Kernel,
-    ref_sparsity: dict,
-    candidate_sparsity: dict,
-    ref_groups: list,
-) -> dict:
+    ref_sparsity: Sparsity,
+    candidate_sparsity: Sparsity,
+    ref_groups: Grouping,
+) -> Sparsity:
     """Construct a sparsity pattern from a candidate set over all columns."""
-    sparsity = {group[0]: [] for group in ref_groups}
+    sparsity: Sparsity = {group[0]: [] for group in ref_groups}
     N = len(x)
 
     group_candidates = [
-        np.array(
-            list(
-                {j for i in group for j in candidate_sparsity[i]} - set(group)
-            ),
-            dtype=np.int64,
-        )
+        # fmt: off
+        np.array(list(
+            {j for i in group for j in candidate_sparsity[i]}  # type: ignore
+            - set(group)
+        ), dtype=np.int64)
+        # fmt: on
         for group in ref_groups
     ]
     nonzeros = sum(map(len, ref_sparsity.values()))
@@ -739,7 +743,7 @@ def __global_mult_select(
         order, var, score = orders[i], init_vars[i], scores[i]
 
         # add entry to sparsity pattern
-        sparsity[group[0]].append(candidates[k])
+        sparsity[group[0]].append(candidates[k])  # type: ignore
         # update data structures
         __select_point(
             order, locations, points, num_sel[i] + m, k, kernel, factor, var
@@ -756,25 +760,24 @@ def __global_mult_select(
 
     # construct groups
     for group in ref_groups:
-        s = sorted(group + list(sparsity[group[0]]))
+        s = sorted(group + list(sparsity[group[0]]))  # type: ignore
         sparsity[group[0]] = s
         positions = {i: k for k, i in enumerate(s)}
         for i in group[1:]:
             # fill in blanks for rest to maintain proper number
-            sparsity[i] = np.empty(len(s) - positions[i])
+            sparsity[i] = Empty(len(s) - positions[i])
 
     return sparsity
 
 
 def global_select(
-    x: np.ndarray,
+    x: Points,
     kernel: Kernel,
-    ref_sparsity: dict,
-    candidate_sparsity: dict,
-    ref_groups: list,
-    select_method=ccknn.global_select,
-) -> dict:
+    ref_sparsity: Sparsity,
+    candidate_sparsity: Sparsity,
+    ref_groups: Grouping,
+) -> Sparsity:
     """Construct a sparsity pattern from a candidate set over all columns."""
-    return select_method(
+    return ccknn.global_select(
         x, kernel, ref_sparsity, candidate_sparsity, ref_groups
     )
