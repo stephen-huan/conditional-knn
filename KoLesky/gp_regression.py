@@ -9,6 +9,7 @@ from .cknn import solve
 from .ordering import reverse_maximin
 from .typehints import (
     CholeskyFactor,
+    Indices,
     InvChol,
     JointInvChol,
     Kernel,
@@ -305,7 +306,7 @@ def estimate(
     y_train: Points,
     x_test: Points,
     kernel: Kernel,
-    indexes: list | slice = slice(None),
+    indexes: Indices | list[int] | slice = slice(None),
 ) -> tuple[Vector, Matrix, float]:
     """Estimate y_test according to the given sparsity pattern."""
     return __estimate(x_train[indexes], y_train[indexes], x_test, kernel)

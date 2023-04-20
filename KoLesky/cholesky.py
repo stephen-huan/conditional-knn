@@ -38,7 +38,7 @@ def prec_logdet(L: Sparse) -> float:
     return -2 * np.sum(np.log(L.diagonal()))
 
 
-def sparse_kl_div(L: Sparse, theta: Matrix | None = None) -> float:
+def sparse_kl_div(L: Sparse, theta: Matrix | float | None = None) -> float:
     """
     Computes the KL divergence assuming L is optimal.
 

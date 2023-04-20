@@ -45,7 +45,7 @@ def euclidean(x: Points, y: Points) -> Matrix:
 ### selection methods
 
 
-def __naive_select(  # pyright: ignore
+def naive_select(
     x_train: Points, x_test: Points, kernel: Kernel, s: int
 ) -> Indices | list[int]:
     """Brute force selection method."""
@@ -67,7 +67,7 @@ def __naive_select(  # pyright: ignore
     return indexes
 
 
-def __prec_select(  # pyright: ignore
+def prec_select(
     x_train: Points, x_test: Points, kernel: Kernel, s: int
 ) -> list[int]:
     """Greedily select the s entries maximizing mutual information."""
@@ -147,7 +147,7 @@ def __select_update(
         cond_var[k] = np.inf
 
 
-def __chol_select(  # pyright: ignore
+def chol_single_select(
     x_train: Points, x_test: Points, kernel: Kernel, s: int
 ) -> list[int]:
     """Select the s most informative entries, storing a Cholesky factor."""
@@ -182,7 +182,7 @@ def __chol_select(  # pyright: ignore
 ### multiple point selection
 
 
-def __naive_mult_select(  # pyright: ignore
+def naive_mult_select(
     x_train: Points, x_test: Points, kernel: Kernel, s: int
 ) -> list[int]:
     """Brute force multiple point selection method."""
@@ -204,7 +204,7 @@ def __naive_mult_select(  # pyright: ignore
     return indexes
 
 
-def __prec_mult_select(  # pyright: ignore
+def prec_mult_select(
     x_train: Points, x_test: Points, kernel: Kernel, s: int
 ) -> list[int]:
     """Greedily select the s entries minimizing conditional covariance."""
@@ -252,7 +252,7 @@ def __prec_mult_select(  # pyright: ignore
     return indexes
 
 
-def __chol_mult_select(  # pyright: ignore
+def chol_mult_select(
     x_train: Points, x_test: Points, kernel: Kernel, s: int
 ) -> Indices:
     """Greedily select the s entries minimizing conditional covariance."""
@@ -404,7 +404,7 @@ def __scores_update(
     return best_k
 
 
-def __chol_nonadj_select(  # pyright: ignore
+def chol_nonadj_select(
     x: Points, train: Indices, test: Indices, kernel: Kernel, s: int
 ) -> Indices:
     """Greedily select the s entries minimizing conditional covariance."""
@@ -435,7 +435,7 @@ def __chol_nonadj_select(  # pyright: ignore
     return indexes
 
 
-def __budget_select(  # pyright: ignore
+def budget_select(
     x: Points, train: Indices, test: Indices, kernel: Kernel, s: int
 ) -> Indices:
     """Greedily select the s entries minimizing conditional covariance."""
@@ -575,7 +575,7 @@ def chol_select(
 ### global selection
 
 
-def __global_select(  # pyright: ignore
+def global_select(
     x: Points,
     kernel: Kernel,
     ref_sparsity: Sparsity,
@@ -662,7 +662,7 @@ def __global_select(  # pyright: ignore
     }
 
 
-def __global_mult_select(  # pyright: ignore
+def global_mult_select(
     x: Points,
     kernel: Kernel,
     ref_sparsity: Sparsity,

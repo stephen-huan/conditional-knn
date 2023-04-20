@@ -1,4 +1,4 @@
-from typing import Callable, Protocol, TypeAlias
+from typing import Any, Callable, Protocol, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
@@ -31,10 +31,10 @@ class Kernel(Protocol):
         X,  # pyright: ignore
         Y=None,  # pyright: ignore
         eval_gradient: bool = False,  # pyright: ignore
-    ) -> Matrix:
+    ) -> Any:
         ...
 
-    def diag(self, X) -> Matrix:  # pyright: ignore
+    def diag(self, X) -> Any:  # pyright: ignore
         ...
 
 
