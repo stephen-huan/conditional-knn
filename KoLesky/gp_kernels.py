@@ -51,6 +51,8 @@ class DotKernel(kernels.Kernel):
         """Return the kernel k(X, Y) and possibly its gradient."""
         if Y is None:
             Y = X
+        # this isn't necessary from lsp pyright, but is from the command line
+        assert Y is not None
         return X.dot(Y.T)
 
     def diag(self, X: Sparse) -> Matrix:

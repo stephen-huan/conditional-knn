@@ -575,7 +575,7 @@ def chol_select(
 ### global selection
 
 
-def global_select(
+def global_single_select(
     x: Points,
     kernel: Kernel,
     ref_sparsity: Sparsity,
