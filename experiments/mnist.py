@@ -1,12 +1,20 @@
+import os
+import time
+from typing import Callable
+
+import matplotlib.pyplot as plt
+import numpy as np
 import scipy.stats
+import sklearn.gaussian_process.kernels as kernels
 from sklearn.datasets import fetch_openml
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 
 from KoLesky import cknn
+from KoLesky.typehints import Kernel, Points, Vector
 
-from . import *
+from . import lightblue, load_data__, orange, plot__, save_data__
 
 # make folders
 ROOT = "experiments/mnist"
@@ -36,7 +44,9 @@ PLOT_LS     = True   # plot data for length scale
 ### helper methods
 
 
-def avg_results(f, trials: int = TRIALS) -> tuple:
+def avg_results(
+    f: Callable[[Points, Vector, Points], Vector], trials: int = TRIALS
+) -> tuple[float, np.float_]:
     """Time a function trials times."""
     start = time.time()
     ys = []
@@ -45,18 +55,19 @@ def avg_results(f, trials: int = TRIALS) -> tuple:
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE, random_state=i
         )
-        ys.append(accuracy_score(f(X_train, y_train, X_test), y_test))
+        ys.append(
+            accuracy_score(f(X_train, y_train, X_test), y_test)  # type: ignore
+        )
     return (time.time() - start) / trials, np.average(ys)
 
 
 ### experimental setup
 
 
-def knn(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, k: int
-) -> np.ndarray:
+def knn(X_train: Points, y_train: Vector, X_test: Points, k: int) -> Vector:
     """Classifies a list of points with k-th nearest neighbors (knn)."""
-    kernel = cknn.euclidean  # equivalent to using Matern kernel
+    # equivalent to using Matern kernel
+    kernel: Kernel = cknn.euclidean  # type: ignore
     return np.array(
         [
             scipy.stats.mode(
@@ -67,9 +78,7 @@ def knn(
     )
 
 
-def c_knn(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, k: int
-) -> np.ndarray:
+def c_knn(X_train: Points, y_train: Vector, X_test: Points, k: int) -> Vector:
     """Classifies a list of points with conditional knn."""
     kernel = kernels.Matern(length_scale=LENGTH_SCALE, nu=NU)
     return np.array(
@@ -83,8 +92,8 @@ def c_knn(
 
 
 def scikit_knn(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, k: int
-) -> np.ndarray:
+    X_train: Points, y_train: Vector, X_test: Points, k: int
+) -> Vector:
     """Classifies a list of points with scikit-learn's knn implementation."""
     # in high dimensions, brute force is much faster than ball/kd trees
     clf = KNeighborsClassifier(n_neighbors=k, algorithm="brute")
@@ -103,14 +112,17 @@ if __name__ == "__main__":
     else:
         # download mnist, caches to ~/scikit_learn_data
         mnist = fetch_openml("mnist_784", version=1, as_frame=False)
-        X, y = mnist["data"], mnist["target"]
+        X, y = mnist["data"], mnist["target"]  # type: ignore
         np.save(fnameX, X)
         np.save(fnamey, y)
 
     # X, y = X[:POINTS], y[:POINTS]
     # split 70,000 row dataset into train and test set, set seed
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE, random_state=1
+    X_train, X_test, y_train, y_test = map(
+        np.array,
+        train_test_split(
+            X, y, train_size=TRAIN_SIZE, test_size=TEST_SIZE, random_state=1
+        ),
     )
 
     ### plotting
@@ -167,8 +179,9 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $k$ \
-($n = {len(X_train)}, m = {len(X_test)}, l = {LENGTH_SCALE}, \\nu = {NU}$)"
+                    f"{y_label.split()[0]} with increasing $k$ "
+                    f"($n = {len(X_train)}, m = {len(X_test)}, "
+                    f"l = {LENGTH_SCALE}, \\nu = {NU}$)"
                 )
                 plt.xlabel("$k$")
                 plt.ylabel(y_label)
@@ -193,9 +206,9 @@ if __name__ == "__main__":
     length_scales = 2 ** np.arange(0, 20)
 
     if GENERATE_LS:
-        for l in length_scales:
-            print(l)
-            LENGTH_SCALE = l
+        for length_scale in length_scales:
+            print(length_scale)
+            LENGTH_SCALE = length_scale
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(f)):
                     data[d][i].append(result)
@@ -214,8 +227,8 @@ if __name__ == "__main__":
             plt.plot(length_scales, y, label=name, color=color)
 
         plt.title(
-            f"Accuracy with increasing $l$ \
-($n = {len(X_train)}, m = {len(X_test)}, k = {K}, \\nu = {NU}$)"
+            f"Accuracy with increasing $l$ "
+            f"($n = {len(X_train)}, m = {len(X_test)}, k = {K}, \\nu = {NU}$)"
         )
         plt.xlabel("$l$")
         plt.xscale("log")
@@ -224,7 +237,7 @@ if __name__ == "__main__":
         plt.tight_layout()
         plt.savefig(f"{ROOT}/l_acc.png")
 
-    exit()
+    # exit()
 
     ### experiments
 

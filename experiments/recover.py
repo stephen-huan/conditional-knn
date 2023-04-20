@@ -1,6 +1,23 @@
-from KoLesky import cholesky, cknn, gp_kernels
+import os
+import time
 
-from . import *
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.sparse as sparse
+
+from KoLesky import cholesky, cknn, gp_kernels
+from KoLesky.typehints import Indices, Kernel, Matrix, Points, PointSelect
+
+from . import (
+    avg_results__,
+    lightblue,
+    load_data__,
+    orange,
+    plot__,
+    save_data__,
+    seagreen,
+    silver,
+)
 
 # make folders
 ROOT = "experiments/recover"
@@ -37,7 +54,7 @@ PLOT_NOISE_S = True     # plot data for noise
 ### experimental setup
 
 
-def gen_noise(n: int, loc: float = 0, scale: float = 1) -> np.ndarray:
+def gen_noise(n: int, loc: float = 0, scale: float = 1) -> Matrix:
     """Generate a nxn matrix of symmetric noise."""
     noise = np.zeros((n, n))
     # generate lower triangular
@@ -50,7 +67,7 @@ def gen_noise(n: int, loc: float = 0, scale: float = 1) -> np.ndarray:
     return noise
 
 
-def setup() -> tuple:
+def setup() -> tuple[Indices, Indices, Matrix]:
     """Generate a sparse Cholesky factor."""
     sparsity = [
         np.append(
@@ -75,7 +92,9 @@ def setup() -> tuple:
     return col_ind, row_ind, L
 
 
-def recover(points: np.ndarray, kernel: Kernel, select) -> tuple:
+def recover(
+    points: Points, kernel: Kernel, select: PointSelect
+) -> tuple[list[int], list[int]]:
     """Reconstruct a sparse Cholesky factor given its covariance matrix."""
     # attempt to reconstruct
     sel_col_ind = []
@@ -91,7 +110,9 @@ def recover(points: np.ndarray, kernel: Kernel, select) -> tuple:
     return sel_col_ind, sel_row_ind
 
 
-def test_recover(select, inv: bool = False) -> tuple:
+def test_recover(
+    select: PointSelect, inv: bool = False
+) -> tuple[float, float, float]:
     """Test a selection method's ability to reconstruct a sparse factor."""
     # generate ground truth sparse Cholesky factor
     col_ind, row_ind, L = setup()
@@ -124,7 +145,7 @@ def test_recover(select, inv: bool = False) -> tuple:
 
     theta = cholesky.inv(L @ L.T)
     points, kernel = gp_kernels.matrix_kernel(theta)
-    factor = cholesky.__cholesky(points, kernel, sparsity)
+    factor = cholesky.__cholesky(points, kernel, sparsity)  # pyright: ignore
     kl_div = cholesky.sparse_kl_div(factor, theta)
 
     return score, kl_div, recover_time
@@ -145,6 +166,8 @@ if __name__ == "__main__":
         ("time", "Time (seconds)"),
     ]
     y_names, y_labels = zip(*y)
+
+    d = 0
 
     ### changing n
 
@@ -277,10 +300,10 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $\sigma^2$ \
-(N = {N}, S = {S})"
+                    f"{y_label.split()[0]} with increasing $\\sigma^2$ "
+                    f"(N = {N}, S = {S})"
                 )
-                plt.xlabel("$\sigma^2$")
+                plt.xlabel("$\\sigma^2$")
                 plt.ylabel(y_label)
 
                 if y_name == "kl_div":
@@ -353,10 +376,7 @@ if __name__ == "__main__":
             for y, name, color, style in zip(y_data, names, colors, styles):
                 plt.plot(x, y, label=name, color=color, linestyle=style)
 
-            plt.title(
-                f"{y_label.split()[0]} with increasing $s$ \
-(N = {N})"
-            )
+            plt.title(f"{y_label.split()[0]} with increasing $s$ (N = {N})")
             plt.xlabel("$s$")
             plt.ylabel(y_label)
 

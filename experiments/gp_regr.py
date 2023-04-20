@@ -1,12 +1,29 @@
+import os
+import time
+
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.io as io
 import sklearn.datasets as datasets
+import sklearn.gaussian_process.kernels as kernels
 from sklearn.model_selection import train_test_split
 
 from KoLesky import cholesky, cknn
 from KoLesky import gp_regression as gp_regr
 from KoLesky.gp_regression import coverage, grid, rmse
 from KoLesky.ordering import euclidean
+from KoLesky.typehints import Indices, Kernel, Ordering, Points, Sparse, Vector
 
-from . import *
+from . import (
+    lightblue,
+    load_data__,
+    orange,
+    plot__,
+    rust,
+    save_data__,
+    seagreen,
+    silver,
+)
 
 DATASET = "oco2"
 ROOT = f"experiments/gp/{DATASET}"
@@ -49,21 +66,19 @@ PLOT_S       = True  # plot data for s
 ### graphing helper methods
 
 
-def scatter_points(points: np.ndarray, ax1: int, ax2: int, **kwargs) -> None:
+def scatter_points(points: Points, ax1: int, ax2: int, **kwargs) -> None:
     """Scatter plot the feature marginalized points."""
     plt.scatter(points[:, ax1], points[:, ax2], **kwargs)
 
 
-def chol_get_selected(
-    L: sparse.csc_matrix, order: np.ndarray, index: int
-) -> np.ndarray:
+def chol_get_selected(L: Sparse, order: Ordering, index: int) -> Indices:
     """Return the selected points for a index."""
     loc = np.arange(order.shape[0])[order == index][0]
-    rows, cols = L[:, loc].nonzero()
+    rows, cols = L[:, loc].nonzero()  # pyright: ignore
     return order[rows]
 
 
-def remove_duplicates(points: np.ndarray, eps: float = 1e-9) -> np.ndarray:
+def remove_duplicates(points: Points, eps: float = 1e-9) -> Points:
     """Remove (near) duplicate points from the list of points."""
     new_points = [points[0]]
     for i in range(1, points.shape[0]):
@@ -75,8 +90,8 @@ def remove_duplicates(points: np.ndarray, eps: float = 1e-9) -> np.ndarray:
 ### experimental setup
 
 
-def get_dataset(dataset: str) -> tuple:
-    """Return a dataset (X_train, y_train, X_test, y_test) from the name."""
+def get_dataset(dataset: str) -> tuple[Points, Vector, int]:
+    """Return a dataset from the name."""
     # certain datasets come with both training data and validation set
     m = 0
     # certain datasets come with labels
@@ -90,16 +105,16 @@ def get_dataset(dataset: str) -> tuple:
         # random looks more "clumped" than one would intuitively suspect
         points = rng.random((N, D))
     elif dataset == "s-curve":
-        points, t = datasets.make_s_curve(10000, random_state=1)
+        points, _ = datasets.make_s_curve(10000, random_state=1)
     elif dataset == "swiss-roll":
-        points, t = datasets.make_swiss_roll(10000, random_state=1)
+        points, _ = datasets.make_swiss_roll(10000, random_state=1)
     elif dataset == "circles":
         points, y = datasets.make_circles(1000, random_state=1)
     elif dataset == "moons":
         points, y = datasets.make_moons(1000, random_state=1)
     elif dataset == "digits":
         data = datasets.load_digits()
-        points = data.data / 16
+        points = data.data / 16  # type: ignore
         points = points[:N]
     elif dataset == "sarcos":
         root = "datasets/gpml"
@@ -170,12 +185,10 @@ def get_dataset(dataset: str) -> tuple:
     else:
         raise ValueError(f"invalid dataset: {dataset}")
 
-    return points, y, m
+    return points, y, m  # type: ignore
 
 
-def get_sample(
-    points: np.ndarray, y: np.ndarray, m: int, kernel: cknn.Kernel
-) -> tuple:
+def get_sample(points: Points, y: Vector, m: int, kernel: Kernel) -> tuple:
     """Generate y labels from the features."""
     if y is not None:
         pass
@@ -183,11 +196,11 @@ def get_sample(
         y = np.load(fnamey)
     # sample from covariance
     else:
-        sample = gp_regr.sample_chol(rng, kernel(points))
+        sample = gp_regr.sample_chol(rng, kernel(points))  # type: ignore
         # a bit broken because of the lack of positive-definiteness
         # sample = gp_regr.sample_grid(rng, kernel, N, 0, 1, d=D)
 
-        # true_cov = kernel(points)
+        # true_cov: np.ndarray = kernel(points) # type: ignore
         # emperical_cov = gp_regr.empirical_covariance(sample, trials=10000)
         # print(true_cov)
         # print()
@@ -237,28 +250,27 @@ if __name__ == "__main__":
 
     kernel = kernels.Matern(length_scale=1, nu=5 / 2)
 
-    if GENERATE:
-        points, y, m = get_dataset(DATASET)
-        points = points[:, :D]
-        print(f"original number of points: {len(points)}")
-        points = remove_duplicates(points)
-        print(f" cleaned number of points: {len(points)}")
-        # length_scales = np.array([np.var(points[m:, d]) for d in range(D)])
-        length_scales = np.array(
-            [np.max(points[m:, d]) - np.min(points[m:, d]) for d in range(D)]
-        )
-        kernel = kernels.Matern(length_scale=1, nu=3 / 2)
-        # kernel = kernels.Matern(length_scale=1e0*length_scales, nu=3/2)
-        # generate all points together
-        X_train, X_test, y_train, y_test = get_sample(points, y, m, kernel)
-        points = np.vstack((X_test, X_train))
-        n = points.shape[0]
+    points, y, m = get_dataset(DATASET)
+    points = points[:, :D]
+    print(f"original number of points: {len(points)}")
+    points = remove_duplicates(points)
+    print(f" cleaned number of points: {len(points)}")
+    # length_scales = np.array([np.var(points[m:, d]) for d in range(D)])
+    length_scales = np.array(
+        [np.max(points[m:, d]) - np.min(points[m:, d]) for d in range(D)]
+    )
+    kernel = kernels.Matern(length_scale=1, nu=3 / 2)
+    # kernel = kernels.Matern(length_scale=1e0 * length_scales, nu=3 / 2)
+    # generate all points together
+    X_train, X_test, y_train, y_test = get_sample(points, y, m, kernel)
+    points = np.vstack((X_test, X_train))
+    n = points.shape[0]
 
     # print(kernel(X_train))
-    # y_pred = kernel(X_test, X_train)@y_train
+    # y_pred = kernel(X_test, X_train) @ y_train
     # print(y_test.flatten())
     # print(y_pred.flatten())
-    # print(np.sum((y_test - y_pred)**2))
+    # print(np.sum((y_test - y_pred) ** 2))
     # print(np.sum(kernel(X_test, X_train), axis=1))
     # print(length_scales)
     # exit()
@@ -341,8 +353,13 @@ if __name__ == "__main__":
                 x_train, x_test, kernel, RHO_S, RHO, select=cknn.knn_select
             ),
         ),
-        # ("select-global", darkorange, lambda x_train, x_test, kernel: \
-        #  cholesky.cholesky_joint_global(x_train, x_test, kernel, RHO_S, RHO)),
+        # (
+        #     "select-global",
+        #     darkorange,
+        #     lambda x_train, x_test, kernel: cholesky.cholesky_joint_global(
+        #         x_train, x_test, kernel, RHO_S, RHO
+        #     ),
+        # ),
         (
             "KL (agg)",
             seagreen,
@@ -357,10 +374,18 @@ if __name__ == "__main__":
                 x_train, x_test, kernel, RHO_S, RHO, LAMBDA
             ),
         ),
-        # ("select-global (agg)", rust, lambda x_train, x_test, kernel: \
-        #  cholesky.cholesky_joint_global(x_train, x_test, kernel,
-        #                                 RHO_S, RHO, LAMBDA)),
-        ("exact", silver, lambda x_train, x_test, kernel: (Linv, order)),
+        # (
+        #     "select-global (agg)",
+        #     rust,
+        #     lambda x_train, x_test, kernel: cholesky.cholesky_joint_global(
+        #         x_train, x_test, kernel, RHO_S, RHO, LAMBDA
+        #     ),
+        # ),
+        (
+            "exact",
+            silver,
+            lambda x_train, x_test, kernel: (Linv, order),  # pyright: ignore
+        ),
     ]
 
     names, colors, funcs = zip(*methods)
@@ -406,8 +431,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $\\rho$ \
-($N$ = {N}, $\\rho_s$ = {RHO_S}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $\\rho$ "
+                    f"($N$ = {N}, $\\rho_s$ = {RHO_S}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
@@ -428,11 +453,16 @@ if __name__ == "__main__":
         for y_det, y_time, name, color in zip(logdets, times, names, colors):
             if name == "exact":
                 continue
-            plt.plot(y_time, y_det - logdets[-1], label=name, color=color)
+            plt.plot(
+                y_time,
+                y_det - logdets[-1],  # type: ignore
+                label=name,
+                color=color,
+            )
 
         plt.title(
-            f"Log determinant with increasing $\\rho$ against time \
-($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)"
+            f"Log determinant with increasing $\\rho$ against time "
+            f"($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)"
         )
         plt.xlabel("Time (seconds)")
         plt.ylabel("Log determinant")
@@ -446,11 +476,16 @@ if __name__ == "__main__":
         for y_loss, y_time, name, color in zip(losses, times, names, colors):
             if name == "exact":
                 continue
-            plt.plot(y_time, y_loss - losses[-1], label=name, color=color)
+            plt.plot(
+                y_time,
+                y_loss - losses[-1],  # type: ignore
+                label=name,
+                color=color,
+            )
 
         plt.title(
-            f"Loss with increasing $\\rho$ against time \
-($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)"
+            f"Loss with increasing $\\rho$ against time "
+            f"($N = {N}, \\rho_s = {RHO_S}, \\lambda = {LAMBDA}$)"
         )
         plt.xlabel("Time (seconds)")
         plt.ylabel("Loss")
@@ -493,8 +528,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $s$ \
-($N$ = {N}, $\\rho$ = {RHO}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $s$ "
+                    f"($N$ = {N}, $\\rho$ = {RHO}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$s$")
                 plt.ylabel(y_label)

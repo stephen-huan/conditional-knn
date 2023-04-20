@@ -1,8 +1,27 @@
 import copy
+import os
+import time
+from typing import Callable
+
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.sparse as sparse
+import sklearn.gaussian_process.kernels as kernels
 
 from KoLesky import cholesky, cknn
+from KoLesky.typehints import Kernel, Matrix, Points, Sparse, Vector
 
-from . import *
+from . import (
+    avg_results__,
+    lightblue,
+    load_data__,
+    orange,
+    plot__,
+    rust,
+    save_data__,
+    seagreen,
+    silver,
+)
 
 # make folders
 ROOT = "experiments/cg"
@@ -39,12 +58,12 @@ PLOT_RHO     = True # plot data for rho
 
 iters = []
 
-LinearOperator = sparse.linalg.LinearOperator
+LinearOperator = sparse.linalg.LinearOperator  # type: ignore
 
 ### conjugate gradient helper methods
 
 
-def avg_iters(iters: list) -> np.ndarray:
+def avg_iters(iters: list) -> Vector:
     """Return the average value along each slice of the list."""
     n = max(map(len, iters))
     out = np.zeros(n)
@@ -54,10 +73,10 @@ def avg_iters(iters: list) -> np.ndarray:
     return out
 
 
-def cholesky_linearoperator(L: sparse.csc_matrix) -> LinearOperator:
+def cholesky_linearoperator(L: Sparse) -> LinearOperator:
     """Return a LinearOperator object from a Cholesky factor."""
 
-    def matvec(v: np.ndarray) -> np.ndarray:
+    def matvec(v: Vector) -> Vector:
         """Compute L (L^T v)"""
         return L.dot(L.T.dot(v))
 
@@ -67,11 +86,11 @@ def cholesky_linearoperator(L: sparse.csc_matrix) -> LinearOperator:
 ### experiment
 
 
-def setup() -> tuple:
+def setup() -> tuple[Points, Kernel, Matrix, Vector, Vector]:
     """Generate a matrix and a vector to solve."""
     kernel = kernels.Matern(length_scale=1, nu=1 / 2)
     points = rng.random((N, D))
-    theta = kernel(points)
+    theta: Matrix = kernel(points)  # type: ignore
 
     # multiply i.i.d. normal by covariance matrix to smoothen
     # this gives better results than generating the right hand side directly
@@ -82,12 +101,15 @@ def setup() -> tuple:
 
 
 def solve(
-    theta: np.ndarray, y: np.ndarray, linearop: LinearOperator, callback
-) -> tuple:
+    theta: Matrix,
+    y: Vector,
+    linearop: LinearOperator,
+    callback: Callable[[Vector], None],
+) -> tuple[Vector, Vector]:
     """Solve theta x = y by conjugate gradient with preconditioner."""
     iters.append([])
     x0 = np.zeros(N)
-    xp, info = sparse.linalg.cg(
+    xp, _ = sparse.linalg.cg(  # type: ignore
         theta,
         y,
         tol=RTOL,
@@ -100,7 +122,9 @@ def solve(
     return xp, iters[-1]
 
 
-def test_chol(chol, *args) -> tuple:
+def test_chol(
+    chol, *args
+) -> tuple[float, float, int, int, float, float, float]:
     """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
     points, kernel, theta, x, y = setup()
@@ -112,7 +136,7 @@ def test_chol(chol, *args) -> tuple:
 
     linearop = cholesky_linearoperator(L)
 
-    def cg_callback(xk: np.ndarray) -> None:
+    def cg_callback(xk: Vector) -> None:
         """Callback called by conjugate gradient after each iteration."""
         iters[-1].append(np.linalg.norm(x[order] - xk))
 
@@ -126,7 +150,7 @@ def test_chol(chol, *args) -> tuple:
 
     return (
         kl_div,
-        residual,
+        residual,  # type: ignore
         len(run),
         L.nnz,
         time_chol,
@@ -206,7 +230,7 @@ if __name__ == "__main__":
 
     y = [
         ("kl_div", "KL divergence"),
-        ("res", "Residual ($\ell_2$-norm)"),
+        ("res", "Residual ($\\ell_2$-norm)"),
         ("iter", "Iterations"),
         ("nnz", "Nonzeros"),
         ("time_chol", "Time for Cholesky factorization (seconds)"),
@@ -214,6 +238,9 @@ if __name__ == "__main__":
         ("time_tot", "Total Wall-clock Time (seconds)"),
     ]
     y_names, y_labels = zip(*y)
+
+    d = 0
+    iter_data = []
 
     ### changing n
 
@@ -255,7 +282,11 @@ if __name__ == "__main__":
         iter_data = [None for _ in range(len(names))]
         for i in range(len(names)):
             fname = f"{ROOT}/data/n_iter-res_{names[i]}.csv"
-            iter_data[i] = np.loadtxt(fname, delimiter=" ")[:, 1]
+            # fmt: off
+            iter_data[i] = ( # type: ignore
+                np.loadtxt(fname, delimiter=" ")[:, 1]
+            )
+            # fmt: on
 
     ## plot n to each y-axis parameter
 
@@ -264,8 +295,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $N$ \
-($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $N$ "
+                    f"($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$N$")
                 plt.ylabel(y_label)
@@ -283,8 +314,8 @@ if __name__ == "__main__":
             plt.plot(sizes, y_value / sizes, label=name, color=color)
 
         plt.title(
-            f"Nonzero entries per column with increasing $N$ \
-($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+            f"Nonzero entries per column with increasing $N$ "
+            f"($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
         )
         plt.xlabel("$N$")
         plt.ylabel("Number of Nonzeros")
@@ -296,16 +327,21 @@ if __name__ == "__main__":
     # progress of conjugate gradient with iteration number
     if PLOT_N:
         for y_value, name, color in zip(iter_data, names, colors):
-            plt.plot(np.arange(len(y_value)), y_value, label=name, color=color)
+            plt.plot(
+                np.arange(len(y_value)),  # type: ignore
+                y_value,
+                label=name,
+                color=color,
+            )
 
         plt.yscale("log")
 
         plt.title(
-            f"Residual with Iterations \
-($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+            f"Residual with Iterations "
+            f"($\\rho$ = {RHO}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
         )
         plt.xlabel("Iterations")
-        plt.ylabel("Residual ($\ell_2$-norm)")
+        plt.ylabel("Residual ($\\ell_2$-norm)")
         plt.legend()
         plt.tight_layout()
         plt.savefig(f"{ROOT}/n_iter-res.png")
@@ -343,8 +379,8 @@ if __name__ == "__main__":
             plt.plot(sizes, y_value / sizes, label=name, color=color)
 
         plt.title(
-            f"Nonzero entries per column with increasing $N$ \
-(iters = {max_iters}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+            "Nonzero entries per column with increasing $N$ "
+            f"(iters = {max_iters}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
         )
         plt.xlabel("$N$")
         plt.ylabel("Number of Nonzeros")
@@ -393,8 +429,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $\\rho$ \
-($N$ = {N}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $\\rho$ "
+                    f"($N$ = {N}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
@@ -406,6 +442,6 @@ if __name__ == "__main__":
             if y_name == "iter":
                 # remove rho = 1 which skews the iteration plot
                 # x_data, y_data = rhos[1:], y_data[:, 1:]
-                pass
+                ...
 
             plot(x_data, y_data, names, colors, "rho", y_name, plot_callback)

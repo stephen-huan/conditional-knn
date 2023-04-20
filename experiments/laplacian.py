@@ -1,6 +1,27 @@
-from KoLesky import cholesky, cknn, gp_kernels
+import os
+import time
 
-from . import *
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy.sparse as sparse
+
+from KoLesky import cholesky, gp_kernels
+from KoLesky.typehints import Matrix
+
+from . import (
+    Laplacian,
+    avg_results__,
+    darkorange,
+    darkrust,
+    get_laplacian,
+    lightblue,
+    load_data__,
+    orange,
+    plot__,
+    rust,
+    save_data__,
+    seagreen,
+)
 
 # make folders
 ROOT = "experiments/laplacian"
@@ -27,7 +48,7 @@ avg_results = lambda f, trials=TRIALS: avg_results__(f, trials)
 ### Laplacian experiment
 
 
-def setup_laplacian() -> tuple:
+def setup_laplacian() -> tuple[Laplacian, Matrix]:
     """Generate a Laplacian and its Cholesky factor."""
     laplacian = get_laplacian(DATASET)
     # add multiple of identity to force p.d.
@@ -54,10 +75,10 @@ def test_laplacian(chol, *args) -> tuple:
     recover_time = time.time() - start
 
     # re-order laplacian
-    laplacian = laplacian[np.ix_(order, order)]
+    laplacian = laplacian[np.ix_(order, order)]  # type: ignore
 
     # check condition of resulting preconditioner
-    precond = sparse.linalg.spsolve_triangular(
+    precond = sparse.linalg.spsolve_triangular(  # type: ignore
         factor.tocsr(), np.identity(factor.shape[0]), lower=True
     )
     precond = sparse.csc_matrix(precond)
@@ -161,8 +182,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $\\rho$ \
-(dataset = {DATASET}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $\\rho$ "
+                    f"(dataset = {DATASET}, $s$ = {S}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)

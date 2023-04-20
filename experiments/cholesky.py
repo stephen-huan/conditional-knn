@@ -1,11 +1,29 @@
+import os
+import time
+
+import matplotlib.pyplot as plt
+import numpy as np
+import sklearn.gaussian_process.kernels as kernels
+
 from KoLesky import cholesky, cknn
 from KoLesky import gp_regression as gp_regr
+from KoLesky.typehints import InvChol, Kernel, Points
 
-from . import *
-
-ROOT = f"experiments/cholesky"
+from . import (
+    avg_results__,
+    lightblue,
+    load_data__,
+    orange,
+    plot__,
+    rng,
+    rust,
+    save_data__,
+    seagreen,
+    silver,
+)
 
 # make folders
+ROOT = "experiments/cholesky"
 os.makedirs(f"{ROOT}/data", exist_ok=True)
 load_data = lambda *args, **kwargs: load_data__(*args, **kwargs, root=ROOT)
 save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
@@ -37,7 +55,7 @@ PLOT_S       = True  # plot data for s
 ### experiment
 
 
-def get_points(n: int, d: int) -> np.ndarray:
+def get_points(n: int, d: int) -> Points:
     """Return a n points of dimension d."""
     # return rng.random((n, d))
     width = 1 / (n ** (1 / d) - 1) if n ** (1 / d) > 1 else 0
@@ -45,13 +63,13 @@ def get_points(n: int, d: int) -> np.ndarray:
 
 
 def test_chol(
-    points: np.ndarray, kernel: Kernel, logdet_theta: float, inv_chol
-) -> tuple:
+    points: Points, kernel: Kernel, logdet_theta: float, inv_chol: InvChol
+) -> tuple[float, int, float]:
     """Test the Cholesky factorization."""
 
     # compute Cholesky factorization
     start = time.time()
-    L, order = inv_chol(points, kernel)
+    L, _ = inv_chol(points, kernel)
     time_chol = time.time() - start
 
     kl_div = cholesky.sparse_kl_div(L, logdet_theta)
@@ -128,7 +146,9 @@ if __name__ == "__main__":
     if GENERATE_N:
         for n in sizes:
             x = get_points(n, D)
-            logdet_theta = cholesky.logdet(kernel(x)) if KL else 0
+            logdet_theta = (
+                cholesky.logdet(kernel(x)) if KL else 0  # type: ignore
+            )
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
                     data[d][i].append(result)
@@ -185,7 +205,7 @@ if __name__ == "__main__":
 
     if GENERATE_RHO:
         x = get_points(N, D)
-        logdet_theta = cholesky.logdet(kernel(x)) if KL else 0
+        logdet_theta = cholesky.logdet(kernel(x)) if KL else 0  # type: ignore
         for RHO in rhos:
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
@@ -248,7 +268,7 @@ if __name__ == "__main__":
 
     if GENERATE_S:
         x = get_points(N, D)
-        logdet_theta = cholesky.logdet(kernel(x)) if KL else 0
+        logdet_theta = cholesky.logdet(kernel(x)) if KL else 0  # type: ignore
         for S in ss:
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
