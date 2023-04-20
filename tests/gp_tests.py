@@ -1,9 +1,8 @@
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 
-from KoLesky import cknn
 from KoLesky import gp_regression as gp_regr
-from KoLesky.gp_regression import estimate, grid
+from KoLesky.gp_regression import grid
 
 # fmt: off
 D = 3  # dimension of points
@@ -30,7 +29,7 @@ if __name__ == "__main__":
 
     kernel = kernels.Matern(length_scale=1, nu=5 / 2)
     points = rng.random((N, D))
-    true_cov = kernel(points)
+    true_cov: np.ndarray = kernel(points)  # type: ignore
 
     sample = gp_regr.sample(rng, true_cov)
     empirical_cov = gp_regr.empirical_covariance(sample, TRIALS)
@@ -74,7 +73,7 @@ if __name__ == "__main__":
     # points on unit grid
 
     points = grid(N, d=D)
-    true_cov = kernel(points)
+    true_cov: np.ndarray = kernel(points)  # type: ignore
 
     sample = gp_regr.sample(rng, true_cov)
     empirical_cov = gp_regr.empirical_covariance(sample, TRIALS)

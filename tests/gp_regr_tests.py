@@ -2,12 +2,11 @@ import time
 
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
-from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 import KoLesky.gp_regression as gp_regr
 from KoLesky import cholesky, cknn
-from KoLesky.gp_regression import coverage, estimate, grid, rmse
+from KoLesky.gp_regression import coverage, estimate, rmse
 
 # fmt: off
 D = 3     # dimension of points
@@ -39,12 +38,13 @@ if __name__ == "__main__":
     # points = grid(N + M, 0, 1)
 
     # sample from covariance
-    sample = gp_regr.sample_chol(rng, kernel(points))
+    sample = gp_regr.sample_chol(rng, kernel(points))  # type: ignore
     y = sample(TRIALS).T
 
     # randomly split into training and testing
-    X_train, X_test, y_train, y_test = train_test_split(
-        points, y, train_size=N, test_size=M, random_state=1
+    X_train, X_test, y_train, y_test = map(
+        np.array,
+        train_test_split(points, y, train_size=N, test_size=M, random_state=1),
     )
 
     # predictions

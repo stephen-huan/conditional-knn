@@ -22,7 +22,7 @@ if __name__ == "__main__":
     X = rng.random((N, D))
     # generate a symmetric positive definite matrix
     kernel = kernels.Matern(length_scale=1, nu=5 / 2)
-    theta = kernel(X)
+    theta: np.ndarray = kernel(X)  # type: ignore
     theta_inv = cholesky.inv(theta)
     theta_det = cholesky.logdet(theta)
 

@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     N = 10**6
     dists, ids = rng.random(N), np.arange(N)
-    l = list(zip(dists, ids))
+    data = list(zip(dists, ids))
 
     start = time.time()
     heap = maxheap.Heap(dists, ids)
@@ -44,10 +44,10 @@ if __name__ == "__main__":
 
     start = time.time()
     for i in range(N):
-        heap.push(l[i][0], i)
+        heap.push(data[i][0], i)
     print(f"maxheap  push: {time.time() - start:.3f}")
 
-    heap = list(l)
+    heap = list(data)
     start = time.time()
     heapq.heapify(heap)
     print(f" pyheap build: {time.time() - start:.3f}")
@@ -59,5 +59,5 @@ if __name__ == "__main__":
 
     start = time.time()
     for i in range(N):
-        heapq.heappush(heap, l[i])
+        heapq.heappush(heap, data[i])
     print(f" pyheap  push: {time.time() - start:.3f}")

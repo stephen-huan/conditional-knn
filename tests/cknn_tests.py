@@ -37,36 +37,41 @@ if __name__ == "__main__":
         # generate sample
         X = np.vstack((X_train, X_test))
         sampler = sample(rng, kernel(X))
-        y = sampler().flatten()
+        y = sampler().flatten()  # type: ignore
         y_train, y_test = y[:N], y[N:]
 
         if isinstance(kernel, kernels.Matern):
             params = kernel.get_params()
             print(
-                f"Matern(nu={params['nu']}, \
-length_scale={params['length_scale']})"
+                f"Matern(nu={params['nu']}, "
+                f"length_scale={params['length_scale']})"
             )
         else:
             print("Matrix kernel")
         # single point case
-        answer = cknn.__naive_select(X_train, X_test[0:1], kernel, S)
-        indexes = cknn.__prec_select(X_train, X_test[0:1], kernel, S)
+        answer = cknn.naive_select(X_train, X_test[0:1], kernel, S)
+        indexes = cknn.prec_select(X_train, X_test[0:1], kernel, S)
         assert np.allclose(indexes, answer), "prec single indexes mismatch"
-        indexes = cknn.__chol_select(X_train, X_test[0:1], kernel, S)
+        indexes = cknn.chol_single_select(X_train, X_test[0:1], kernel, S)
         assert np.allclose(indexes, answer), "chol single indexes mismatch"
         indexes = cknn.select(X_train, X_test[0:1], kernel, S)
         assert np.allclose(indexes, answer), "single select indexes mismatch"
 
         if isinstance(kernel, kernels.Matern):
             answer = cknn.knn_select(X_train, X_test[0:1], kernel, S)
-            selected = cknn.knn_select(X_train, X_test[0:1], cknn.euclidean, S)
+            selected = cknn.knn_select(
+                X_train,
+                X_test[0:1],
+                cknn.euclidean,  # type: ignore
+                S,
+            )
             assert np.allclose(selected, answer), "knn mismatch"
 
         # multiple point case
-        answer = cknn.__naive_mult_select(X_train, X_test, kernel, S)
-        indexes = cknn.__prec_mult_select(X_train, X_test, kernel, S)
+        answer = cknn.naive_mult_select(X_train, X_test, kernel, S)
+        indexes = cknn.prec_mult_select(X_train, X_test, kernel, S)
         assert np.allclose(indexes, answer), "prec multiple indexes mismatch"
-        indexes = cknn.__chol_mult_select(X_train, X_test, kernel, S)
+        indexes = cknn.chol_mult_select(X_train, X_test, kernel, S)
         assert np.allclose(indexes, answer), "chol multiple indexes mismatch"
         indexes = cknn.select(X_train, X_test, kernel, S)
         assert np.allclose(indexes, answer), "mult select indexes mismatch"
