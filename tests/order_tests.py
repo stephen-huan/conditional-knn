@@ -37,6 +37,9 @@ if __name__ == "__main__":
     # print(ans_sparsity)
     # print(sparsity)
 
+    assert (np.sort(ans_order) == np.arange(N)).all(), "naive order invalid"
+    assert (np.sort(order) == np.arange(N)).all(), "kd-tree order invalid"
+
     assert np.allclose(ans_order, order), "kd-tree order mismatch"
     assert np.allclose(ans_lengths, lengths), "kd-tree lengths mismatch"
 
