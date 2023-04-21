@@ -169,8 +169,9 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $N$ \
-($\\rho$ = {RHO}, $\\rho_s$ = {S}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $N$ "
+                    f"($\\rho$ = {RHO}, $\\rho_s$ = {S}, "
+                    f"$\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$N$")
                 plt.ylabel(y_label)
@@ -185,8 +186,8 @@ if __name__ == "__main__":
             plt.plot(y_nnz, y_time, label=name, color=color)
 
         plt.title(
-            f"Time with increasing $N$ against nonzeros \
-($\\rho$ = {RHO}, $\\rho_s$ = {S}, $\\lambda$ = {LAMBDA})"
+            f"Time with increasing $N$ against nonzeros "
+            f"($\\rho$ = {RHO}, $\\rho_s$ = {S}, $\\lambda$ = {LAMBDA})"
         )
         plt.xlabel("Nonzeros")
         plt.ylabel("Time (seconds)")
@@ -227,8 +228,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $\\rho$ \
-($N$ = {N}, $\\rho_s$ = {S}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $\\rho$ "
+                    f"($N$ = {N}, $\\rho_s$ = {S}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
@@ -246,8 +247,8 @@ if __name__ == "__main__":
             plt.plot(y_time, y_kl, label=name, color=color)
 
         plt.title(
-            f"Accuracy with increasing $\\rho$ against time \
-($N = {N}, \\rho_s = {S}, \\lambda = {LAMBDA}$)"
+            f"Accuracy with increasing $\\rho$ against time "
+            f"($N = {N}, \\rho_s = {S}, \\lambda = {LAMBDA}$)"
         )
         plt.xlabel("Time (seconds)")
         plt.ylabel("KL divergence")
@@ -290,8 +291,8 @@ if __name__ == "__main__":
 
             def plot_callback():
                 plt.title(
-                    f"{y_label.split()[0]} with increasing $\\rho_s$ \
-($N$ = {N}, $\\rho$ = {RHO}, $\\lambda$ = {LAMBDA})"
+                    f"{y_label.split()[0]} with increasing $\\rho_s$ "
+                    f"($N$ = {N}, $\\rho$ = {RHO}, $\\lambda$ = {LAMBDA})"
                 )
                 plt.xlabel("$\\rho_s$")
                 plt.ylabel(y_label)
