@@ -171,7 +171,7 @@ cdef class Heap:
         """Update the value of key."""
         return bool(self.__update_key(i, dist))
 
-    def decrease_key(self, int i, double dist) -> bool:
+    cdef int __decrease_key(self, int i, double dist):
         """Decrease the value of key."""
         cdef:
             int k
@@ -179,11 +179,15 @@ cdef class Heap:
 
         k = self.ids[i]
         if k == REMOVED:
-            return False
+            return 0
         value = __get_distance(self.l[k])
         # only overwrite value if less
         if dist < value:
             self.l[k] = __heap_value(dist, i)
             # restore heap property
             __siftdown(self.l, self.ids, k)
-        return True
+        return 1
+
+    def decrease_key(self, int i, double dist) -> bool:
+        """Decrease the value of key."""
+        return bool(self.__decrease_key(i, dist))

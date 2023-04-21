@@ -1,7 +1,10 @@
+from bisect import insort
+
 import numpy as np
 import scipy.spatial.distance
 from scipy.spatial import KDTree
 
+from .c_ordering import update_dists
 from .maxheap import Heap
 from .typehints import (
     Empty,
@@ -129,8 +132,8 @@ def ball_reverse_maximin(
     dists = np.minimum(dists, euclidean(x, x[start_k : start_k + 1]).flatten())
     # guarantee that every index has at least one valid parent
     lengths[start_k] = np.inf
-    parents = [[start_k] for i in range(n)]
-    children = [[] for i in range(n)]
+    parents = [[start_k] for _ in range(n)]
+    children = [[] for _ in range(n)]
     # sort children by distance to parent
     children[start_k] = sorted(range(n), key=lambda j: dist(x[j], x[start_k]))
     # initialize heap
@@ -168,6 +171,86 @@ def ball_reverse_maximin(
     return indexes, length_scales
 
 
+# p-length scale
+
+
+def naive_p_reverse_maximin(
+    x: Points, initial: Points | None = None, p: int = 1
+) -> tuple[Ordering, LengthScales]:
+    """Return the reverse maximin ordering and length scales."""
+    # O(n^3)
+    n = len(x)
+    indexes = np.zeros(n, dtype=np.int64)
+    # minimum distance to a point in indexes at the time of each selection
+    lengths = np.zeros(n)
+    candidates, selected = list(range(n)), []
+    if initial is None or initial.shape[0] == 0:
+        initial = np.zeros((0, x.shape[1]))
+
+    for i in range(n - 1, -1, -1):
+        # select point with largest minimum distance
+        dists = [
+            sorted(
+                np.concatenate(
+                    (
+                        euclidean(x[selected], x[i : i + 1]).flatten(),
+                        euclidean(initial, x[i : i + 1]).flatten(),
+                        [np.inf],
+                    )
+                )
+            )[:p][-1]
+            for i in candidates
+        ]
+        ik = np.argmax(dists)
+        k = candidates[ik]
+        indexes[i] = k
+        # update distances
+        lengths[i] = dists[ik]
+        candidates.remove(k)
+        selected.append(k)
+
+    return indexes, lengths
+
+
+def p_reverse_maximin(
+    x: Points, initial: Points | None = None, p: int = 1
+) -> tuple[Ordering, LengthScales]:
+    """Return the reverse maximin ordering and length scales."""
+    inf = 1e6
+    n = len(x)
+    indexes = np.zeros(n, dtype=np.int64)
+    # minimum distance to a point in indexes at the time of each selection
+    lengths = np.zeros(n)
+    # arbitrarily select the first point
+    if initial is None or initial.shape[0] == 0:
+        # dists = np.array([[np.inf] * p for _ in range(n)])
+        # tiebreak on index, make sure inf is not too large
+        dists = np.array([[-i + inf] * p for i in range(n)])
+    # use the initial points
+    else:
+        initial_tree = KDTree(initial)
+        dists, _ = initial_tree.query(x, p)
+
+    # initialize tree and heap
+    tree = KDTree(x)
+    heap = Heap(np.max(dists, axis=1), np.arange(n))
+
+    for i in range(n - 1, -1, -1):
+        # select point with largest minimum distance
+        lk, k = heap.pop()
+        indexes[i] = k
+        # update distances
+        lengths[i] = lk if lk < inf - n else np.inf
+        js = tree.query_ball_point(x[k], lk)
+        dists_k = euclidean(x[js], x[k : k + 1]).flatten()
+        update_dists(heap, dists, dists_k, np.array(js, dtype=np.int64))
+
+    return indexes, lengths
+
+
+# sparsity pattern
+
+
 def naive_sparsity(x: Points, lengths: LengthScales, rho: float) -> Sparsity:
     """Compute the sparity pattern given the ordered x."""
     # O(n^2)
@@ -192,6 +275,30 @@ def sparsity_pattern(x: Points, lengths: LengthScales, rho: float) -> Sparsity:
         ]
 
     return sparsity
+
+
+def is_k_sparsity(sparsity: Sparsity, k: int) -> bool:
+    """Whether the sparsity pattern has at least k nonzeros per column."""
+    return all(len(sparsity[i]) >= min(k, len(sparsity) - i) for i in sparsity)
+
+
+def min_k_sparsity(
+    x: Points, rho: float, k: int, initial: Points | None = None
+) -> int:
+    """Minimum p for a sparsity with at least k nonzeros per column."""
+    left, right = 1, k + 1
+    while left < right:
+        middle = (left + right) // 2
+        order, lengths = p_reverse_maximin(x, initial, middle)
+        sparsity = sparsity_pattern(x[order], lengths, rho)
+        if is_k_sparsity(sparsity, k):
+            right = middle
+        else:
+            left = middle + 1
+    return left
+
+
+# supernode grouping
 
 
 def supernodes(
