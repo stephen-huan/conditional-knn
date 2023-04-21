@@ -1,5 +1,3 @@
-from bisect import insort
-
 import numpy as np
 import scipy.spatial.distance
 from scipy.spatial import KDTree
