@@ -66,6 +66,15 @@ if __name__ == "__main__":
         k_sparsity, K
     ), "sparsity is not a k-sparsity"
 
+    # k-nn sparsity
+
+    k = 10
+    knn_sparsity = ordering.naive_knn_sparsity(points, k)
+    sparsity = ordering.knn_sparsity(points, k)
+    assert ordering.normalize_sparsity(
+        knn_sparsity
+    ) == ordering.normalize_sparsity(sparsity), "knn sparsity mismatch"
+
     # exit()
 
     N = int(1e5)

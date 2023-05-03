@@ -7,6 +7,7 @@ from .maxheap import Heap
 from .typehints import (
     Empty,
     Grouping,
+    Indices,
     LengthScales,
     Matrix,
     Ordering,
@@ -249,6 +250,13 @@ def p_reverse_maximin(
 # sparsity pattern
 
 
+def normalize_sparsity(sparsity: Sparsity) -> Sparsity:
+    """Normalize the sparsity pattern by sorting."""
+    return {
+        i: sorted(children) for i, children in sparsity.items()  # type: ignore
+    }
+
+
 def naive_sparsity(x: Points, lengths: LengthScales, rho: float) -> Sparsity:
     """Compute the sparity pattern given the ordered x."""
     # O(n^2)
@@ -294,6 +302,42 @@ def min_k_sparsity(
         else:
             left = middle + 1
     return left
+
+
+def naive_knn_sparsity(x: Points, k: int) -> Sparsity:
+    """k-nearest neighbor sparsity pattern."""
+    n = len(x)
+    sparsity = {}
+    for i in range(n):
+        dists = euclidean(x[i : i + 1], x[i:]).flatten()
+        sparsity[i] = i + np.argsort(dists)[:k]
+    return sparsity
+
+
+def knn_sparsity(x: Points, k: int) -> Sparsity:
+    """k-nearest neighbor sparsity pattern."""
+    n = len(x)
+    candidates = np.array(range(n))
+    left = np.array(range(n))
+    cur_k = k
+    sparsity = {}
+    while len(left) > 0:
+        tree = KDTree(x[candidates])
+        indices: Indices
+        _, indices = tree.query(x[left], cur_k)  # type: ignore
+        if cur_k == 1:
+            indices = indices.reshape((len(left), 1))
+        for i, neighbors in zip(left, indices):
+            sparsity[i] = [
+                candidates[j]
+                for j in neighbors
+                if j != len(candidates) and candidates[j] >= i
+            ][:k]
+        left = np.array([i for i in left if len(sparsity[i]) < min(k, n - i)])
+        if len(left) > 0:
+            candidates = np.array([i for i in candidates if i >= left[0]])
+        cur_k *= 2
+    return sparsity  # type: ignore
 
 
 # supernode grouping

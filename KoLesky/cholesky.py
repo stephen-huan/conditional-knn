@@ -430,6 +430,20 @@ def cholesky_subsample(
     )
 
 
+def cholesky_knn(
+    x: Points,
+    kernel: Kernel,
+    rho: float,
+) -> CholeskyFactor:
+    """Computes Cholesky with k-nearest neighbor sets."""
+    order, lengths = ordering.reverse_maximin(x)
+    x = x[order]
+    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, None)
+    avg_nonzeros = sum(map(len, sparsity.values())) // len(sparsity)
+    sparsity = ordering.knn_sparsity(x, avg_nonzeros)
+    return __mult_cholesky(x, kernel, sparsity, groups), order
+
+
 def cholesky_global(
     x: Points,
     kernel: Kernel,

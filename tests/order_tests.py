@@ -26,9 +26,7 @@ if __name__ == "__main__":
 
     order, lengths = ordering.reverse_maximin(points, initial)
     sparsity = ordering.sparsity_pattern(points[order], lengths, R)
-    sparsity = {
-        i: sorted(children) for i, children in sparsity.items()  # type: ignore
-    }
+    sparsity = ordering.normalize_sparsity(sparsity)
 
     # print(groups)
     # print(ans_order, ans_lengths)
