@@ -8,7 +8,7 @@ import numpy as np
 import scipy.sparse as sparse
 import sklearn.gaussian_process.kernels as kernels
 
-from KoLesky import cholesky, cknn
+from KoLesky import cholesky
 from KoLesky.typehints import Kernel, Matrix, Points, Sparse, Vector
 
 from . import (
@@ -36,6 +36,7 @@ N = 2**10     # number of points
 RHO = 4       # tuning parameter, number of nonzero entries
 S = 2         # tuning parameter, factor larger to make rho in subsampling
 LAMBDA = 1.5  # tuning parameter, size of groups
+P = 2         # tuning parameter, maximin ordering robustness
 
 KL = True     # compute true KL divergence (requires computing logdet)
 
@@ -131,7 +132,7 @@ def test_chol(
 
     # compute preconditioner
     start = time.time()
-    L, order = chol(points, kernel, *args)
+    L, order = chol(points, kernel, *args, p=P)
     time_chol = time.time() - start
 
     linearop = cholesky_linearoperator(L)
@@ -200,18 +201,15 @@ if __name__ == "__main__":
             orange,
             lambda: test_chol(cholesky.cholesky_subsample, S, RHO),
         ),
-        # ("select-global", darkorange,
-        #  lambda: test_chol(cholesky.cholesky_global, S, RHO)),
+        # (
+        #     "select-global",
+        #     darkorange,
+        #     lambda: test_chol(cholesky.cholesky_global, S, RHO),
+        # ),
         (
             "select-KNN",
             silver,
-            lambda: test_chol(
-                lambda *args: cholesky.cholesky_subsample(
-                    *args, select=cknn.knn_select
-                ),
-                S,
-                RHO,
-            ),
+            lambda: test_chol(cholesky.cholesky_knn, RHO),
         ),
         (
             "KL (agg)",
@@ -223,8 +221,11 @@ if __name__ == "__main__":
             rust,
             lambda: test_chol(cholesky.cholesky_subsample, S, RHO, LAMBDA),
         ),
-        # ("select-global (agg)", darkrust,
-        #  lambda: test_chol(cholesky.cholesky_global, S, RHO, LAMBDA)),
+        # (
+        #     "select-global (agg)",
+        #     darkrust,
+        #     lambda: test_chol(cholesky.cholesky_global, S, RHO, LAMBDA),
+        # ),
     ]
     names, colors, funcs = zip(*methods)
 
@@ -249,7 +250,6 @@ if __name__ == "__main__":
 
     RHO = 4
     S = 2
-    LAMBDA = 1.5
     sizes = 2 ** np.arange(17)
 
     if GENERATE_N:
@@ -398,7 +398,6 @@ if __name__ == "__main__":
 
     N = 2**16
     S = 2
-    LAMBDA = 1.5
     rhos = np.arange(1, 9)
 
     if GENERATE_RHO:

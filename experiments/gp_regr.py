@@ -19,6 +19,7 @@ from . import (
     load_data__,
     orange,
     plot__,
+    rng,
     rust,
     save_data__,
     seagreen,
@@ -47,6 +48,7 @@ TTS = 0.1     # percentage of testing points
 RHO = 2       # tuning parameter, number of nonzero entries
 RHO_S = 2     # tuning parameter, factor larger to make rho in subsampling
 LAMBDA = 1.5  # tuning parameter, size of groups
+P = 2         # tuning parameter, maximin ordering robustness
 
 GEN_Y = True  # force regenerate samples
 GRAPH = False # visualize dataset
@@ -336,49 +338,49 @@ if __name__ == "__main__":
             "KL",
             lightblue,
             lambda x_train, x_test, kernel: cholesky.cholesky_joint(
-                x_train, x_test, kernel, RHO
+                x_train, x_test, kernel, RHO, p=P
             ),
         ),
         (
             "select",
             orange,
             lambda x_train, x_test, kernel: cholesky.cholesky_joint_subsample(
-                x_train, x_test, kernel, RHO_S, RHO
+                x_train, x_test, kernel, RHO_S, RHO, p=P
             ),
         ),
         (
             "select-KNN",
             silver,
-            lambda x_train, x_test, kernel: cholesky.cholesky_joint_subsample(
-                x_train, x_test, kernel, RHO_S, RHO, select=cknn.knn_select
+            lambda x_train, x_test, kernel: cholesky.cholesky_joint_knn(
+                x_train, x_test, kernel, RHO, p=P
             ),
         ),
         # (
         #     "select-global",
         #     darkorange,
         #     lambda x_train, x_test, kernel: cholesky.cholesky_joint_global(
-        #         x_train, x_test, kernel, RHO_S, RHO
+        #         x_train, x_test, kernel, RHO_S, RHO, p=P
         #     ),
         # ),
         (
             "KL (agg)",
             seagreen,
             lambda x_train, x_test, kernel: cholesky.cholesky_joint(
-                x_train, x_test, kernel, RHO, LAMBDA
+                x_train, x_test, kernel, RHO, LAMBDA, p=P
             ),
         ),
         (
             "select (agg)",
             rust,
             lambda x_train, x_test, kernel: cholesky.cholesky_joint_subsample(
-                x_train, x_test, kernel, RHO_S, RHO, LAMBDA
+                x_train, x_test, kernel, RHO_S, RHO, LAMBDA, p=P
             ),
         ),
         # (
         #     "select-global (agg)",
         #     rust,
         #     lambda x_train, x_test, kernel: cholesky.cholesky_joint_global(
-        #         x_train, x_test, kernel, RHO_S, RHO, LAMBDA
+        #         x_train, x_test, kernel, RHO_S, RHO, LAMBDA, p=P
         #     ),
         # ),
         (
@@ -410,7 +412,7 @@ if __name__ == "__main__":
         for RHO in rhos:
             for i, f in enumerate(funcs):
                 # reset random seed so all methods get the same seed
-                rng = np.random.default_rng(1)
+                rng = np.random.default_rng(1)  # noqa: F811
                 for d, result in enumerate(test(f)):
                     data[d][i].append(result)
 
@@ -442,7 +444,7 @@ if __name__ == "__main__":
 
             # graph difference to ground truth
             if y_name == "loss" or y_name == "logdet":
-                y_data = y_data[:-1] - y_data[-1]
+                y_data = y_data[:-1] - y_data[-1]  # type: ignore
 
             plot(rhos, y_data, names, colors, "rho", y_name, plot_callback)
 
@@ -539,6 +541,6 @@ if __name__ == "__main__":
 
             # graph difference to ground truth
             if y_name == "loss" or y_name == "logdet":
-                y_data = y_data[:-1] - y_data[-1]
+                y_data = y_data[:-1] - y_data[-1]  # type: ignore
 
             plot(rhos, y_data, names, colors, "s", y_name, plot_callback)

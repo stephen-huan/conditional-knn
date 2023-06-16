@@ -5,8 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sklearn.gaussian_process.kernels as kernels
 
-from KoLesky import cholesky, cknn
+from KoLesky import cholesky
 from KoLesky import gp_regression as gp_regr
+from KoLesky import ordering
 from KoLesky.typehints import InvChol, Kernel, Points
 
 from . import (
@@ -30,16 +31,18 @@ save_data = lambda *args, **kwargs: save_data__(*args, **kwargs, root=ROOT)
 plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
 # fmt: off
-N = 2**16    # number of points
-D = 2        # dimension of points
-RHO = 2      # tuning parameter, number of nonzero entries
-S = 2        # tuning parameter, factor larger to make rho in subsampling
-LAMBDA = 1.5 # tuning parameter, size of groups
+N = 2**16     # number of points
+N = 2**11
+D = 2         # dimension of points
+RHO = 2       # tuning parameter, number of nonzero entries
+S = 2         # tuning parameter, factor larger to make rho in subsampling
+LAMBDA = 1.5  # tuning parameter, size of groups
+P = 1         # tuning parameter, maximin ordering robustness
 
-KL = True    # compute true KL divergence (requires computing logdet)
+KL = True     # compute true KL divergence (requires computing logdet)
 
-# TRIALS = 10  # number of samples per point
-TRIALS = 1   # number of samples per point
+# TRIALS = 10   # number of samples per point
+TRIALS = 1    # number of samples per point
 avg_results = lambda f, trials=TRIALS: avg_results__(f, trials)
 
 GENERATE_N   = True  # generate data for n
@@ -52,6 +55,8 @@ GENERATE_S   = True  # generate data for s
 PLOT_S       = True  # plot data for s
 # fmt: on
 
+cache = {}
+
 ### experiment
 
 
@@ -63,13 +68,36 @@ def get_points(n: int, d: int) -> Points:
 
 
 def test_chol(
-    points: Points, kernel: Kernel, logdet_theta: float, inv_chol: InvChol
+    points: Points,
+    kernel: Kernel,
+    logdet_theta: float,
+    inv_chol: InvChol,
+    *args,
 ) -> tuple[float, int, float]:
     """Test the Cholesky factorization."""
+    reference = None
+    if inv_chol == cholesky.cholesky_kl:
+        order, lengths = ordering.p_reverse_maximin(points, p=P)
+        x = points[order]
+        key = args
+        args = args if len(args) > 1 else (*args, None)
+        sparsity, groups = cholesky.__cholesky_kl(  # pyright: ignore
+            x, lengths, *args
+        )
+        cache[key] = sparsity, groups
+    else:
+        key = args if inv_chol == cholesky.cholesky_knn else args[1:]
+        reference = cache[key]
 
     # compute Cholesky factorization
     start = time.time()
-    L, _ = inv_chol(points, kernel)
+    L, _ = (
+        inv_chol(points, kernel, *args, p=P)  # pyright: ignore
+        if reference is None
+        else inv_chol(
+            points, kernel, *args, p=P, reference=reference  # pyright: ignore
+        )
+    )
     time_chol = time.time() - start
 
     kl_div = cholesky.sparse_kl_div(L, logdet_theta)
@@ -86,43 +114,37 @@ if __name__ == "__main__":
         (
             "KL",
             lightblue,
-            lambda x, kernel: cholesky.cholesky_kl(x, kernel, RHO),
+            lambda: (cholesky.cholesky_kl, RHO),
         ),
         (
             "select",
             orange,
-            lambda x, kernel: cholesky.cholesky_subsample(x, kernel, S, RHO),
+            lambda: (cholesky.cholesky_subsample, S, RHO),
         ),
         # (
         #     "select-global",
         #     darkorange,
-        #     lambda x, kernel: cholesky.cholesky_global(x, kernel, S, RHO),
+        #     lambda: (cholesky.cholesky_global, S, RHO),
         # ),
         (
             "select-KNN",
             silver,
-            lambda x, kernel: cholesky.cholesky_subsample(
-                x, kernel, S, RHO, select=cknn.knn_select
-            ),
+            lambda: (cholesky.cholesky_knn, RHO),
         ),
         (
             "KL (agg)",
             seagreen,
-            lambda x, kernel: cholesky.cholesky_kl(x, kernel, RHO, LAMBDA),
+            lambda: (cholesky.cholesky_kl, RHO, LAMBDA),
         ),
         (
             "select (agg)",
             rust,
-            lambda x, kernel: cholesky.cholesky_subsample(
-                x, kernel, S, RHO, LAMBDA
-            ),
+            lambda: (cholesky.cholesky_subsample, S, RHO, LAMBDA),
         ),
         # (
         #     "select-global (agg)",
         #     darkrust,
-        #     lambda x, kernel: cholesky.cholesky_global(
-        #         x, kernel, S, RHO, LAMBDA
-        #     ),
+        #     lambda: (cholesky.cholesky_global, S, RHO, LAMBDA),
         # ),
     ]
     names, colors, funcs = zip(*methods)
@@ -134,7 +156,7 @@ if __name__ == "__main__":
     ]
     y_names, y_labels = zip(*y)
 
-    test = lambda inv_chol: test_chol(x, kernel, logdet_theta, inv_chol)
+    test = lambda inv_chol: test_chol(x, kernel, logdet_theta, *inv_chol())
 
     ### changing n
 
