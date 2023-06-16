@@ -229,6 +229,7 @@ def p_reverse_maximin(
     else:
         initial_tree = KDTree(initial)
         dists, _ = initial_tree.query(x, p)
+        dists = dists.reshape(n, p)  # type: ignore
 
     # initialize tree and heap
     tree = KDTree(x)
