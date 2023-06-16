@@ -32,7 +32,6 @@ plot = lambda *args, **kwargs: plot__(*args, **kwargs, root=ROOT)
 
 # fmt: off
 N = 2**16     # number of points
-N = 2**11
 D = 2         # dimension of points
 RHO = 2       # tuning parameter, number of nonzero entries
 S = 2         # tuning parameter, factor larger to make rho in subsampling
