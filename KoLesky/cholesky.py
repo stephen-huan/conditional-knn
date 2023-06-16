@@ -294,10 +294,14 @@ def cholesky(
 
 
 def naive_cholesky_kl(
-    x: Points, kernel: Kernel, rho: float, lambd: float | None = None
+    x: Points,
+    kernel: Kernel,
+    rho: float,
+    lambd: float | None = None,
+    p: int = 1,
 ) -> CholeskyFactor:
     """Computes Cholesky by KL divergence with tuning parameters."""
-    order, lengths = ordering.naive_reverse_maximin(x)
+    order, lengths = ordering.naive_p_reverse_maximin(x, p=p)
     x = x[order]
     sparsity = ordering.naive_sparsity(x, lengths, rho)
     groups, sparsity = (
@@ -310,7 +314,6 @@ def naive_cholesky_kl(
 
 def __cholesky_kl(
     x: Points,
-    _: Kernel,
     lengths: LengthScales,
     rho: float,
     lambd: float | None,
@@ -326,12 +329,16 @@ def __cholesky_kl(
 
 
 def cholesky_kl(
-    x: Points, kernel: Kernel, rho: float, lambd: float | None = None
+    x: Points,
+    kernel: Kernel,
+    rho: float,
+    lambd: float | None = None,
+    p: int = 1,
 ) -> CholeskyFactor:
     """Computes Cholesky by KL divergence with tuning parameters."""
-    order, lengths = ordering.reverse_maximin(x)
+    order, lengths = ordering.p_reverse_maximin(x, p=p)
     x = x[order]
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    sparsity, groups = __cholesky_kl(x, lengths, rho, lambd)
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
 
@@ -413,13 +420,20 @@ def cholesky_subsample(
     s: float,
     rho: float,
     lambd: float | None = None,
+    p: int = 1,
     select: Select = cknn.chol_select,
+    *,
+    reference: tuple[Sparsity, Grouping] | None = None,
 ) -> CholeskyFactor:
     """Computes Cholesky with a mix of geometric and selection ideas."""
     # standard geometric algorithm
-    order, lengths = ordering.reverse_maximin(x)
+    order, lengths = ordering.p_reverse_maximin(x, p=p)
     x = x[order]
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    sparsity, groups = (
+        __cholesky_kl(x, lengths, rho, lambd)
+        if reference is None
+        else reference
+    )
     # create bigger sparsity pattern for candidates
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s * rho)
     return (
@@ -434,11 +448,18 @@ def cholesky_knn(
     x: Points,
     kernel: Kernel,
     rho: float,
+    p: int = 1,
+    *,
+    reference: tuple[Sparsity, Grouping] | None = None,
 ) -> CholeskyFactor:
     """Computes Cholesky with k-nearest neighbor sets."""
-    order, lengths = ordering.reverse_maximin(x)
+    order, lengths = ordering.p_reverse_maximin(x, p=p)
     x = x[order]
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, None)
+    sparsity, groups = (
+        __cholesky_kl(x, lengths, rho, None)
+        if reference is None
+        else reference
+    )
     avg_nonzeros = sum(map(len, sparsity.values())) // len(sparsity)
     sparsity = ordering.knn_sparsity(x, avg_nonzeros)
     return __mult_cholesky(x, kernel, sparsity, groups), order
@@ -450,12 +471,13 @@ def cholesky_global(
     s: float,
     rho: float,
     lambd: float | None = None,
+    p: int = 1,
 ) -> CholeskyFactor:
     """Computes Cholesky by global subsampling."""
     # standard geometric algorithm
-    order, lengths = ordering.reverse_maximin(x)
+    order, lengths = ordering.p_reverse_maximin(x, p=p)
     x = x[order]
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    sparsity, groups = __cholesky_kl(x, lengths, rho, lambd)
     # create bigger sparsity pattern for candidates
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s * rho)
     new_sparsity = cknn.global_select(
@@ -468,12 +490,12 @@ def cholesky_global(
 
 
 def __joint_order(
-    x_train: Points, x_test: Points
+    x_train: Points, x_test: Points, p: int = 1
 ) -> tuple[Points, Ordering, LengthScales]:
     """Return the joint ordering and length scale."""
-    train_order, train_lengths = ordering.reverse_maximin(x_train)
+    train_order, train_lengths = ordering.p_reverse_maximin(x_train, p=p)
     # initialize test point ordering with training points
-    test_order, test_lengths = ordering.reverse_maximin(x_test, x_train)
+    test_order, test_lengths = ordering.p_reverse_maximin(x_test, x_train, p=p)
     # put testing points before training points (after in transpose)
     x = np.vstack((x_test[test_order], x_train[train_order]))
     order = np.append(test_order, x_test.shape[0] + train_order)
@@ -487,10 +509,11 @@ def cholesky_joint(
     kernel: Kernel,
     rho: float,
     lambd: float | None = None,
+    p: int = 1,
 ) -> CholeskyFactor:
     """Computes Cholesky of the joint covariance."""
-    x, order, lengths = __joint_order(x_train, x_test)
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    x, order, lengths = __joint_order(x_train, x_test, p=p)
+    sparsity, groups = __cholesky_kl(x, lengths, rho, lambd)
     return __mult_cholesky(x, kernel, sparsity, groups), order
 
 
@@ -501,12 +524,13 @@ def cholesky_joint_subsample(
     s: float,
     rho: float,
     lambd: float | None = None,
+    p: int = 1,
     select: Select = cknn.chol_select,
 ) -> CholeskyFactor:
     """Cholesky of the joint covariance with subsampling."""
     # standard geometric algorithm
-    x, order, lengths = __joint_order(x_train, x_test)
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    x, order, lengths = __joint_order(x_train, x_test, p=p)
+    sparsity, groups = __cholesky_kl(x, lengths, rho, lambd)
     # create bigger sparsity pattern for candidates
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s * rho)
     return (
@@ -517,6 +541,23 @@ def cholesky_joint_subsample(
     )
 
 
+def cholesky_joint_knn(
+    x_train: Points,
+    x_test: Points,
+    kernel: Kernel,
+    rho: float,
+    p: int = 1,
+) -> CholeskyFactor:
+    """Cholesky of the joint covariance with k-nearest neighbor sets."""
+    # standard geometric algorithm
+    x, order, lengths = __joint_order(x_train, x_test, p=p)
+    sparsity, groups = __cholesky_kl(x, lengths, rho, None)
+    # create bigger sparsity pattern for candidates
+    avg_nonzeros = sum(map(len, sparsity.values())) // len(sparsity)
+    sparsity = ordering.knn_sparsity(x, avg_nonzeros)
+    return __mult_cholesky(x, kernel, sparsity, groups), order
+
+
 def cholesky_joint_global(
     x_train: Points,
     x_test: Points,
@@ -524,12 +565,13 @@ def cholesky_joint_global(
     s: float,
     rho: float,
     lambd: float | None = None,
+    p: int = 1,
     select: GlobalSelect = cknn.global_select,
 ) -> CholeskyFactor:
     """Cholesky of the joint covariance with subsampling."""
     # standard geometric algorithm
-    x, order, lengths = __joint_order(x_train, x_test)
-    sparsity, groups = __cholesky_kl(x, kernel, lengths, rho, lambd)
+    x, order, lengths = __joint_order(x_train, x_test, p=p)
+    sparsity, groups = __cholesky_kl(x, lengths, rho, lambd)
     # create bigger sparsity pattern for candidates
     candidate_sparsity = ordering.sparsity_pattern(x, lengths, s * rho)
     new_sparsity = select(x, kernel, sparsity, candidate_sparsity, groups)
