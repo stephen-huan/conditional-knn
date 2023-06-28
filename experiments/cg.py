@@ -402,18 +402,19 @@ if __name__ == "__main__":
 
     if GENERATE_RHO:
         for RHO in rhos:
-            iter_data = []
             for i, f in enumerate(funcs):
                 # reset random seed so all methods get the same seed
                 rng = np.random.default_rng(1)
-                for d, result in enumerate(avg_results(f)):
+                if "agg" in names[i] and RHO >= 6:
+                    results = np.zeros(7)
+                else:
+                    results = avg_results(f)
+                for d, result in enumerate(results):
                     data[d][i].append(result)
 
                 if d == len(y) - 1:
                     print(f"{RHO:5} {names[i]:12} {data[d][i][-1]:.3f}")
 
-                iter_res = avg_iters(iters)
-                iter_data.append(iter_res)
                 iters = []
 
         save_data(data, rhos, "rho", y_names, names)
