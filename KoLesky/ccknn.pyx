@@ -242,7 +242,7 @@ cdef double __log_product(int n, double *x, int incx):
         value = MANTISSA_BASE + (value & MANTISSA_MASK)
         mantissa *= (<double *> &value)[0]
         # prevent overflow by periodic normalization
-        if i & 512:
+        if (i >> 9) << 9 == i:
             exponent += __get_exponent(mantissa)
             mantissa = __get_mantissa(mantissa)
 
