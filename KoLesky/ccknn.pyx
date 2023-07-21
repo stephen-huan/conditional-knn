@@ -530,20 +530,20 @@ cdef long[::1] __budget_select(
         __scores_update(order, locations, i + m, factors, var, scores, keys)
         for j in range(n):
             # selected already, don't consider as candidate
-            if var[j] <= 0:
+            if var[j] <= 0 or num_cond[j] == 0:
                 continue
 
             key = scores[j]/num_cond[j]
             if key > best:
                 best, k = key, j
-        # subtract number conditioned from budget
-        budget -= num_cond[k]
-        if budget < 0:
-            break
         # didn't select anything, abort early
         if k == -1:
             return indexes[:i]
         indexes[i] = k
+        # subtract number conditioned from budget
+        budget -= num_cond[k]
+        if budget < 0:
+            break
         # update Cholesky factor
         __select_point(
             order,
