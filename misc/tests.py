@@ -44,12 +44,16 @@ if __name__ == "__main__":
     np.savetxt(f"{root}/select_mult.csv", indices, fmt="%d")
     print(f"time: {time.time() - start:.3f}")
 
+    s = 840
+
     start = time.time()
-    indices = cknn.nonadj_select(points, train_ind, target_ind, kernel, S)
+    indices = cknn.nonadj_select(points, train_ind, target_ind, kernel, s)
     np.savetxt(f"{root}/select_nonadj.csv", indices, fmt="%d")
     print(f"time: {time.time() - start:.3f}")
 
+    s = 512
+
     start = time.time()
-    indices = cknn.chol_select(points, train_ind, target_ind, kernel, S)
+    indices = cknn.chol_select(points, train_ind, target_ind, kernel, s)
     np.savetxt(f"{root}/select_chol.csv", indices, fmt="%d")
     print(f"time: {time.time() - start:.3f}")
