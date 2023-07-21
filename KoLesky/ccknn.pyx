@@ -280,7 +280,7 @@ cdef void __chol_insert(
     y = &factors[0, last]
     incy = 1
     blas.dgemv(trans, &m, &n, &alpha, A, &lda, x, &incx, &beta, y, &incy)
-    # factors[:, index] /= sqrt(factors[k, index])
+    # factors[:, last] /= sqrt(factors[k, index])
     alpha = 1/sqrt(factors[k, last])
     blas.dscal(&m, &alpha, y, &incy)
 
