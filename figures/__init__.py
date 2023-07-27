@@ -39,4 +39,4 @@ darklightblue = "#8999a9"
 darkrust = "#9c380d"
 darkseagreen = "#1e4833"
 
-plt.style.use("seaborn-paper")
+plt.style.use("seaborn-v0_8-whitegrid")

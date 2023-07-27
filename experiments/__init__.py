@@ -107,4 +107,4 @@ darkrust = "#9c380d"
 darkseagreen = "#1e4833"
 
 # plt.style.available for available themes
-plt.style.use("seaborn-whitegrid")
+plt.style.use("seaborn-v0_8-whitegrid")
