@@ -1,7 +1,7 @@
 # conditional-knn
 
-A repository to explore the usefulness of the
-conditional _k_-nearest neighbor estimator.
+Source code for the paper [_Sparse Cholesky factorization by
+greedy conditional selection_](https://arxiv.org/abs/2307.11648).
 
 ## Installing
 
