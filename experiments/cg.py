@@ -7,6 +7,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
 import sklearn.gaussian_process.kernels as kernels
+from pbbfmm3d import gram
+from pbbfmm3d.kernels import Kernel as FMMKernel
+from pbbfmm3d.kernels import from_sklearn
+from scipy.sparse.linalg import LinearOperator
 
 from KoLesky import cholesky
 from KoLesky.typehints import Kernel, Matrix, Points, Sparse, Vector
@@ -59,7 +63,6 @@ PLOT_RHO     = True # plot data for rho
 
 iters = []
 
-LinearOperator = sparse.linalg.LinearOperator  # type: ignore
 
 ### conjugate gradient helper methods
 
@@ -87,22 +90,28 @@ def cholesky_linearoperator(L: Sparse) -> LinearOperator:
 ### experiment
 
 
-def setup() -> tuple[Points, Kernel, Matrix, Vector, Vector]:
+def setup() -> tuple[Points, Kernel, FMMKernel, Vector, Vector]:
     """Generate a matrix and a vector to solve."""
     kernel = kernels.Matern(length_scale=1, nu=1 / 2)
     points = rng.random((N, D))
-    theta: Matrix = kernel(points)  # type: ignore
+    fmm_kernel = from_sklearn(kernel)
+    fmm_kernel.init(L=1, tree_level=4, interpolation_order=5, eps=1e-6)
 
     # multiply i.i.d. normal by covariance matrix to smoothen
     # this gives better results than generating the right hand side directly
     x = rng.standard_normal(N)
-    y = theta @ x
+    if N <= 1 << 14:
+        theta: Matrix = kernel(points)  # type: ignore
+        y = theta @ x
+    else:
+        matvec = gram(fmm_kernel, points)
+        y = matvec(x)
 
-    return points, kernel, theta, x, y
+    return points, kernel, fmm_kernel, x, y
 
 
 def solve(
-    theta: Matrix,
+    theta: Matrix | LinearOperator,
     y: Vector,
     linearop: LinearOperator,
     callback: Callable[[Vector], None],
@@ -113,7 +122,7 @@ def solve(
     xp, _ = sparse.linalg.cg(  # type: ignore
         theta,
         y,
-        tol=RTOL,
+        rtol=RTOL,
         atol=0,
         maxiter=MAX_ITERS,
         x0=x0,
@@ -128,7 +137,7 @@ def test_chol(
 ) -> tuple[float, float, int, int, float, float, float]:
     """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
-    points, kernel, theta, x, y = setup()
+    points, kernel, fmm_kernel, x, y = setup()
 
     # compute preconditioner
     start = time.time()
@@ -136,6 +145,11 @@ def test_chol(
     time_chol = time.time() - start
 
     linearop = cholesky_linearoperator(L)
+    if N <= 1 << 14:
+        theta = kernel(points[order])
+    else:
+        matvec = gram(fmm_kernel, points[order])
+        theta = LinearOperator((N, N), matvec=matvec, rmatvec=matvec)
 
     def cg_callback(xk: Vector) -> None:
         """Callback called by conjugate gradient after each iteration."""
@@ -143,10 +157,11 @@ def test_chol(
 
     # solve system with conjugate gradient
     start = time.time()
-    xp, run = solve(kernel(points[order]), y[order], linearop, cg_callback)
+    xp, run = solve(theta, y[order], linearop, cg_callback)
     time_cg = time.time() - start
 
-    kl_div = cholesky.sparse_kl_div(L, theta)
+    # kl_div = cholesky.sparse_kl_div(L, theta)
+    kl_div = 1.0
     residual = np.linalg.norm(x[order] - xp)
 
     return (
