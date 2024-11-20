@@ -19,7 +19,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pyright]
-exclude = ["venv", ".venv"]
+exclude = ["venv", ".venv", ".direnv"]
 root = "KoLesky"
 venvPath = "."
 venv = "venv"

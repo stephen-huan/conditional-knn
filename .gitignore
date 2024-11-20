@@ -1,3 +1,5 @@
+.direnv/
+result
 __pycache__/
 # conda virtual environment
 venv/
@@ -16,3 +18,5 @@ datasets/
 # images
 *.png
 *.mp4
+# pbbfmm3d
+output/
