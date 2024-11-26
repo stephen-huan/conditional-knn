@@ -8,7 +8,7 @@ import sklearn.gaussian_process.kernels as kernels
 from KoLesky import cholesky
 from KoLesky import gp_regression as gp_regr
 from KoLesky import ordering
-from KoLesky.typehints import InvChol, Kernel, Points
+from KoLesky.typehints import InvChol, Kernel, Matrix, Points
 
 from . import (
     avg_results__,
@@ -69,10 +69,11 @@ def get_points(n: int, d: int) -> Points:
 def test_chol(
     points: Points,
     kernel: Kernel,
+    theta: Matrix,
     logdet_theta: float,
     inv_chol: InvChol,
     *args,
-) -> tuple[float, int, float]:
+) -> tuple[float, float, float, int, float]:
     """Test the Cholesky factorization."""
     reference = None
     if inv_chol == cholesky.cholesky_kl:
@@ -80,8 +81,8 @@ def test_chol(
         x = points[order]
         key = args
         args = args if len(args) > 1 else (*args, None)
-        sparsity, groups = cholesky.__cholesky_kl(  # pyright: ignore
-            x, lengths, *args
+        sparsity, groups = cholesky.__cholesky_kl(
+            x, lengths, *args  # type: ignore
         )
         cache[key] = sparsity, groups
     else:
@@ -90,7 +91,7 @@ def test_chol(
 
     # compute Cholesky factorization
     start = time.time()
-    L, _ = (
+    L, order = (
         inv_chol(points, kernel, *args, p=P)  # pyright: ignore
         if reference is None
         else inv_chol(
@@ -98,10 +99,14 @@ def test_chol(
         )
     )
     time_chol = time.time() - start
+    nnz = L.nnz
 
     kl_div = cholesky.sparse_kl_div(L, logdet_theta)
-
-    return kl_div, L.nnz, time_chol
+    theta_approx = cholesky.to_dense(L, order, overwrite=True)
+    diff = theta - theta_approx
+    op_norm = float(np.linalg.norm(diff, ord=2))
+    fro_norm = float(np.linalg.norm(diff, ord="fro"))
+    return kl_div, op_norm, fro_norm, nnz, time_chol
 
 
 if __name__ == "__main__":
@@ -150,26 +155,30 @@ if __name__ == "__main__":
 
     y = [
         ("kl_div", "KL divergence"),
+        ("op_norm", "Operator norm"),
+        ("fro_norm", "Frobenius norm"),
         ("nnz", "Nonzeros"),
         ("time", "Time (seconds)"),
     ]
+    metrics = ["kl_div", "op_norm", "fro_norm"]
     y_names, y_labels = zip(*y)
 
-    test = lambda inv_chol: test_chol(x, kernel, logdet_theta, *inv_chol())
+    test = lambda inv_chol: test_chol(
+        x, kernel, theta, logdet_theta, *inv_chol()
+    )
 
     ### changing n
 
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    kl_div, nonzeros, times = data
+    kl_div, op_norm, fro_norm, nonzeros, times = data
 
     sizes = 2 ** np.arange(round(np.log2(N)) + 1)
 
     if GENERATE_N:
         for n in sizes:
             x = get_points(n, D)
-            logdet_theta = (
-                cholesky.logdet(kernel(x)) if KL else 0  # type: ignore
-            )
+            theta: np.ndarray = kernel(x)  # type: ignore
+            logdet_theta = cholesky.logdet(theta) if KL else 0  # type: ignore
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
                     data[d][i].append(result)
@@ -181,7 +190,7 @@ if __name__ == "__main__":
         data = np.array(data)
     elif PLOT_N:
         data = load_data("n", y_names, names)
-        kl_div, nonzeros, times = data
+        kl_div, op_norm, fro_norm, nonzeros, times = data
 
     ## plot n to each y-axis parameter
 
@@ -220,14 +229,15 @@ if __name__ == "__main__":
     ### changing rho
 
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    kl_div, nonzeros, times = data
+    kl_div, op_norm, fro_norm, nonzeros, times = data
 
     S = 2
     rhos = np.linspace(1, 8, 8)
 
     if GENERATE_RHO:
         x = get_points(N, D)
-        logdet_theta = cholesky.logdet(kernel(x)) if KL else 0  # type: ignore
+        theta: np.ndarray = kernel(x)  # type: ignore
+        logdet_theta = cholesky.logdet(theta) if KL else 0  # type: ignore
         for RHO in rhos:
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
@@ -240,7 +250,7 @@ if __name__ == "__main__":
         data = np.array(data)
     elif PLOT_RHO:
         data = load_data("rho", y_names, names)
-        kl_div, nonzeros, times = data
+        kl_div, op_norm, fro_norm, nonzeros, times = data
 
     ## plot rho to each y-axis parameter
 
@@ -255,7 +265,7 @@ if __name__ == "__main__":
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
 
-                if y_name == "kl_div" or y_name == "time":
+                if y_name in metrics + ["time"]:
                     plt.yscale("log")
 
             plot(rhos, y_data, names, colors, "rho", y_name, plot_callback)
@@ -264,33 +274,35 @@ if __name__ == "__main__":
 
     # time to accuracy
     if PLOT_RHO:
-        for y_kl, y_time, name, color in zip(kl_div, times, names, colors):
-            plt.plot(y_time, y_kl, label=name, color=color)
+        for metric, y in zip(metrics, [kl_div, op_norm, fro_norm]):
+            for y_metric, y_time, name, color in zip(y, times, names, colors):
+                plt.plot(y_time, y_metric, label=name, color=color)
 
-        plt.title(
-            f"Accuracy with increasing $\\rho$ against time "
-            f"($N = {N}, \\rho_s = {S}, \\lambda = {LAMBDA}$)"
-        )
-        plt.xlabel("Time (seconds)")
-        plt.ylabel("KL divergence")
-        plt.xscale("log")
-        plt.yscale("log")
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(f"{ROOT}/rho_time_kl-div.png")
-        plt.clf()
+            plt.title(
+                f"Accuracy with increasing $\\rho$ against time "
+                f"($N = {N}, \\rho_s = {S}, \\lambda = {LAMBDA}$)"
+            )
+            plt.xlabel("Time (seconds)")
+            plt.ylabel(y_labels[y_names.index(metric)])
+            plt.xscale("log")
+            plt.yscale("log")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"{ROOT}/rho_time_{metric}.png")
+            plt.clf()
 
     ### changing s
 
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    kl_div, nonzeros, times = data
+    kl_div, op_norm, fro_norm, nonzeros, times = data
 
     RHO = 4
     ss = np.linspace(1, 8, 8)
 
     if GENERATE_S:
         x = get_points(N, D)
-        logdet_theta = cholesky.logdet(kernel(x)) if KL else 0  # type: ignore
+        theta: np.ndarray = kernel(x)  # type: ignore
+        logdet_theta = cholesky.logdet(theta) if KL else 0  # type: ignore
         for S in ss:
             for i, f in enumerate(funcs):
                 for d, result in enumerate(avg_results(lambda: test(f))):
@@ -303,7 +315,7 @@ if __name__ == "__main__":
         data = np.array(data)
     elif PLOT_S:
         data = load_data("s", y_names, names)
-        kl_div, nonzeros, times = data
+        kl_div, op_norm, fro_norm, nonzeros, times = data
 
     ## plot s to each y-axis parameter
 
@@ -318,7 +330,7 @@ if __name__ == "__main__":
                 plt.xlabel("$\\rho_s$")
                 plt.ylabel(y_label)
 
-                if y_name == "kl_div" or y_name == "time":
+                if y_name in metrics + ["time"]:
                     plt.yscale("log")
 
             plot(ss, y_data, names, colors, "s", y_name, plot_callback)
