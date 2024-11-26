@@ -1,0 +1,29 @@
+name: venv
+channels:
+  - https://software.repos.intel.com/python/conda/
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - cython
+  - pygments
+  - numpy
+  - scipy
+  - mkl-devel>=2021.4.0
+  - scikit-learn
+  - matplotlib
+  - libboost<=1.77
+  - py-boost
+  - tbb-devel>=2021.11.0
+  - libblas
+  - liblapack
+  - metis
+  - libzlib
+  - fftw
+  - hdf5=1.10
+  - gsl
+  - cgal-cpp
+  - pip
+  - pip:
+      - build
+      - setuptools>=61.0
