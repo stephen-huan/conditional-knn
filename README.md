@@ -20,10 +20,6 @@ conda activate ./venv
 pip install build setuptools
 ```
 
-There is also an Intel version replacing `environment.yml`
-and `linux-64-explicit-spec-list.txt` with
-`environment-intel.yml` and `linux-64-intel.txt`, respectively.
-
 See [managing environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 for more information.
 
