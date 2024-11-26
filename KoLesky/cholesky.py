@@ -69,6 +69,19 @@ def chol(theta: Matrix, sigma: float = 1e-6) -> Matrix:
         return np.linalg.cholesky(theta + sigma * np.identity(theta.shape[0]))
 
 
+def to_dense(L: Sparse, order: Ordering, overwrite: bool = False) -> Matrix:
+    """Return the dense covariance L approximates."""
+    n = L.shape[0]
+    theta = sparse.linalg.spsolve_triangular(  # pyright: ignore
+        L, np.identity(n), lower=True, overwrite_A=False, overwrite_b=True
+    )
+    theta = sparse.linalg.spsolve_triangular(  # pyright: ignore
+        L.T, theta, lower=False, overwrite_A=overwrite, overwrite_b=True
+    )
+    order = inv_order(order)
+    return theta[np.ix_(order, order)]
+
+
 ### sparse Cholesky methods
 
 
