@@ -12,20 +12,20 @@ or [mamba](https://mamba.readthedocs.io/en/latest/index.html):
 conda env create --prefix ./venv --file environment.yml
 ```
 
-or from a non-explicit spec file (platform may need to match):
-
-```shell
-conda create --prefix ./venv --file linux-64-spec-list.txt
-```
-
 or from an explicit spec file (platform must match):
 
 ```shell
 conda create --prefix ./venv --file linux-64-explicit-spec-list.txt
+conda activate ./venv
+pip install --requirement requirements.txt
 ```
 
-See
-[managing environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
+There is also an Intel version replacing `environment.yml`,
+`linux-64-explicit-spec-list.txt`, and `requirements.txt`
+with `environment-intel.yml`, `linux-64-intel.txt`, and
+`requirements-intel.txt`, respectively.
+
+See [managing environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 for more information.
 
 Activate `conda` environment:
@@ -117,10 +117,6 @@ an [Earthdata](https://urs.earthdata.nasa.gov/home) account must be created.
 First install [R](https://www.r-project.org/) and
 [NetCDF](https://www.unidata.ucar.edu/software/netcdf/)
 using your preferred package manger.
-
-```shell
-sudo pacman -S r netcdf
-```
 
 In order to install R packages locally, follow the instructions
 [here](https://statistics.berkeley.edu/computing/software/R-packages)
