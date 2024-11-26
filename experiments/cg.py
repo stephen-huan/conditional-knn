@@ -95,7 +95,10 @@ def setup() -> tuple[Points, Kernel, FMMKernel, Vector, Vector]:
     kernel = kernels.Matern(length_scale=1, nu=1 / 2)
     points = rng.random((N, D))
     fmm_kernel = from_sklearn(kernel)
-    fmm_kernel.init(L=1, tree_level=4, interpolation_order=5, eps=1e-6)
+    tree_level = 5 if N >= 1 << 20 else 4
+    fmm_kernel.init(
+        L=1, tree_level=tree_level, interpolation_order=5, eps=1e-6
+    )
 
     # multiply i.i.d. normal by covariance matrix to smoothen
     # this gives better results than generating the right hand side directly
