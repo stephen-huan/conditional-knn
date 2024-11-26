@@ -7,26 +7,35 @@ greedy conditional selection_](https://arxiv.org/abs/2307.11648).
 
 Install dependencies from `environment.yml` with [conda](https://conda.io/)
 or [mamba](https://mamba.readthedocs.io/en/latest/index.html):
+
 ```shell
 conda env create --prefix ./venv --file environment.yml
 ```
+
 or from a non-explicit spec file (platform may need to match):
+
 ```shell
 conda create --prefix ./venv --file linux-64-spec-list.txt
 ```
+
 or from an explicit spec file (platform must match):
+
 ```shell
 conda create --prefix ./venv --file linux-64-explicit-spec-list.txt
 ```
+
 See
 [managing environments](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html)
 for more information.
 
 Activate `conda` environment:
+
 ```shell
 conda activate ./venv
 ```
+
 Build [Cython](https://cython.org/) extensions:
+
 ```shell
 python setup.py build_ext --inplace
 ```
@@ -39,10 +48,13 @@ library to provide fast numerical routines.
 
 Make sure that `numpy` and `scipy` also use the
 MKL for BLAS and LAPACK by checking the output of
+
 ```shell
 python -c "import numpy; numpy.__config__.show()"
 ```
+
 which should show something like
+
 ```
 blas_mkl_info:
     libraries = ['mkl_rt', 'pthread']
@@ -57,7 +69,9 @@ lapack_mkl_info:
     include_dirs = ['.../venv/include']
 ...
 ```
+
 and similarly for
+
 ```shell
 python -c "import scipy; scipy.__config__.show()"
 ```
@@ -75,6 +89,7 @@ Repository](https://archive.ics.uci.edu/ml/datasets.php),
 and the book [_Gaussian Processes for Machine
 Learning_](https://gaussianprocess.org/gpml/data/). Download the datasets
 with the provided [fish](https://fishshell.com/) script:
+
 ```shell
 chmod +x get_datasets
 ./get_datasets
@@ -102,20 +117,23 @@ an [Earthdata](https://urs.earthdata.nasa.gov/home) account must be created.
 First install [R](https://www.r-project.org/) and
 [NetCDF](https://www.unidata.ucar.edu/software/netcdf/)
 using your preferred package manger.
+
 ```shell
 sudo pacman -S r netcdf
 ```
 
 In order to install R packages locally, follow the instructions
 [here](https://statistics.berkeley.edu/computing/software/R-packages)
-to create the default [`R_LIBS_USER`](
-https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/libPaths).
+to create the default [`R_LIBS_USER`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/libPaths).
+
 ```shell
 mkdir -p ~/R/x86_64-pc-linux-gnu-library/4.2/
 ```
+
 Be sure to replace `x86_64-pc-linux-gnu` and `4.2` with your
 specific platform and R version, respectively. Running the
 command `R --version` should show you something like the below.
+
 ```
 R version 4.2.3 (2023-03-15) -- "Shortstop Beagle"
 Copyright (C) 2023 The R Foundation for Statistical Computing
@@ -124,12 +142,14 @@ Platform: x86_64-pc-linux-gnu (64-bit)
 
 Next, start `R` and enter the following
 commands into the REPL to install the packages.
+
 ```R
 > install.packages("renv", repos = "https://cloud.r-project.org")
 > renv::restore()
 ```
 
 The data can now be compiled with
+
 ```shell
 R --file=compile_fluorescence_data.R
 ```
@@ -140,9 +160,9 @@ The `compile_fluorescence_data.R` script is due to
 ## Running
 
 Files can be run as modules:
+
 ```shell
 python -m experiments.cholesky
 python -m figures.factor
 python -m tests.cknn_tests
 ```
-
