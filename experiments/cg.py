@@ -44,7 +44,7 @@ P = 2         # tuning parameter, maximin ordering robustness
 
 KL = True     # compute true KL divergence (requires computing logdet)
 
-MAX_ITERS = 10**5
+MAX_ITERS = 10**2
 RTOL = 10**-12 # relative tolerance for conjugate gradient
 EPS = 1e-3     # precision on binary search
 
@@ -129,6 +129,8 @@ def solve(
         M=linearop,
         callback=callback,
     )
+    if len(iters[-1]) >= MAX_ITERS:
+        exit("Conjugate gradient hit maximum number of iterations.")
     return xp, iters[-1]
 
 
