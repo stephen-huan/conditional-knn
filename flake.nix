@@ -16,8 +16,7 @@
     eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        inherit (maipkgs.legacyPackages.${system}) python;
-        pythonPackages = pkgs.python311Packages;
+        inherit (maipkgs.legacyPackages.${system}) python python3Packages;
         python' = python.withPackages (ps: with ps; [
           cython
           pbbfmm3d
@@ -27,11 +26,11 @@
           setuptools
         ]);
         formatters = [
-          pythonPackages.black
-          pythonPackages.isort
+          python3Packages.black
+          python3Packages.isort
           pkgs.nixpkgs-fmt
         ];
-        linters = [ pkgs.pyright pythonPackages.ruff pkgs.statix ];
+        linters = [ pkgs.pyright python3Packages.ruff pkgs.statix ];
       in
       {
         formatter.${system} = pkgs.writeShellApplication {
