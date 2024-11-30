@@ -8,6 +8,7 @@ import sklearn.gaussian_process.kernels as kernels
 from KoLesky import cholesky
 from KoLesky import gp_regression as gp_regr
 from KoLesky import ordering
+from KoLesky.linalg import operator_norm
 from KoLesky.typehints import InvChol, Kernel, Matrix, Points
 
 from . import (
@@ -104,7 +105,7 @@ def test_chol(
     kl_div = cholesky.sparse_kl_div(L, logdet_theta)
     theta_approx = cholesky.to_dense(L, order, overwrite=True)
     diff = theta - theta_approx
-    op_norm = float(np.linalg.norm(diff, ord=2))
+    op_norm = float(operator_norm(rng, diff))
     fro_norm = float(np.linalg.norm(diff, ord="fro"))
     return kl_div, op_norm, fro_norm, nnz, time_chol
 
