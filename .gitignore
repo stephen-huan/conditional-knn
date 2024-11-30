@@ -20,3 +20,6 @@ datasets/
 *.mp4
 # pbbfmm3d
 output/
+# hlibpro
+include/
+lib/
