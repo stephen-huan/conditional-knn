@@ -7,12 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.sparse as sparse
 import sklearn.gaussian_process.kernels as kernels
-from pbbfmm3d import gram
-from pbbfmm3d.kernels import Kernel as FMMKernel
-from pbbfmm3d.kernels import from_sklearn
 from scipy.sparse.linalg import LinearOperator
 
-from KoLesky import cholesky
+from KoLesky import cholesky, hlibpro  # pyright: ignore
 from KoLesky.typehints import Kernel, Matrix, Points, Sparse, Vector
 
 from . import (
@@ -90,15 +87,10 @@ def cholesky_linearoperator(L: Sparse) -> LinearOperator:
 ### experiment
 
 
-def setup() -> tuple[Points, Kernel, FMMKernel, Vector, Vector]:
+def setup() -> tuple[Points, Kernel, Vector, Vector]:
     """Generate a matrix and a vector to solve."""
     kernel = kernels.Matern(length_scale=1, nu=1 / 2)
     points = rng.random((N, D))
-    fmm_kernel = from_sklearn(kernel)
-    tree_level = 5 if N >= 1 << 20 else 4
-    fmm_kernel.init(
-        L=1, tree_level=tree_level, interpolation_order=5, eps=1e-6
-    )
 
     # multiply i.i.d. normal by covariance matrix to smoothen
     # this gives better results than generating the right hand side directly
@@ -107,10 +99,11 @@ def setup() -> tuple[Points, Kernel, FMMKernel, Vector, Vector]:
         theta: Matrix = kernel(points)  # type: ignore
         y = theta @ x
     else:
-        matvec = gram(fmm_kernel, points)
+        matvec, done, _ = hlibpro.gram(kernel, points, eps=1e-3)
         y = matvec(x)
+        done()
 
-    return points, kernel, fmm_kernel, x, y
+    return points, kernel, x, y
 
 
 def solve(
@@ -142,7 +135,7 @@ def test_chol(
 ) -> tuple[float, float, int, int, float, float, float]:
     """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
-    points, kernel, fmm_kernel, x, y = setup()
+    points, kernel, x, y = setup()
 
     # compute preconditioner
     start = time.time()
@@ -152,8 +145,9 @@ def test_chol(
     linearop = cholesky_linearoperator(L)
     if N <= 1 << 14:
         theta = kernel(points[order])
+        done = lambda: 1
     else:
-        matvec = gram(fmm_kernel, points[order])
+        matvec, done, _ = hlibpro.gram(kernel, points[order], eps=1e-6)
         theta = LinearOperator((N, N), matvec=matvec, rmatvec=matvec)
 
     def cg_callback(xk: Vector) -> None:
@@ -164,6 +158,8 @@ def test_chol(
     start = time.time()
     xp, run = solve(theta, y[order], linearop, cg_callback)
     time_cg = time.time() - start
+
+    done()
 
     # kl_div = cholesky.sparse_kl_div(L, theta)
     kl_div = 1.0
@@ -465,3 +461,5 @@ if __name__ == "__main__":
                 ...
 
             plot(x_data, y_data, names, colors, "rho", y_name, plot_callback)
+
+    hlibpro.finish()
