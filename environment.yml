@@ -22,6 +22,8 @@ dependencies:
   - hdf5=1.10
   - gsl
   - cgal-cpp
+  - libcxx
+  - patchelf
   - pip
   - pip:
       - build
