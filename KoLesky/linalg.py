@@ -27,7 +27,7 @@ def __operator_norm(
 def operator_norm(
     rng: np.random.Generator,
     A: Matrix | LinearOperator,
-    eps: float = 1e-8,
+    eps: float = 1e-3,
     hermitian: bool = False,
 ) -> float:
     """Operator norm of A by power method."""
