@@ -41,7 +41,7 @@ P = 2         # tuning parameter, maximin ordering robustness
 
 KL = True     # compute true KL divergence (requires computing logdet)
 
-MAX_ITERS = 10**2
+MAX_ITERS = 10**5
 RTOL = 10**-12 # relative tolerance for conjugate gradient
 EPS = 1e-2     # precision on binary search
 
