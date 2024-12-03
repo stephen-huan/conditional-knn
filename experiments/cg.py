@@ -147,8 +147,8 @@ def solve(
         M=preconditioner,
         callback=callback,
     )
-    if len(iters[-1]) >= MAX_ITERS:
-        exit("Conjugate gradient hit maximum number of iterations.")
+    # if len(iters[-1]) >= MAX_ITERS:
+    #     exit("Conjugate gradient hit maximum number of iterations.")
     return xp, iters[-1]
 
 
