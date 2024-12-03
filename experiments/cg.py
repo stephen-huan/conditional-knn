@@ -429,9 +429,9 @@ if __name__ == "__main__":
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
     kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
 
-    N = 2**16
+    N = 2**17
     S = 2
-    rhos = np.arange(1, 9)
+    rhos = np.arange(1, 5)
 
     if GENERATE_RHO:
         for RHO in rhos:
