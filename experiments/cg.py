@@ -291,7 +291,7 @@ if __name__ == "__main__":
 
     RHO = 4
     S = 2
-    sizes = 2 ** np.arange(17)
+    sizes = 2 ** np.arange(18)
 
     if GENERATE_N:
         for N in sizes:
