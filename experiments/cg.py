@@ -10,6 +10,7 @@ import sklearn.gaussian_process.kernels as kernels
 from scipy.sparse.linalg import LinearOperator
 
 from KoLesky import cholesky, hlibpro  # pyright: ignore
+from KoLesky.linalg import operator_norm
 from KoLesky.typehints import Kernel, Matrix, Ordering, Points, Sparse, Vector
 
 from . import (
@@ -165,7 +166,7 @@ def solve(
 
 def test_chol(
     chol, *args
-) -> tuple[float, float, int, int, float, float, float]:
+) -> tuple[float, float, float, int, int, float, float, float]:
     """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
     points, kernel, (linop, done), x, y = setup()
@@ -187,6 +188,16 @@ def test_chol(
     xp, run = solve(theta, y[order], preconditioner, cg_callback)
     time_cg = time.time() - start
 
+    if COMPUTE_OPNORM:
+        diff = LinearOperator(
+            (N, N),
+            matvec=lambda x: x - theta(preconditioner(x)),
+            rmatvec=lambda x: x - preconditioner(theta(x)),
+        )
+        op_norm = operator_norm(rng, diff, eps=1e-6)
+    else:
+        op_norm = 0
+
     done()
 
     # kl_div = cholesky.sparse_kl_div(L, theta)
@@ -195,6 +206,7 @@ def test_chol(
 
     return (
         kl_div,
+        op_norm,
         residual,  # type: ignore
         len(run),
         L.nnz,
@@ -206,7 +218,7 @@ def test_chol(
 
 def test_hlib(
     rho: float | None = None, eps: float | None = None
-) -> tuple[float, float, int, int, float, float, float]:
+) -> tuple[float, float, float, int, int, float, float, float]:
     """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
     points, kernel, (linop, done), x, y = setup()
@@ -233,6 +245,16 @@ def test_hlib(
     xp, run = solve(theta, y, preconditioner, cg_callback)
     time_cg = time.time() - start
 
+    if COMPUTE_OPNORM:
+        diff = LinearOperator(
+            (N, N),
+            matvec=lambda x: x - theta(preconditioner(x)),
+            rmatvec=lambda x: x - preconditioner(theta(x)),
+        )
+        op_norm = operator_norm(rng, diff, eps=1e-6)
+    else:
+        op_norm = 0
+
     inv_done()
     done()
 
@@ -242,6 +264,7 @@ def test_hlib(
 
     return (
         kl_div,
+        op_norm,
         residual,  # type: ignore
         len(run),
         size / 3,
@@ -379,6 +402,7 @@ if __name__ == "__main__":
 
     y = [
         ("kl_div", "KL divergence"),
+        ("op_norm", "Operator norm"),
         ("res", "Residual ($\\ell_2$-norm)"),
         ("iter", "Iterations"),
         ("nnz", "Nonzeros"),
@@ -393,8 +417,9 @@ if __name__ == "__main__":
 
     ### changing n
 
+    COMPUTE_OPNORM = True
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
+    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
 
     RHO = 4
     S = 2
@@ -425,7 +450,9 @@ if __name__ == "__main__":
             np.savetxt(fname, table, delimiter=" ")
     elif PLOT_N:
         data = load_data("n", y_names, names)
-        kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
+        kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = (
+            data
+        )
 
         iter_data = [None for _ in range(len(names))]
         for i in range(len(names)):
@@ -496,8 +523,9 @@ if __name__ == "__main__":
         plt.clf()
 
     # number of nonzero entries per column to maintain constant iterations
+    COMPUTE_OPNORM = False
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
+    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
 
     old_max_iters = MAX_ITERS
     max_iters = 50
@@ -524,7 +552,7 @@ if __name__ == "__main__":
         save_data(data, sizes, "nnz", y_names, names)
     elif PLOT_NNZ:
         data = load_data("nnz", y_names, names)
-        kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
+    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
 
     if PLOT_NNZ:
         for y_value, name, color in zip(data[3], names, colors):
@@ -545,8 +573,9 @@ if __name__ == "__main__":
 
     ### changing rho
 
+    COMPUTE_OPNORM = True
     data = [[[] for _ in range(len(funcs))] for _ in range(len(y))]
-    kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
+    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
 
     N = 2**17
     S = 2
@@ -572,7 +601,7 @@ if __name__ == "__main__":
         save_data(data, rhos, "rho", y_names, names)
     elif PLOT_RHO:
         data = load_data("rho", y_names, names)
-        kl_div, res, num_iters, nnzs, times_chol, times_cg, times = data
+    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
 
     ## plot rho to each y-axis parameter
 
@@ -587,7 +616,10 @@ if __name__ == "__main__":
                 plt.xlabel("$\\rho$")
                 plt.ylabel(y_label)
 
-                if y_name in ["kl_div", "res", "iter"] or "time" in y_name:
+                if (
+                    y_name in ["kl_div", "op_norm", "res", "iter"]
+                    or "time" in y_name
+                ):
                     plt.yscale("log")
 
             x_data = rhos
