@@ -241,7 +241,11 @@ if __name__ == "__main__":
         logdet_theta = cholesky.logdet(theta) if KL else 0  # type: ignore
         for RHO in rhos:
             for i, f in enumerate(funcs):
-                for d, result in enumerate(avg_results(lambda: test(f))):
+                if "agg" in names[i] and RHO >= 6:
+                    results = np.zeros(5)
+                else:
+                    results = avg_results(lambda: test(f))
+                for d, result in enumerate(results):
                     data[d][i].append(result)
 
                     if d == len(y) - 1:
