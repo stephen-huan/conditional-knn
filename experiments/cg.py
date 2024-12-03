@@ -212,13 +212,7 @@ def test_hlib(
     points, kernel, (linop, done), x, y = setup()
 
     # compute preconditioner
-    eps = (
-        eps
-        if eps is not None
-        else {  # type: ignore
-            4.0: 1e-4,
-        }[rho]
-    )
+    eps = eps if eps is not None else 10.0 ** (-rho)  # type: ignore
     start = time.time()
     inv_matvec, inv_done, size = hlibpro.gram(
         kernel, points, inverse=True, eps=eps
