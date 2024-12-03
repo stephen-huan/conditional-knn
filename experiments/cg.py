@@ -203,22 +203,30 @@ def binary_search(method, max_iters: int, eps: float = EPS) -> tuple:
     # double rho until satisfiable
     RHO = 2
     rng_original = copy.deepcopy(rng)
-    while method()[2] > max_iters:
+    rng = copy.deepcopy(rng_original)
+    iters, nnz = method()[2:4]
+    while iters > max_iters:
         RHO *= 2
         rng = copy.deepcopy(rng_original)
+        iters, nnz = method()[2:4]
 
     # binary search on range
     left, right = 2, RHO
-    while abs(left - right) > eps:
+    rng = copy.deepcopy(rng_original)
+    left_nnz = method()[3]
+    right_nnz = nnz
+    while (
+        abs(left_nnz - right_nnz) > eps * right_nnz and abs(left - right) > eps
+    ):
         RHO = (left + right) / 2
         rng = copy.deepcopy(rng_original)
-        iters = method()[2]
+        iters, nnz = method()[2:4]
         # rho too small, increase
         if iters > max_iters:
-            left = RHO
+            left, left_nnz = RHO, nnz
         # rho too large, decrease
         else:
-            right = RHO
+            right, right_nnz = RHO, nnz
 
     # extract results of final rho
     RHO = right
