@@ -320,7 +320,8 @@ def gram(
 
     def matvec(y: np.ndarray) -> np.ndarray:
         """Matrix-vector product."""
-        z = np.copy(y)
+        z = np.copy(y).flatten()
+        assert z.size == x.shape[0], "wrong dimension"
         __matvec(data, z)
         return z
 
