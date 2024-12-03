@@ -14,6 +14,8 @@ from KoLesky.typehints import Kernel, Matrix, Ordering, Points, Sparse, Vector
 
 from . import (
     avg_results__,
+    darkorange,
+    darkrust,
     lightblue,
     load_data__,
     orange,
@@ -95,6 +97,15 @@ def permutation_linearoperator(
         return linop(x[order_inv])[order]
 
     return LinearOperator(linop.shape, matvec=matvec, rmatvec=matvec)
+
+
+def hlib_size(
+    kernel: Kernel, points: Points, eps: float, inverse: bool = True
+) -> int:
+    """Return the size corresponding to the provided accuracy."""
+    _, done, size = hlibpro.gram(kernel, points, inverse=inverse, eps=eps)
+    done()
+    return size
 
 
 ### experiment
@@ -193,6 +204,59 @@ def test_chol(
     )
 
 
+def test_hlib(
+    rho: float | None = None, eps: float | None = None
+) -> tuple[float, float, int, int, float, float, float]:
+    """Runs a cg test with the Cholesky factorization method."""
+    # generate matrix and right hand side
+    points, kernel, (linop, done), x, y = setup()
+
+    # compute preconditioner
+    eps = (
+        eps
+        if eps is not None
+        else {  # type: ignore
+            4.0: 1e-4,
+        }[rho]
+    )
+    start = time.time()
+    inv_matvec, inv_done, size = hlibpro.gram(
+        kernel, points, inverse=True, eps=eps
+    )
+    time_chol = time.time() - start
+
+    preconditioner = LinearOperator(
+        (N, N), matvec=inv_matvec, rmatvec=inv_matvec
+    )
+    theta = linop
+
+    def cg_callback(xk: Vector) -> None:
+        """Callback called by conjugate gradient after each iteration."""
+        iters[-1].append(np.linalg.norm(x - xk))
+
+    # solve system with conjugate gradient
+    start = time.time()
+    xp, run = solve(theta, y, preconditioner, cg_callback)
+    time_cg = time.time() - start
+
+    inv_done()
+    done()
+
+    # kl_div = cholesky.sparse_kl_div(L, theta)
+    kl_div = 1.0
+    residual = np.linalg.norm(x - xp)
+
+    return (
+        kl_div,
+        residual,  # type: ignore
+        len(run),
+        size / 3,
+        time_chol,
+        time_cg,
+        time_chol + time_cg,
+    )
+
+
 def binary_search(method, max_iters: int, eps: float = EPS) -> tuple:
     """Find rho such that conjugate gradient converges in < max_iters."""
     global MAX_ITERS, RHO, rng
@@ -234,6 +298,54 @@ def binary_search(method, max_iters: int, eps: float = EPS) -> tuple:
     return method()
 
 
+def binary_search_hlib(max_iters: int, tol: float = EPS) -> tuple:
+    """Find rho such that conjugate gradient converges in < max_iters."""
+    global MAX_ITERS, rng
+
+    # cut off conjugate gradient if not converged
+    MAX_ITERS = max_iters + 1
+
+    # binary search from both sides of stable eps
+    eps = 1e-3
+    # double eps until satisfiable
+    rng_original = copy.deepcopy(rng)
+    rng = copy.deepcopy(rng_original)
+    starting_iters, starting_size = test_hlib(eps=eps)[2:4]
+    iters, right_size = starting_iters, starting_size
+    right_eps = eps
+    # upper bound of 1 is arbitrary
+    while iters < max_iters and right_eps <= 1:
+        right_eps *= 2
+        rng = copy.deepcopy(rng_original)
+        iters, right_size = test_hlib(eps=right_eps)[2:4]
+    # halve eps until satisfiable
+    iters, left_size = starting_iters, starting_size
+    left_eps = eps
+    while iters >= max_iters:
+        left_eps /= 2
+        rng = copy.deepcopy(rng_original)
+        iters, left_size = test_hlib(eps=left_eps)[2:4]
+    # binary search on range
+    left, right = left_eps, right_eps
+    while (
+        abs(left_size - right_size) > tol * left_size
+        and abs(left_size - right_size) > tol * right_size
+        # and abs(left - right) > tol
+    ):
+        eps = (left + right) / 2
+        rng = copy.deepcopy(rng_original)
+        iters, size = test_hlib(eps=eps)[2:4]
+        if iters < max_iters:
+            left, left_size = eps, size
+        else:
+            right, right_size = eps, size
+
+    # extract results of final acc
+    eps = left
+    rng = copy.deepcopy(rng_original)
+    return test_hlib(eps=eps)
+
+
 if __name__ == "__main__":
     methods = [
         ("KL", lightblue, lambda: test_chol(cholesky.cholesky_kl, RHO)),
@@ -267,6 +379,7 @@ if __name__ == "__main__":
         #     darkrust,
         #     lambda: test_chol(cholesky.cholesky_global, S, RHO, LAMBDA),
         # ),
+        ("hlib", darkrust, lambda: test_hlib(RHO)),
     ]
     names, colors, funcs = zip(*methods)
 
@@ -400,7 +513,11 @@ if __name__ == "__main__":
             for i, f in enumerate(funcs):
                 # reset random seed so all methods get the same seed
                 rng = np.random.default_rng(1)
-                g = lambda: binary_search(f, max_iters)
+                g = (
+                    (lambda: binary_search(f, max_iters))
+                    if names[i] != "hlib"
+                    else (lambda: binary_search_hlib(max_iters))
+                )
                 for d, result in enumerate(avg_results(g)):
                     data[d][i].append(result)
 
