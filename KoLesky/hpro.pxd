@@ -92,11 +92,22 @@ cdef extern from "hpro-c.h":
         const int sym,
         int *info
     )
+    hpro_d_matrix_s *hpro_d_matrix_copy(const hpro_d_matrix_s *A, int *info)
     size_t hpro_d_matrix_bytesize(const hpro_d_matrix_s *A, int *info)
     void hpro_d_matrix_free(hpro_d_matrix_s *A, int *info)
     hpro_d_linearoperator_s *hpro_d_matrix_ll_inv(
         hpro_d_matrix_s *A,
         const hpro_acc_t acc,
+        int *info
+    )
+    hpro_d_linearoperator_s *hpro_d_matrix_ldl_inv(
+        hpro_d_matrix_s *A,
+        const hpro_acc_t acc,
+        int *info
+    )
+    void hpro_d_matrix_add_identity(
+        hpro_d_matrix_s *A,
+        const double lambda_,
         int *info
     )
 

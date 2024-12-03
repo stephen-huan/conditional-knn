@@ -35,8 +35,10 @@ from .hpro cimport (
     hpro_d_linearoperator_free,
     hpro_d_linearoperator_range_vector,
     hpro_d_linearoperator_s,
+    hpro_d_matrix_add_identity,
     hpro_d_matrix_build_coeff,
     hpro_d_matrix_bytesize,
+    hpro_d_matrix_copy,
     hpro_d_matrix_free,
     hpro_d_matrix_ll_inv,
     hpro_d_matrix_s,
@@ -98,7 +100,7 @@ cdef double **to_coord(double[:, ::1] points):
 
 
 cdef void free_coord(hpro_coord_s *coord, double **x):
-    """Free memory associated to the coordintes."""
+    """Free memory associated to the coordinates."""
     cdef:
         int info
         size_t n, i
@@ -110,6 +112,38 @@ cdef void free_coord(hpro_coord_s *coord, double **x):
     for i in range(n):
         PyMem_Free(x[i])
     PyMem_Free(x)
+
+
+cdef hpro_d_linearoperator_s *safe_ll_inv(
+    hpro_d_matrix_s *A, const hpro_acc_t acc, int verbose
+):
+    """Inverse Cholesky factorization with restarting."""
+    cdef:
+        int info
+        double eps
+        hpro_d_matrix_s *B
+        hpro_d_linearoperator_s *linop
+
+    # eps = sqrt(1e-15)
+    eps = 1e-1
+    B = hpro_d_matrix_copy(A, &info)
+    linop = hpro_d_matrix_ll_inv(B, acc, &info)
+    while info != HPRO_NO_ERROR and eps < 1e5:
+        if verbose:
+            printf("Restarting with eps = %e\n", eps)
+            # hpro_error_desc(buf, 1024)
+            # printf("\n%s\n\n", buf)
+        hpro_d_matrix_free(B, &info)
+        check_info(info)
+        B = hpro_d_matrix_copy(A, &info)
+        check_info(info)
+        hpro_d_matrix_add_identity(B, eps, &info)
+        check_info(info)
+        linop = hpro_d_matrix_ll_inv(B, acc, &info)
+        # eps *= 10
+        eps *= 1e2
+    check_info(info)
+    return linop
 
 
 cdef double matern(
@@ -214,7 +248,7 @@ cdef Data *__init_matvec(
     free_coord(coord, x)
 
     if inverse:
-        data.linop = hpro_d_matrix_ll_inv(data.A, acc, &info)
+        data.linop = safe_ll_inv(data.A, acc, 1)
         check_info(info)
     else:
         data.linop = <hpro_d_linearoperator_s *> data.A
