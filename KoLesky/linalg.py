@@ -11,28 +11,40 @@ def frobenius_norm(A: Matrix) -> float:
 
 
 def __operator_norm(
-    rng: np.random.Generator, A: Matrix | LinearOperator, eps: float = 1e-8
+    rng: np.random.Generator,
+    A: Matrix | LinearOperator,
+    eps: float = 1e-3,
+    maxiters: int = 100,
 ) -> float:
     """Operator norm of A by power method."""
     n = A.shape[0]
     x = rng.standard_normal((n,))
     x /= norm(x)
     y: np.ndarray = A @ x  # type: ignore
-    while norm(y - np.inner(y, x) * x) > eps:
+    prev = np.inf
+    eig = np.inner(y, x)
+    i = 0
+    while (
+        norm(y - eig * x) > eps and np.abs(prev - eig) > eps and i < maxiters
+    ):
+        prev = eig
         x = y / norm(y)
         y: np.ndarray = A @ x  # type: ignore
-    return np.abs(np.inner(y, x))
+        eig = np.inner(y, x)
+        i += 1
+    return np.abs(eig)
 
 
 def operator_norm(
     rng: np.random.Generator,
     A: Matrix | LinearOperator,
     eps: float = 1e-3,
+    maxiters: int = 100,
     hermitian: bool = False,
 ) -> float:
     """Operator norm of A by power method."""
     if hermitian:
-        return __operator_norm(rng, A, eps)
+        return __operator_norm(rng, A, eps=eps, maxiters=maxiters)
     else:
         n, m = A.shape
         B = (
@@ -40,4 +52,4 @@ def operator_norm(
             if n < m
             else LinearOperator((m, m), matvec=lambda x: A.T @ (A @ x))
         )
-        return np.sqrt(__operator_norm(rng, B, eps))
+        return np.sqrt(__operator_norm(rng, B, eps=eps, maxiters=maxiters))
