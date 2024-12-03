@@ -10,7 +10,7 @@ import sklearn.gaussian_process.kernels as kernels
 from scipy.sparse.linalg import LinearOperator
 
 from KoLesky import cholesky, hlibpro  # pyright: ignore
-from KoLesky.typehints import Kernel, Matrix, Points, Sparse, Vector
+from KoLesky.typehints import Kernel, Matrix, Ordering, Points, Sparse, Vector
 
 from . import (
     avg_results__,
@@ -84,10 +84,29 @@ def cholesky_linearoperator(L: Sparse) -> LinearOperator:
     return LinearOperator(L.shape, matvec=matvec, rmatvec=matvec)
 
 
+def permutation_linearoperator(
+    linop: LinearOperator, order: Ordering
+) -> LinearOperator:
+    """Return a LinearOperator with re-ordering."""
+    order_inv = cholesky.inv_order(order)
+
+    def matvec(x: Vector) -> Vector:
+        """Apply an ordering to x."""
+        return linop(x[order_inv])[order]
+
+    return LinearOperator(linop.shape, matvec=matvec, rmatvec=matvec)
+
+
 ### experiment
 
 
-def setup() -> tuple[Points, Kernel, Vector, Vector]:
+def setup() -> tuple[
+    Points,
+    Kernel,
+    tuple[LinearOperator, Callable[[], None]],
+    Vector,
+    Vector,
+]:
     """Generate a matrix and a vector to solve."""
     kernel = kernels.Matern(length_scale=1, nu=1 / 2)
     points = rng.random((N, D))
@@ -97,13 +116,16 @@ def setup() -> tuple[Points, Kernel, Vector, Vector]:
     x = rng.standard_normal(N)
     if N <= 1 << 14:
         theta: Matrix = kernel(points)  # type: ignore
-        y = theta @ x
+        linop = LinearOperator(
+            (N, N), matvec=lambda x: theta @ x, rmatvec=lambda x: theta @ x
+        )
+        done = lambda: None
     else:
-        matvec, done, _ = hlibpro.gram(kernel, points, eps=1e-3)
-        y = matvec(x)
-        done()
+        matvec, done, _ = hlibpro.gram(kernel, points, eps=1e-6)
+        linop = LinearOperator((N, N), matvec=matvec, rmatvec=matvec)
+    y: np.ndarray = linop(x)  # type: ignore
 
-    return points, kernel, x, y
+    return points, kernel, (linop, done), x, y
 
 
 def solve(
@@ -135,7 +157,7 @@ def test_chol(
 ) -> tuple[float, float, int, int, float, float, float]:
     """Runs a cg test with the Cholesky factorization method."""
     # generate matrix and right hand side
-    points, kernel, x, y = setup()
+    points, kernel, (linop, done), x, y = setup()
 
     # compute preconditioner
     start = time.time()
@@ -143,12 +165,7 @@ def test_chol(
     time_chol = time.time() - start
 
     linearop = cholesky_linearoperator(L)
-    if N <= 1 << 14:
-        theta = kernel(points[order])
-        done = lambda: 1
-    else:
-        matvec, done, _ = hlibpro.gram(kernel, points[order], eps=1e-6)
-        theta = LinearOperator((N, N), matvec=matvec, rmatvec=matvec)
+    theta = permutation_linearoperator(linop, order)
 
     def cg_callback(xk: Vector) -> None:
         """Callback called by conjugate gradient after each iteration."""
