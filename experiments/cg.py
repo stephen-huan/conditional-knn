@@ -131,10 +131,10 @@ def setup() -> tuple[
 def solve(
     theta: Matrix | LinearOperator,
     y: Vector,
-    linearop: LinearOperator,
+    preconditioner: LinearOperator,
     callback: Callable[[Vector], None],
 ) -> tuple[Vector, Vector]:
-    """Solve theta x = y by conjugate gradient with preconditioner."""
+    """Solve theta x = y by conjugate gradient with preconditioning."""
     iters.append([])
     x0 = np.zeros(N)
     xp, _ = sparse.linalg.cg(  # type: ignore
@@ -144,7 +144,7 @@ def solve(
         atol=0,
         maxiter=MAX_ITERS,
         x0=x0,
-        M=linearop,
+        M=preconditioner,
         callback=callback,
     )
     if len(iters[-1]) >= MAX_ITERS:
@@ -164,7 +164,7 @@ def test_chol(
     L, order = chol(points, kernel, *args, p=P)
     time_chol = time.time() - start
 
-    linearop = cholesky_linearoperator(L)
+    preconditioner = cholesky_linearoperator(L)
     theta = permutation_linearoperator(linop, order)
 
     def cg_callback(xk: Vector) -> None:
@@ -173,7 +173,7 @@ def test_chol(
 
     # solve system with conjugate gradient
     start = time.time()
-    xp, run = solve(theta, y[order], linearop, cg_callback)
+    xp, run = solve(theta, y[order], preconditioner, cg_callback)
     time_cg = time.time() - start
 
     done()
