@@ -285,23 +285,23 @@ def binary_search(method, max_iters: int, eps: float = EPS) -> tuple:
     RHO = 2
     rng_original = copy.deepcopy(rng)
     rng = copy.deepcopy(rng_original)
-    iters, nnz = method()[2:4]
+    iters, nnz = method()[3:5]
     while iters > max_iters:
         RHO *= 2
         rng = copy.deepcopy(rng_original)
-        iters, nnz = method()[2:4]
+        iters, nnz = method()[3:5]
 
     # binary search on range
     left, right = 2, RHO
     rng = copy.deepcopy(rng_original)
-    left_nnz = method()[3]
+    left_nnz = method()[4]
     right_nnz = nnz
     while (
         abs(left_nnz - right_nnz) > eps * right_nnz and abs(left - right) > eps
     ):
         RHO = (left + right) / 2
         rng = copy.deepcopy(rng_original)
-        iters, nnz = method()[2:4]
+        iters, nnz = method()[3:5]
         # rho too small, increase
         if iters > max_iters:
             left, left_nnz = RHO, nnz
@@ -327,21 +327,21 @@ def binary_search_hlib(max_iters: int, tol: float = EPS) -> tuple:
     # double eps until satisfiable
     rng_original = copy.deepcopy(rng)
     rng = copy.deepcopy(rng_original)
-    starting_iters, starting_size = test_hlib(eps=eps)[2:4]
+    starting_iters, starting_size = test_hlib(eps=eps)[3:5]
     iters, right_size = starting_iters, starting_size
     right_eps = eps
     # upper bound of 1 is arbitrary
     while iters < max_iters and right_eps <= 1:
         right_eps *= 2
         rng = copy.deepcopy(rng_original)
-        iters, right_size = test_hlib(eps=right_eps)[2:4]
+        iters, right_size = test_hlib(eps=right_eps)[3:5]
     # halve eps until satisfiable
     iters, left_size = starting_iters, starting_size
     left_eps = eps
     while iters >= max_iters:
         left_eps /= 2
         rng = copy.deepcopy(rng_original)
-        iters, left_size = test_hlib(eps=left_eps)[2:4]
+        iters, left_size = test_hlib(eps=left_eps)[3:5]
     # binary search on range
     left, right = left_eps, right_eps
     while (
@@ -351,7 +351,7 @@ def binary_search_hlib(max_iters: int, tol: float = EPS) -> tuple:
     ):
         eps = (left + right) / 2
         rng = copy.deepcopy(rng_original)
-        iters, size = test_hlib(eps=eps)[2:4]
+        iters, size = test_hlib(eps=eps)[3:5]
         if iters < max_iters:
             left, left_size = eps, size
         else:
@@ -555,7 +555,7 @@ if __name__ == "__main__":
     kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
 
     if PLOT_NNZ:
-        for y_value, name, color in zip(data[3], names, colors):
+        for y_value, name, color in zip(data[4], names, colors):
             plt.plot(sizes, y_value / sizes, label=name, color=color)
 
         plt.title(
