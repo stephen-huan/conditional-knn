@@ -13,7 +13,7 @@ def frobenius_norm(A: Matrix) -> float:
 def __operator_norm(
     rng: np.random.Generator,
     A: Matrix | LinearOperator,
-    eps: float = 1e-3,
+    rtol: float = 1e-8,
     maxiters: int = 100,
 ) -> float:
     """Operator norm of A by power method."""
@@ -25,7 +25,9 @@ def __operator_norm(
     eig = np.inner(y, x)
     i = 0
     while (
-        norm(y - eig * x) > eps and np.abs(prev - eig) > eps and i < maxiters
+        norm(y) > 0
+        and np.abs(prev - eig) >= rtol * np.abs(eig)
+        and i < maxiters
     ):
         prev = eig
         x = y / norm(y)
@@ -38,13 +40,13 @@ def __operator_norm(
 def operator_norm(
     rng: np.random.Generator,
     A: Matrix | LinearOperator,
-    eps: float = 1e-3,
+    rtol: float = 1e-8,
     maxiters: int = 100,
     hermitian: bool = False,
 ) -> float:
     """Operator norm of A by power method."""
     if hermitian:
-        return __operator_norm(rng, A, eps=eps, maxiters=maxiters)
+        return __operator_norm(rng, A, rtol=rtol, maxiters=maxiters)
     else:
         n, m = A.shape
         B = (
@@ -52,4 +54,4 @@ def operator_norm(
             if n < m
             else LinearOperator((m, m), matvec=lambda x: A.T @ (A @ x))
         )
-        return np.sqrt(__operator_norm(rng, B, eps=eps, maxiters=maxiters))
+        return np.sqrt(__operator_norm(rng, B, rtol=rtol, maxiters=maxiters))
