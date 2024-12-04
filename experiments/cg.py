@@ -485,7 +485,7 @@ if __name__ == "__main__":
 
     # number of nonzero entries per column
     if PLOT_N:
-        for y_value, name, color in zip(data[3], names, colors):
+        for y_value, name, color in zip(data[4], names, colors):
             plt.plot(sizes, y_value / sizes, label=name, color=color)
 
         plt.title(
