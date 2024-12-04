@@ -194,7 +194,7 @@ def test_chol(
             matvec=lambda x: x - theta(preconditioner(x)),
             rmatvec=lambda x: x - preconditioner(theta(x)),
         )
-        op_norm = operator_norm(rng, diff, eps=1e-6)
+        op_norm = operator_norm(rng, diff, rtol=1e-2)
     else:
         op_norm = 0
 
@@ -251,7 +251,7 @@ def test_hlib(
             matvec=lambda x: x - theta(preconditioner(x)),
             rmatvec=lambda x: x - preconditioner(theta(x)),
         )
-        op_norm = operator_norm(rng, diff, eps=1e-6)
+        op_norm = operator_norm(rng, diff, rtol=1e-2)
     else:
         op_norm = 0
 
