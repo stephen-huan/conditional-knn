@@ -552,7 +552,9 @@ if __name__ == "__main__":
         save_data(data, sizes, "nnz", y_names, names)
     elif PLOT_NNZ:
         data = load_data("nnz", y_names, names)
-    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
+        kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = (
+            data
+        )
 
     if PLOT_NNZ:
         for y_value, name, color in zip(data[4], names, colors):
@@ -601,7 +603,9 @@ if __name__ == "__main__":
         save_data(data, rhos, "rho", y_names, names)
     elif PLOT_RHO:
         data = load_data("rho", y_names, names)
-    kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = data
+        kl_div, op_norm, res, num_iters, nnzs, times_chol, times_cg, times = (
+            data
+        )
 
     ## plot rho to each y-axis parameter
 
