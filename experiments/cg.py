@@ -224,7 +224,7 @@ def test_hlib(
     points, kernel, (linop, done), x, y = setup()
 
     # compute preconditioner
-    eps = eps if eps is not None else 10.0 ** (-(rho + 1))  # type: ignore
+    eps = eps if eps is not None else 10.0 ** (-(rho + 1.5))  # type: ignore
     start = time.time()
     inv_matvec, inv_done, size = hlibpro.gram(
         kernel, points, inverse=True, eps=eps
@@ -322,7 +322,7 @@ def binary_search_hlib(max_iters: int, tol: float = EPS) -> tuple:
     MAX_ITERS = max_iters + 1
 
     # binary search from both sides of stable eps
-    eps = 1e-3
+    eps = 3e-6
     # double eps until satisfiable
     rng_original = copy.deepcopy(rng)
     rng = copy.deepcopy(rng_original)
