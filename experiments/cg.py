@@ -267,7 +267,7 @@ def test_hlib(
         op_norm,
         residual,  # type: ignore
         len(run),
-        size / 3,
+        size / 24,
         time_chol,
         time_cg,
         time_chol + time_cg,
