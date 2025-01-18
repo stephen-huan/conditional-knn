@@ -71,10 +71,7 @@
             pkgs.metis
             pkgs.zlib
             pkgs.fftw
-            (pkgs.hdf5_1_10.overrideAttrs (previousAttrs: {
-              configureFlags = previousAttrs.configureFlags or [ ]
-                ++ [ "--enable-cxx" ];
-            }))
+            pkgs.hdf5_1_10
             pkgs.gsl
             pkgs.cgal
           ]
