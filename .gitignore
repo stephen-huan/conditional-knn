@@ -1,5 +1,6 @@
-.direnv/
 result
+.direnv/
+.envrc
 __pycache__/
 # conda virtual environment
 venv/
