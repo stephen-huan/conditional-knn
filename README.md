@@ -9,14 +9,14 @@ Install dependencies from `environment.yml` with [conda](https://conda.io/)
 or [mamba](https://mamba.readthedocs.io/en/latest/index.html):
 
 ```shell
-conda env create --prefix ./venv --file environment.yml
+conda env create --prefix ./.venv --file environment.yml
 ```
 
 or from an explicit spec file (platform must match):
 
 ```shell
-conda create --prefix ./venv --file linux-64-explicit-spec-list.txt
-conda activate ./venv
+conda create --prefix ./.venv --file linux-64-explicit-spec-list.txt
+conda activate ./.venv
 pip install build setuptools
 ```
 
@@ -26,7 +26,7 @@ for more information.
 Activate `conda` environment:
 
 ```shell
-conda activate ./venv
+conda activate ./.venv
 ```
 
 Build [Cython](https://cython.org/) extensions:
@@ -53,15 +53,15 @@ which should show something like
 ```
 blas_mkl_info:
     libraries = ['mkl_rt', 'pthread']
-    library_dirs = ['.../venv/lib']
+    library_dirs = ['.../.venv/lib']
     define_macros = [('SCIPY_MKL_H', None), ('HAVE_CBLAS', None)]
-    include_dirs = ['.../venv/include']
+    include_dirs = ['.../.venv/include']
 ...
 lapack_mkl_info:
     libraries = ['mkl_rt', 'pthread']
-    library_dirs = ['.../venv/lib']
+    library_dirs = ['.../.venv/lib']
     define_macros = [('SCIPY_MKL_H', None), ('HAVE_CBLAS', None)]
-    include_dirs = ['.../venv/include']
+    include_dirs = ['.../.venv/include']
 ...
 ```
 
