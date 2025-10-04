@@ -157,3 +157,20 @@ python -m experiments.cholesky
 python -m figures.factor
 python -m tests.cknn_tests
 ```
+
+## Citation
+
+```bibtex
+@article{huan2025sparse,
+  title = {Sparse {{Inverse Cholesky Factorization}} of {{Dense Kernel Matrices}} by {{Greedy Conditional Selection}}},
+  author = {Huan, Stephen and Guinness, Joseph and Katzfuss, Matthias and Owhadi, Houman and Sch{\"a}ofer, Florian},
+  year = {2025},
+  month = sep,
+  journal = {SIAM/ASA Journal on Uncertainty Quantification},
+  volume = {13},
+  number = {3},
+  pages = {1649--1679},
+  publisher = {{Society for Industrial and Applied Mathematics}},
+  doi = {10.1137/23M1606253}
+}
+```
