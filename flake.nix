@@ -19,9 +19,11 @@
         inherit (maipkgs.legacyPackages.${system}) python python3Packages;
         python' = python.withPackages (ps: with ps; [
           cython
+          numpy
           pbbfmm3d
           pygments
           scikit-learn
+          scipy
           seaborn
           setuptools
         ]);
