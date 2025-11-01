@@ -29,7 +29,6 @@ cdef void __chol_update(
 ):
     """Updates the ith column of the Cholesky factor with column k."""
     cdef:
-        char *trans
         int M, N, lda, incx, incy, j
         double alpha, beta
         double *A
@@ -39,7 +38,6 @@ cdef void __chol_update(
     # update Cholesky factors
 
     # factors[:, i] -= factors[:, :i]@factors[k, :i]
-    trans = 'n'
     M = n
     N = i
     alpha = -1
@@ -50,7 +48,7 @@ cdef void __chol_update(
     beta = 1
     y = &factors[0, i]
     incy = 1
-    blas.dgemv(trans, &M, &N, &alpha, A, &lda, x, &incx, &beta, y, &incy)
+    blas.dgemv('n', &M, &N, &alpha, A, &lda, x, &incx, &beta, y, &incy)
     # factors[:, i] /= np.sqrt(factors[k, i])
     alpha = 1/sqrt(factors[k, i])
     blas.dscal(&M, &alpha, y, &incy)
