@@ -236,6 +236,7 @@ cdef Data *__init_matvec(
     adm = hpro_admcond_geom(HPRO_ADM_STD_MIN, 2.0, &info)
     check_info(info)
     bct = hpro_bct_build(data.ct, data.ct, adm, &info)
+    check_info(info)
 
     acc = hpro_acc_fixed_eps(eps);
     kernel = <Kernel *> PyMem_Malloc(sizeof(Kernel))
