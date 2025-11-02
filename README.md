@@ -1,7 +1,8 @@
 # conditional-knn
 
-Source code for the paper [_Sparse Cholesky factorization by
-greedy conditional selection_](https://arxiv.org/abs/2307.11648).
+Source code for the paper [_Sparse inverse Cholesky
+factorization of dense kernel matrices by greedy
+conditional selection_](https://arxiv.org/abs/2307.11648).
 
 ## Installing
 
