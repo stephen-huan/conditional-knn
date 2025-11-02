@@ -40,7 +40,7 @@ cdef extern from "hpro-c.h":
     void hpro_init(int *info)
     void hpro_done(int *info)
     int hpro_is_init()
-    void hpro_error_desc(char *desc, const size_t size)
+    void hpro_error_desc(char *desc, const size_t size) nogil
 
     hpro_coord_s *hpro_coord_import(
         const size_t n,
@@ -50,12 +50,12 @@ cdef extern from "hpro-c.h":
         int *info
     )
     size_t hpro_coord_ncoord(const hpro_coord_s *coord, int *info)
-    unsigned int hpro_coord_dim(const hpro_coord_s *coord, int *info)
+    unsigned int hpro_coord_dim(const hpro_coord_s *coord, int *info) nogil
     double *hpro_coord_get(
         const hpro_coord_s *coord,
         const size_t i,
         int *info
-    )
+    ) nogil
     void hpro_coord_free(hpro_coord_s *coord, int *info)
 
     hpro_clustertree_s *hpro_clt_build_bsp(

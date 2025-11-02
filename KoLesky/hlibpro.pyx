@@ -83,6 +83,13 @@ cdef void check_info(int info):
         exit(1)
 
 
+cdef void check_info_noexcept(int info) noexcept nogil:
+    """Check the status code for errors."""
+    if info != HPRO_NO_ERROR:
+        hpro_error_desc(buf, 1024)
+        printf("\n%s\n\n", buf)
+
+
 cdef double **to_coord(double[:, ::1] points):
     """Convert an array of points to coordinates."""
     cdef:
@@ -148,7 +155,7 @@ cdef hpro_d_linearoperator_s *safe_ll_inv(
 
 cdef double matern(
     size_t d, double *x, double *y, double nu, double length_scale
-) noexcept:
+) nogil:
     """Matern covariance between points x and y."""
     cdef:
         size_t i
@@ -178,7 +185,7 @@ cdef void kernel_function(
     const int *colidx,
     double *matrix,
     void *arg,
-) noexcept:
+) noexcept nogil:
     """Kernel function callback."""
     cdef:
         int info
@@ -189,13 +196,13 @@ cdef void kernel_function(
 
     kernel = <Kernel *> arg
     d = hpro_coord_dim(kernel.coord, &info)
-    check_info(info)
+    check_info_noexcept(info)
     for j in range(m):
         y = hpro_coord_get(kernel.coord, colidx[j], &info)
-        check_info(info)
+        check_info_noexcept(info)
         for i in range(n):
             x = hpro_coord_get(kernel.coord, rowidx[i], &info)
-            check_info(info)
+            check_info_noexcept(info)
             matrix[j * n + i] = matern(d, x, y, kernel.nu, kernel.length_scale)
 
 
